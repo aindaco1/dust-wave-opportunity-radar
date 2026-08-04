@@ -80,4 +80,4 @@ Before enabling, confirm the existing property names used by the adapter: `Name`
 
 ## 6. GitHub deployment credentials
 
-The manual deployment workflow expects repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Create a scoped token with Workers Scripts, Workflows, D1, R2, Workers AI, Email Routing, and Email Sending permissions. Keep production deployment manual until both source integrations have completed a test batch.
+The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a scoped token with Workers Scripts, Workflows, D1, R2, Workers AI, Email Routing, and Email Sending permissions. Keep production deployment manual until both source integrations have completed a test batch.
