@@ -23,7 +23,7 @@ jobs:
           repository: Sealjay/mcp-hey
           ref: 3742078955a65bf9dafa8c56b436a799ba8ece1b
           path: mcp-hey
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
