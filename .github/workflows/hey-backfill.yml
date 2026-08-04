@@ -1,0 +1,47 @@
+name: HEY seven-day backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Number of days to import
+        type: number
+        required: true
+        default: 7
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: Sealjay/mcp-hey
+          ref: 3742078955a65bf9dafa8c56b436a799ba8ece1b
+          path: mcp-hey
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.6
+      - run: npm ci
+      - run: bun install --frozen-lockfile
+        working-directory: mcp-hey
+      - name: Install HEY session
+        shell: bash
+        env:
+          HEY_COOKIES_JSON: ${{ secrets.HEY_COOKIES_JSON }}
+        run: node -e 'const fs=require("fs"); fs.mkdirSync("mcp-hey/data",{recursive:true}); fs.writeFileSync("mcp-hey/data/hey-cookies.json",process.env.HEY_COOKIES_JSON,{mode:0o600})'
+      - name: Import HEY messages
+        run: npm run backfill:hey
+        env:
+          HEY_MCP_ROOT: ${{ github.workspace }}/mcp-hey
+          WORKER_URL: ${{ vars.WORKER_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          BACKFILL_DAYS: ${{ inputs.days }}

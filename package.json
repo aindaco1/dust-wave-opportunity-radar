@@ -1,0 +1,39 @@
+{
+  "name": "dustwave-opportunity-radar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare-based HEY and Zoho opportunity ingestion for Dustwave.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "check": "npm run typecheck && npm test && npm run deploy:dry",
+    "backfill:hey": "node scripts/hey-backfill.mjs",
+    "cf-typegen": "wrangler types --env-file .env.example",
+    "deploy": "wrangler deploy",
+    "deploy:dry": "wrangler deploy --dry-run",
+    "dev": "wrangler dev --test-scheduled",
+    "migrate:local": "wrangler d1 migrations apply dustwave-opportunity-radar --local",
+    "migrate:remote": "wrangler d1 migrations apply dustwave-opportunity-radar --remote",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "wrangler types --env-file .env.example --check && tsc --noEmit"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "postal-mime": "^2.7.5",
+    "unpdf": "^1.8.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260804.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@types/node": "^26.1.2",
+    "@vitest/coverage-v8": "^4.1.10",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.118.0"
+  },
+  "overrides": {
+    "undici": "7.29.0"
+  }
+}

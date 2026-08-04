@@ -1,0 +1,74 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dustwave-opportunity-radar",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "addresses": ["hey@ingest.dustwave.xyz"],
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dustwave-opportunity-radar",
+      "database_id": "8b8979b8-54b3-410f-b948-0b647456727e",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MAIL_BUCKET",
+      "bucket_name": "dustwave-opportunity-radar-mail"
+    }
+  ],
+  "workflows": [
+    {
+      "binding": "BATCH_WORKFLOW",
+      "name": "dustwave-opportunity-radar-batch",
+      "class_name": "OpportunityBatchWorkflow"
+    }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_destination_addresses": ["alonso@hey.com"],
+      "allowed_sender_addresses": ["opportunities@digest.dustwave.xyz"]
+    }
+  ],
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+    "TIMEZONE": "America/Denver",
+    "BATCH_HOURS": "7,19",
+    "AI_MODEL": "@cf/openai/gpt-oss-20b",
+    "AI_CONFIDENCE_THRESHOLD": "0.82",
+    "DIGEST_TO_EMAIL": "alonso@hey.com",
+    "DIGEST_FROM_EMAIL": "opportunities@digest.dustwave.xyz",
+    "DIGEST_FROM_NAME": "Dustwave Opportunity Radar",
+    "NOTION_ENABLED": "false",
+    "NOTION_DATA_SOURCE_ID": "248a67e1-4d47-48f8-bc84-a9602ca91b78",
+    "ZOHO_ENABLED": "false",
+    "ZOHO_ACCOUNT_EMAIL": "alonso@dustwave.xyz",
+    "ZOHO_DATACENTER": "us",
+    "ZOHO_FOLDERS": "Inbox,Dustwave",
+    "INITIAL_BACKFILL_DAYS": "7",
+    "ATTACHMENT_MAX_BYTES": "20971520",
+    "R2_RETENTION_HOURS": "24"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.1
+    }
+  }
+}
