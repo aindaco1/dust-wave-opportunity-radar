@@ -22,9 +22,10 @@ jobs:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           PAGE_ID: ${{ inputs.page_id }}
         run: |
-          jq -n --arg pageId "$PAGE_ID" '{pageId: $pageId}' | \
-            curl --fail-with-body --silent --show-error --request POST \
-              --header "Authorization: Bearer $ADMIN_TOKEN" \
-              --header "Content-Type: application/json" \
-              --data-binary @- \
-              "$WORKER_URL/admin/notion/trash" | jq .
+          payload="$(jq -n --arg pageId "$PAGE_ID" '{pageId: $pageId}')"
+          response="$(curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data-binary "$payload" \
+            "$WORKER_URL/admin/notion/trash")"
+          jq . <<<"$response"
