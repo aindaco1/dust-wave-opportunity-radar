@@ -1,7 +1,11 @@
 import { zipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { canonicalizeUrl, extractUrls, htmlToText, parseDocxText, parsePdfText } from "../src/email/parse";
-import { notionWebsiteVariants } from "../src/notion/client";
+import {
+  meaningfulOpportunityTitleTokens,
+  notionWebsiteVariants,
+  opportunityTitlesLikelySame
+} from "../src/notion/client";
 
 describe("message parsing", () => {
   it("converts email HTML to compact text", () => {
@@ -25,6 +29,17 @@ describe("message parsing", () => {
       "https://example.com",
       "https://www.example.com"
     ]);
+  });
+
+  it("matches differently worded versions of the same opportunity title", () => {
+    expect(meaningfulOpportunityTitleTokens("2026-2027 Short Animation Fellowship Application")).toEqual([
+      "short", "animation", "fellowship"
+    ]);
+    expect(opportunityTitlesLikelySame(
+      "2026-2027 Short Animation Fellowship Application",
+      "Titmouse Foundation — Short Animation Fellowship"
+    )).toBe(true);
+    expect(opportunityTitlesLikelySame("IMGN Short Film Fund", "Other Short Film Fund")).toBe(false);
   });
 
   it("extracts DOCX document text", async () => {

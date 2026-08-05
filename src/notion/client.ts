@@ -138,12 +138,76 @@ async function findExistingPage(
     or.push({ property: "Website", rich_text: { equals: website } });
   }
   or.push({ property: "Name", title: { equals: classification.title } });
+  or.push(...fuzzyTitleFilters(classification.title));
   const response = await notionJson<NotionQueryResponse>(token, `/data_sources/${dataSourceId}/query`, {
     method: "POST",
-    body: JSON.stringify({ filter: { or }, page_size: 25 })
+    body: JSON.stringify({ filter: { or }, page_size: 50 })
   });
-  return response.results
+  const acceptable = response.results.filter((page) => {
+    const key = notionPropertyText(page, "Automation Key");
+    const website = notionPropertyText(page, "Website");
+    const title = notionPropertyText(page, "Name");
+    return key === automationKey
+      || notionWebsiteVariants(website).some((variant) => notionWebsiteVariants(classification.primaryUrl).includes(variant))
+      || opportunityTitlesLikelySame(title, classification.title);
+  });
+  return acceptable
     .sort((left, right) => (left.created_time ?? "").localeCompare(right.created_time ?? ""))[0] ?? null;
+}
+
+const TITLE_NOISE = new Set([
+  "a", "an", "and", "application", "applications", "apply", "call", "calls", "for", "of", "open",
+  "opportunity", "program", "programme", "submission", "submissions", "the", "to"
+]);
+
+export function meaningfulOpportunityTitleTokens(value: string): string[] {
+  return [...new Set(
+    value
+      .normalize("NFKD")
+      .toLowerCase()
+      .replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length > 1 && !/^\d{4}$/.test(token) && !TITLE_NOISE.has(token))
+  )];
+}
+
+export function opportunityTitlesLikelySame(left: string, right: string): boolean {
+  const leftTokens = meaningfulOpportunityTitleTokens(left);
+  const rightTokens = meaningfulOpportunityTitleTokens(right);
+  if (leftTokens.length < 3 || rightTokens.length < 3) return false;
+  const rightSet = new Set(rightTokens);
+  const intersection = leftTokens.filter((token) => rightSet.has(token)).length;
+  const shorter = Math.min(leftTokens.length, rightTokens.length);
+  const union = new Set([...leftTokens, ...rightTokens]).size;
+  return intersection === shorter || (intersection >= 3 && intersection / union >= 0.75);
+}
+
+function fuzzyTitleFilters(title: string): Record<string, unknown>[] {
+  const tokens = meaningfulOpportunityTitleTokens(title).slice(0, 6);
+  if (tokens.length < 3) return [];
+  const filters: Record<string, unknown>[] = [];
+  for (let first = 0; first < tokens.length - 2; first += 1) {
+    for (let second = first + 1; second < tokens.length - 1; second += 1) {
+      for (let third = second + 1; third < tokens.length; third += 1) {
+        filters.push({
+          and: [tokens[first], tokens[second], tokens[third]].map((token) => ({
+            property: "Name",
+            title: { contains: token }
+          }))
+        });
+      }
+    }
+  }
+  return filters;
+}
+
+function notionPropertyText(page: NotionPage, propertyName: string): string {
+  const property = page.properties?.[propertyName] as {
+    title?: Array<{ plain_text?: string }>;
+    rich_text?: Array<{ plain_text?: string }>;
+  } | undefined;
+  const fragments = property?.title ?? property?.rich_text ?? [];
+  return fragments.map((fragment) => fragment.plain_text ?? "").join("").trim();
 }
 
 export function notionWebsiteVariants(value: string | null): string[] {
