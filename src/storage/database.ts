@@ -82,6 +82,7 @@ export async function listQueuedMessages(
       `SELECT * FROM messages
        WHERE (
          (status IN ('queued', 'failed') AND attempts < 4 AND raw_r2_key <> '')
+         OR (status = 'processing' AND attempts < 4 AND raw_r2_key <> '' AND updated_at < datetime('now', '-15 minutes'))
          OR (status = 'pending_notion' AND ? = 1)
        )
        ORDER BY received_at ASC LIMIT ?`
@@ -91,13 +92,19 @@ export async function listQueuedMessages(
   return result.results;
 }
 
-export async function markMessageProcessing(db: D1Database, id: string): Promise<void> {
-  await db
+export async function claimMessageProcessing(db: D1Database, id: string): Promise<boolean> {
+  const result = await db
     .prepare(
-      "UPDATE messages SET status = 'processing', attempts = attempts + 1, last_error = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+      `UPDATE messages
+       SET status = 'processing', attempts = attempts + 1, last_error = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND (
+         status IN ('queued', 'failed', 'pending_notion')
+         OR (status = 'processing' AND updated_at < datetime('now', '-15 minutes'))
+       )`
     )
     .bind(id)
     .run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
 export async function saveParsedKey(db: D1Database, id: string, parsedR2Key: string): Promise<void> {

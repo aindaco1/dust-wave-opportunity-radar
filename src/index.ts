@@ -1,7 +1,7 @@
 import { loadRuntimeConfig } from "./config";
 import { ingestForwardedHeyEmail, ingestImportedHeyEmail, type ImportedHeyEmail } from "./ingest/email-worker";
 import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
-import { inspectNotionSchema } from "./notion/client";
+import { inspectNotionSchema, trashNotionPage } from "./notion/client";
 import { readBoundedJson } from "./util/http";
 import { timingSafeEqualText } from "./util/crypto";
 import { localBatchSlot, shouldStartBatch } from "./util/dates";
@@ -66,6 +66,17 @@ const worker = {
         if (request.method === "POST" && url.pathname === "/admin/sync/zoho") {
           const config = loadRuntimeConfig(env);
           return Response.json(await syncZoho(env, config));
+        }
+        if (request.method === "POST" && url.pathname === "/admin/notion/trash") {
+          try {
+            const input = await readBoundedJson<{ pageId?: string }>(request, 2_000);
+            if (!input.pageId) return Response.json({ error: "pageId is required" }, { status: 400 });
+            await trashNotionPage(env, input.pageId);
+            return Response.json({ trashed: true, pageId: input.pageId });
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : "Invalid request";
+            return Response.json({ error: detail }, { status: 400 });
+          }
         }
         if (request.method === "POST" && url.pathname === "/admin/import/hey") {
           let input: ImportedHeyEmail;

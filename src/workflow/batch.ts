@@ -16,7 +16,7 @@ import {
   listUnsentDigestItems,
   markDigestItemsSent,
   markMessageFailed,
-  markMessageProcessing,
+  claimMessageProcessing,
   markPendingNotionError,
   saveClassification,
   saveParsedKey,
@@ -64,7 +64,7 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
           { retries: { limit: 2, delay: "10 seconds", backoff: "exponential" }, timeout: "5 minutes" },
           async () => this.processMessage(message, config)
         );
-        results.push(result);
+        if (result) results.push(result);
       }
 
       const digestSent = await step.do(
@@ -105,14 +105,19 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
     }
   }
 
-  private async processMessage(message: MessageRecord, config: ReturnType<typeof loadRuntimeConfig>): Promise<ProcessResult> {
+  private async processMessage(
+    message: MessageRecord,
+    config: ReturnType<typeof loadRuntimeConfig>
+  ): Promise<ProcessResult | null> {
     try {
+      const claimed = await claimMessageProcessing(this.env.DB, message.id);
+      if (!claimed) return null;
+
       if (message.status === "pending_notion" && message.classification_json) {
         const stored = classificationSchema.parse(JSON.parse(message.classification_json));
         return await this.publishToNotionOrKeepPending(message, stored, config);
       }
 
-      await markMessageProcessing(this.env.DB, message.id);
       const parsed = await parseStoredMessage(this.env.MAIL_BUCKET, message, config.attachmentMaxBytes);
       const parsedKey = `parsed/${message.source}/${message.id}.json`;
       await this.env.MAIL_BUCKET.put(parsedKey, JSON.stringify(parsed), {

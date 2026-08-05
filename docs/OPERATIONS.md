@@ -33,9 +33,14 @@ curl https://WORKER_URL/admin/integrations \
 
 curl -X POST https://WORKER_URL/admin/sync/zoho \
   -H "Authorization: Bearer $ADMIN_TOKEN"
+
+curl -X POST https://WORKER_URL/admin/notion/trash \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"pageId":"NOTION_PAGE_ID"}'
 ```
 
-`/health` is public and exposes flags only, never credentials or message data. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only credential, Notion schema, Zoho account, and configured-folder checks without returning message content or tokens. `/admin/sync/zoho` pulls only the configured Zoho folders without starting classification or digest delivery.
+`/health` is public and exposes flags only, never credentials or message data. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only credential, Notion schema, Zoho account, and configured-folder checks without returning message content or tokens. `/admin/sync/zoho` pulls only the configured Zoho folders without starting classification or digest delivery. `/admin/notion/trash` is an authenticated recovery tool; it moves exactly one supplied page ID to Notion trash and can be reversed in Notion.
 
 Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `message_processing_failed`, `digest_sent`, and `batch_completed`.
 

@@ -91,7 +91,7 @@ export function canonicalizeUrl(value: string): string | null {
         url.searchParams.delete(key);
       }
     }
-    url.hostname = url.hostname.toLowerCase();
+    url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
     if (url.pathname !== "/") url.pathname = url.pathname.replace(/\/+$/, "");
     return url.toString();
   } catch {

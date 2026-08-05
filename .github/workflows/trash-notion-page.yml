@@ -1,0 +1,30 @@
+name: Trash one Notion page
+
+on:
+  workflow_dispatch:
+    inputs:
+      page_id:
+        description: Exact Notion page ID to move to trash
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  trash:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trash exact page
+        env:
+          WORKER_URL: ${{ vars.WORKER_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          PAGE_ID: ${{ inputs.page_id }}
+        run: |
+          jq -n --arg pageId "$PAGE_ID" '{pageId: $pageId}' | \
+            curl --fail-with-body --silent --show-error --request POST \
+              --header "Authorization: Bearer $ADMIN_TOKEN" \
+              --header "Content-Type: application/json" \
+              --data-binary @- \
+              "$WORKER_URL/admin/notion/trash" | jq .

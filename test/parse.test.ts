@@ -14,6 +14,7 @@ describe("message parsing", () => {
     );
     expect(urls).toEqual(["https://example.com/call"]);
     expect(canonicalizeUrl("javascript:alert(1)")).toBeNull();
+    expect(canonicalizeUrl("https://www.Example.com/call/")).toBe("https://example.com/call");
   });
 
   it("extracts DOCX document text", async () => {

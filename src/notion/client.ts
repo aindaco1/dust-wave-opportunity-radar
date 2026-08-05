@@ -78,6 +78,17 @@ export async function ensureNotionSchema(env: Env, config: RuntimeConfig): Promi
   }
 }
 
+export async function trashNotionPage(env: Env, pageId: string): Promise<void> {
+  requireNotionToken(env);
+  if (!/^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pageId)) {
+    throw new Error("Invalid Notion page ID");
+  }
+  await notionJson<NotionPage>(env.NOTION_TOKEN, `/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ in_trash: true })
+  });
+}
+
 export async function publishOpportunity(
   env: Env,
   config: RuntimeConfig,
