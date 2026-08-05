@@ -8,7 +8,9 @@ import { logError, logInfo } from "../util/log";
 interface ZohoAccount {
   accountId: string;
   primaryEmailAddress: string;
-  emailAddress?: string[];
+  mailboxAddress?: string;
+  incomingUserName?: string;
+  emailAddress?: Array<string | { mailId?: string }>;
 }
 
 interface ZohoFolder {
@@ -74,7 +76,7 @@ interface ZohoConnection {
 export async function inspectZohoConnection(env: Env, config: RuntimeConfig): Promise<ZohoConnectionInspection> {
   const connection = await connectZoho(env, config);
   return {
-    accountEmail: connection.account.primaryEmailAddress,
+    accountEmail: connection.account.primaryEmailAddress || config.zohoAccountEmail,
     configuredFolders: [...config.zohoFolders],
     matchedFolders: connection.selectedFolders.map((folder) => folder.folderName)
   };
@@ -119,7 +121,7 @@ async function connectZoho(env: Env, config: RuntimeConfig): Promise<ZohoConnect
   const accessToken = await refreshAccessToken(env, endpoints.accounts);
   const accounts = await zohoData<ZohoAccount[]>(endpoints.mail, "/accounts", accessToken);
   const account = accounts.find((candidate) =>
-    [candidate.primaryEmailAddress, ...(candidate.emailAddress ?? [])]
+    accountEmailAddresses(candidate)
       .map((email) => email.toLowerCase())
       .includes(config.zohoAccountEmail)
   );
@@ -138,6 +140,15 @@ async function connectZoho(env: Env, config: RuntimeConfig): Promise<ZohoConnect
   if (missing.length) throw new Error(`Zoho folder(s) not found: ${missing.join(", ")}`);
 
   return { mailBase: endpoints.mail, accessToken, account, selectedFolders };
+}
+
+function accountEmailAddresses(account: ZohoAccount): string[] {
+  return [
+    account.primaryEmailAddress,
+    account.mailboxAddress,
+    account.incomingUserName,
+    ...(account.emailAddress ?? []).map((address) => typeof address === "string" ? address : address.mailId)
+  ].filter((address): address is string => typeof address === "string" && address.length > 0);
 }
 
 async function syncZohoFolder(
