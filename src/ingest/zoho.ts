@@ -19,8 +19,8 @@ interface ZohoFolder {
 }
 
 interface ZohoEmailSummary {
-  messageId: string;
-  folderId: string;
+  messageId: string | number;
+  folderId: string | number;
   subject?: string;
   sender?: string;
   fromAddress?: string;
@@ -197,14 +197,15 @@ async function syncZohoFolder(
       if (!newestSeen || receivedAt > newestSeen) newestSeen = receivedAt;
 
       try {
+        const externalId = String(email.messageId);
         const raw = await fetchZohoRawMessage(mailBase, accessToken, accountId, folder.folderId, email);
-        const id = await sha256Hex(`zoho:${email.messageId}`);
+        const id = await sha256Hex(`zoho:${externalId}`);
         const rawR2Key = `raw/zoho/${receivedAt.toISOString().slice(0, 10)}/${id}.eml`;
         await env.MAIL_BUCKET.put(rawR2Key, raw, {
           httpMetadata: { contentType: "message/rfc822" },
           customMetadata: {
             source: "zoho",
-            externalId: email.messageId,
+            externalId,
             receivedAt: receivedAt.toISOString(),
             folder: folder.folderName
           }
@@ -212,7 +213,7 @@ async function syncZohoFolder(
         await upsertMessage(env.DB, {
           id,
           source: "zoho",
-          externalId: email.messageId,
+          externalId,
           mailbox: folder.folderName,
           subject: email.subject?.trim() || "(No subject)",
           senderName: email.sender?.trim(),
@@ -245,7 +246,7 @@ async function fetchZohoRawMessage(
   mailBase: string,
   accessToken: string,
   accountId: string,
-  folderId: string,
+  folderId: string | number,
   email: ZohoEmailSummary
 ): Promise<ArrayBuffer> {
   const originalPath = `/accounts/${accountId}/messages/${email.messageId}/originalmessage`;
@@ -271,7 +272,7 @@ async function fetchZohoRawMessage(
 }
 
 function buildFallbackMime(email: ZohoEmailSummary, html: string): string {
-  const safe = (value: string | undefined) => (value ?? "").replace(/[\r\n]+/g, " ");
+  const safe = (value: unknown) => String(value ?? "").replace(/[\r\n]+/g, " ");
   return [
     `Message-ID: <zoho-${safe(email.messageId)}@dustwave-opportunity-radar>`,
     `Subject: ${safe(email.subject)}`,

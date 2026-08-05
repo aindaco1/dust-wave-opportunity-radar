@@ -111,10 +111,33 @@ export async function classifyMessage(
     },
     { tags: ["dustwave", "opportunity-classifier"] }
   );
-  const content = "choices" in response ? response.choices?.[0]?.message.content : response.output_text;
-  if (!content) throw new Error("Workers AI returned no classification content");
-  const parsed = classificationSchema.parse(JSON.parse(content));
+  const parsed = parseClassificationResponse(response);
   return enforceClassificationPolicy(parsed, config.aiConfidenceThreshold);
+}
+
+export function parseClassificationResponse(response: unknown): Classification {
+  return classificationSchema.parse(unwrapAiValue(response));
+}
+
+function unwrapAiValue(value: unknown, depth = 0): unknown {
+  if (depth > 5) throw new Error("Workers AI classification response was nested too deeply");
+  if (typeof value === "string") {
+    const trimmed = value.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    if (!trimmed) throw new Error("Workers AI returned empty classification content");
+    return unwrapAiValue(JSON.parse(trimmed), depth + 1);
+  }
+  if (!value || typeof value !== "object") {
+    throw new Error("Workers AI returned no classification content");
+  }
+
+  const record = value as Record<string, unknown>;
+  if (Array.isArray(record.choices)) {
+    const choice = record.choices[0] as { message?: { content?: unknown } } | undefined;
+    return unwrapAiValue(choice?.message?.content, depth + 1);
+  }
+  if ("response" in record) return unwrapAiValue(record.response, depth + 1);
+  if ("output_text" in record) return unwrapAiValue(record.output_text, depth + 1);
+  return record;
 }
 
 export function enforceClassificationPolicy(value: Classification, confidenceThreshold: number): Classification {

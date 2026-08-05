@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enforceClassificationPolicy } from "../src/ai/classify";
+import { enforceClassificationPolicy, parseClassificationResponse } from "../src/ai/classify";
 import type { Classification } from "../src/types";
 
 describe("classification policy", () => {
@@ -25,6 +25,29 @@ describe("classification policy", () => {
       0.82
     );
     expect(result.decision).toBe("notion");
+  });
+});
+
+describe("Workers AI classification response parsing", () => {
+  it("parses Chat Completions content", () => {
+    const expected = baseClassification();
+    const result = parseClassificationResponse({
+      choices: [{ message: { content: JSON.stringify(expected) } }]
+    });
+    expect(result).toEqual(expected);
+  });
+
+  it("unwraps the Workers AI JSON response envelope", () => {
+    const expected = baseClassification();
+    const result = parseClassificationResponse({
+      choices: [{ message: { content: JSON.stringify({ response: expected }) } }]
+    });
+    expect(result).toEqual(expected);
+  });
+
+  it("parses legacy binding response strings", () => {
+    const expected = baseClassification();
+    expect(parseClassificationResponse({ response: JSON.stringify(expected) })).toEqual(expected);
   });
 });
 
