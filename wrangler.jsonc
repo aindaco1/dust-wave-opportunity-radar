@@ -45,7 +45,7 @@
     "ENVIRONMENT": "production",
     "TIMEZONE": "America/Denver",
     "BATCH_HOURS": "7,19",
-    "AI_MODEL": "@cf/openai/gpt-oss-20b",
+    "AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "AI_CONFIDENCE_THRESHOLD": "0.82",
     "DIGEST_TO_EMAIL": "alonso@hey.com",
     "DIGEST_FROM_EMAIL": "opportunities@digest.dustwave.xyz",

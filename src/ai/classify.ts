@@ -4,7 +4,7 @@ import { canonicalizeUrl } from "../email/parse";
 import type { EnrichedPage } from "../ingest/web-enrichment";
 import { classificationSchema, type Classification, type ParsedMessage } from "../types";
 
-const MODEL = "@cf/openai/gpt-oss-20b";
+const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const TARGET_STATES = ["New Mexico", "Illinois", "Pennsylvania"] as const;
 const EXISTING_TAGS = [
   "New Mexico",
@@ -99,15 +99,10 @@ export async function classifyMessage(
       ],
       response_format: {
         type: "json_schema",
-        json_schema: {
-          name: "opportunity_classification",
-          strict: true,
-          schema
-        }
+        json_schema: schema
       },
-      reasoning_effort: "medium",
       temperature: 0.1,
-      max_completion_tokens: 2_500
+      max_tokens: 2_500
     },
     { tags: ["dustwave", "opportunity-classifier"] }
   );
@@ -162,7 +157,17 @@ export function enforceClassificationPolicy(value: Classification, confidenceThr
       rationale: `${value.rationale} Held for review because confidence or source URL did not meet the auto-publish threshold.`
     };
   }
-  return { ...value, primaryUrl: canonicalPrimary, applicationUrl: canonicalApplication };
+  const normalizedTags = [...new Set(
+    value.tags
+      .map((tag) => EXISTING_TAGS.find((existing) => existing.toLowerCase() === tag.toLowerCase()))
+      .filter((tag): tag is (typeof EXISTING_TAGS)[number] => Boolean(tag))
+  )];
+  return {
+    ...value,
+    tags: normalizedTags,
+    primaryUrl: canonicalPrimary,
+    applicationUrl: canonicalApplication
+  };
 }
 
 function systemPrompt(confidenceThreshold: number): string {

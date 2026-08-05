@@ -39,6 +39,18 @@ export async function upsertMessage(db: D1Database, message: NewMessage): Promis
         received_at = excluded.received_at,
         raw_r2_key = excluded.raw_r2_key,
         raw_size = excluded.raw_size,
+        status = CASE
+          WHEN messages.status = 'failed' AND messages.raw_r2_key = '' THEN 'queued'
+          ELSE messages.status
+        END,
+        attempts = CASE
+          WHEN messages.status = 'failed' AND messages.raw_r2_key = '' THEN 0
+          ELSE messages.attempts
+        END,
+        last_error = CASE
+          WHEN messages.status = 'failed' AND messages.raw_r2_key = '' THEN NULL
+          ELSE messages.last_error
+        END,
         updated_at = CURRENT_TIMESTAMP`
     )
     .bind(
@@ -69,7 +81,7 @@ export async function listQueuedMessages(
     .prepare(
       `SELECT * FROM messages
        WHERE (
-         (status IN ('queued', 'failed') AND attempts < 4)
+         (status IN ('queued', 'failed') AND attempts < 4 AND raw_r2_key <> '')
          OR (status = 'pending_notion' AND ? = 1)
        )
        ORDER BY received_at ASC LIMIT ?`
@@ -290,9 +302,9 @@ export async function setCheckpoint(
 export async function listExpiredR2Keys(db: D1Database, cutoffIso: string): Promise<string[]> {
   const result = await db
     .prepare(
-      `SELECT raw_r2_key AS key FROM messages WHERE received_at < ? AND raw_r2_key <> ''
+      `SELECT raw_r2_key AS key FROM messages WHERE datetime(created_at) < datetime(?) AND raw_r2_key <> ''
        UNION ALL
-       SELECT parsed_r2_key AS key FROM messages WHERE received_at < ? AND parsed_r2_key IS NOT NULL`
+       SELECT parsed_r2_key AS key FROM messages WHERE datetime(created_at) < datetime(?) AND parsed_r2_key IS NOT NULL`
     )
     .bind(cutoffIso, cutoffIso)
     .all<{ key: string }>();
@@ -302,7 +314,7 @@ export async function listExpiredR2Keys(db: D1Database, cutoffIso: string): Prom
 export async function clearExpiredR2Keys(db: D1Database, cutoffIso: string): Promise<void> {
   await db
     .prepare(
-      "UPDATE messages SET raw_r2_key = '', parsed_r2_key = NULL, updated_at = CURRENT_TIMESTAMP WHERE received_at < ?"
+      "UPDATE messages SET raw_r2_key = '', parsed_r2_key = NULL, updated_at = CURRENT_TIMESTAMP WHERE datetime(created_at) < datetime(?)"
     )
     .bind(cutoffIso)
     .run();

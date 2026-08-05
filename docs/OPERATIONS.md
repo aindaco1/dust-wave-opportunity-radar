@@ -58,7 +58,7 @@ Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, 
 
 ## Data retention
 
-- Raw MIME and parsed payloads: R2, purged after 24 hours by every batch.
+- Raw MIME and parsed payloads: R2, purged 24 hours after ingestion by every batch (historical message dates do not shorten this window).
 - D1: identifiers, extracted classifications, dedupe keys, digest metadata, checkpoints, and run history; no attachment binaries.
 - Workers logs: governed by the Cloudflare account’s observability retention.
 - GitHub HEY runner: ephemeral; delete `HEY_COOKIES_JSON` after backfill.

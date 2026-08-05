@@ -57,6 +57,7 @@ export interface ZohoSyncResult {
   fetched: number;
   ingested: number;
   failed: number;
+  sampleErrors: string[];
   skipped: boolean;
 }
 
@@ -84,7 +85,7 @@ export async function inspectZohoConnection(env: Env, config: RuntimeConfig): Pr
 
 export async function syncZoho(env: Env, config: RuntimeConfig): Promise<ZohoSyncResult> {
   if (!config.zohoEnabled) {
-    return { folders: [], fetched: 0, ingested: 0, failed: 0, skipped: true };
+    return { folders: [], fetched: 0, ingested: 0, failed: 0, sampleErrors: [], skipped: true };
   }
   const connection = await connectZoho(env, config);
 
@@ -93,6 +94,7 @@ export async function syncZoho(env: Env, config: RuntimeConfig): Promise<ZohoSyn
     fetched: 0,
     ingested: 0,
     failed: 0,
+    sampleErrors: [],
     skipped: false
   };
 
@@ -108,6 +110,9 @@ export async function syncZoho(env: Env, config: RuntimeConfig): Promise<ZohoSyn
     result.fetched += folderResult.fetched;
     result.ingested += folderResult.ingested;
     result.failed += folderResult.failed;
+    for (const error of folderResult.sampleErrors) {
+      if (result.sampleErrors.length < 5 && !result.sampleErrors.includes(error)) result.sampleErrors.push(error);
+    }
   }
   logInfo("zoho_sync_completed", { ...result });
   return result;
@@ -158,7 +163,7 @@ async function syncZohoFolder(
   accessToken: string,
   accountId: string,
   folder: ZohoFolder
-): Promise<{ fetched: number; ingested: number; failed: number }> {
+): Promise<{ fetched: number; ingested: number; failed: number; sampleErrors: string[] }> {
   const checkpoint = await getCheckpoint(env.DB, "zoho", folder.folderName);
   const now = new Date();
   const since = checkpoint
@@ -168,6 +173,7 @@ async function syncZohoFolder(
   let fetched = 0;
   let ingested = 0;
   let failed = 0;
+  const sampleErrors: string[] = [];
   let newestSeen: Date | null = null;
   let retryFrom: Date | null = null;
   let reachedCutoff = false;
@@ -225,6 +231,8 @@ async function syncZohoFolder(
         ingested += 1;
       } catch (error) {
         failed += 1;
+        const detail = error instanceof Error ? error.message : String(error);
+        if (sampleErrors.length < 3 && !sampleErrors.includes(detail)) sampleErrors.push(detail.slice(0, 500));
         if (!retryFrom || receivedAt < retryFrom) retryFrom = receivedAt;
         logError("zoho_message_ingest_failed", error, {
           messageId: email.messageId,
@@ -239,7 +247,7 @@ async function syncZohoFolder(
 
   const nextCheckpoint = retryFrom ?? newestSeen;
   if (nextCheckpoint) await setCheckpoint(env.DB, "zoho", folder.folderName, nextCheckpoint.toISOString());
-  return { fetched, ingested, failed };
+  return { fetched, ingested, failed, sampleErrors };
 }
 
 async function fetchZohoRawMessage(
