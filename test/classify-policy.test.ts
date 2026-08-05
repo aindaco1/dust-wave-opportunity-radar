@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildEvidencePacket,
   buildManualReviewClassification,
   enforceClassificationPolicy,
+  mapRecoveryClassification,
   parseClassificationResponse
 } from "../src/ai/classify";
 import type { Classification } from "../src/types";
@@ -75,6 +77,69 @@ describe("exhausted AI classification", () => {
     expect(result.digestCategory).toBe("Possible Opportunities");
     expect(result.primaryUrl).toBe("https://example.org/roundup");
     expect(result.summary).toContain("Review the original ZOHO email");
+  });
+});
+
+describe("classification recovery", () => {
+  const message = {
+    source: "zoho" as const,
+    mailbox: "Newsletter",
+    externalId: "123",
+    subject: "Community digest",
+    senderName: "American Film Association",
+    senderEmail: "news@example.org",
+    receivedAt: "2026-08-05T12:00:00Z",
+    text: "A useful film masterclass roundup.",
+    urls: [],
+    attachments: [],
+    warnings: []
+  };
+
+  it("turns a recovered non-call into a useful digest item", () => {
+    const result = mapRecoveryClassification({
+      decision: "digest",
+      confidence: 0.9,
+      title: "American Film Association Community Digest",
+      organization: "American Film Association",
+      summary: "A roundup of film masterclasses and community posts.",
+      primaryUrl: "https://example.org/community",
+      digestCategory: "Workshops & Training",
+      rationale: "Useful film-industry training content."
+    }, message);
+
+    expect(result.decision).toBe("digest");
+    expect(result.summary).toContain("film masterclasses");
+    expect(result.summary).not.toContain("Automatic classification");
+  });
+
+  it("holds a recovered possible call for human review", () => {
+    const result = mapRecoveryClassification({
+      decision: "call",
+      confidence: 0.7,
+      title: "Possible film fellowship",
+      organization: null,
+      summary: "A possible application-based film fellowship.",
+      primaryUrl: "https://example.org/fellowship",
+      digestCategory: null,
+      rationale: "The email mentions applications."
+    }, message);
+
+    expect(result.decision).toBe("digest");
+    expect(result.digestCategory).toBe("Possible Opportunities");
+  });
+
+  it("compacts oversized tracking URLs before sending evidence to Workers AI", () => {
+    const opaqueUrl = `https://email.example.org/c/${"x".repeat(1_200)}`;
+    const packet = buildEvidencePacket({
+      ...message,
+      text: `Masterclass details [${opaqueUrl}]`,
+      urls: [opaqueUrl, "https://example.org/community"]
+    }, []);
+
+    expect(packet).toContain("Masterclass details");
+    expect(packet).toContain("https://example.org/community");
+    expect(packet).not.toContain("x".repeat(1_200));
+    expect(packet.length).toBeLessThan(10_000);
   });
 });
 

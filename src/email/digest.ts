@@ -83,7 +83,7 @@ export function renderOpportunityDigest(
         </header>
         ${sections}
         <footer style="${styles.footer}">
-          Scanned HEY and Zoho on the 12-hour Dustwave schedule. Empty digests are suppressed. Links return to the original public source when available.
+          Scanned HEY and Zoho on the 12-hour Dust Wave schedule. Links return to the original public source when available.
         </footer>
       </main>
     </div>

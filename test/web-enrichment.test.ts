@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafePublicUrl } from "../src/ingest/web-enrichment";
+import { isSafePublicUrl, rankCandidateUrls } from "../src/ingest/web-enrichment";
 
 describe("web enrichment SSRF guard", () => {
   it("accepts ordinary public HTTPS URLs", () => {
@@ -17,5 +17,16 @@ describe("web enrichment SSRF guard", () => {
     "https://user:password@example.org/"
   ])("rejects unsafe URL %s", (url) => {
     expect(isSafePublicUrl(url)).toBe(false);
+  });
+});
+
+describe("web enrichment ranking", () => {
+  it("prefers a redirecting email link over image-host assets", () => {
+    const ranked = rankCandidateUrls([
+      "https://storage.googleapis.com/community/logo.png",
+      "https://email.example.org/c/opaque-tracking-link"
+    ]);
+
+    expect(ranked[0]).toContain("email.example.org");
   });
 });

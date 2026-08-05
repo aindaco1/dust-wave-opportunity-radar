@@ -22,5 +22,7 @@ describe("opportunity digest", () => {
     expect(digest.html).toContain("Artist &lt;Commission&gt;");
     expect(digest.html).not.toContain("Artist <Commission>");
     expect(digest.text).toContain("Jobs & Commissions".toUpperCase());
+    expect(digest.html).toContain("Scanned HEY and Zoho on the 12-hour Dust Wave schedule.");
+    expect(digest.html).not.toContain("Empty digests are suppressed.");
   });
 });

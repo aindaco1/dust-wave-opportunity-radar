@@ -13,7 +13,7 @@ export interface EnrichedPage {
 }
 
 export async function enrichCandidateUrls(urls: string[]): Promise<EnrichedPage[]> {
-  const ranked = [...urls].filter(isSafePublicUrl).sort((left, right) => scoreUrl(right) - scoreUrl(left));
+  const ranked = rankCandidateUrls(urls);
   const pages: EnrichedPage[] = [];
   for (const url of ranked.slice(0, MAX_PAGES)) {
     try {
@@ -24,6 +24,12 @@ export async function enrichCandidateUrls(urls: string[]): Promise<EnrichedPage[
     }
   }
   return pages;
+}
+
+export function rankCandidateUrls(urls: string[]): string[] {
+  return [...new Set(urls)]
+    .filter(isSafePublicUrl)
+    .sort((left, right) => scoreUrl(right) - scoreUrl(left));
 }
 
 async function fetchPage(url: string): Promise<EnrichedPage | null> {
@@ -124,6 +130,8 @@ function scoreUrl(value: string): number {
   ]) {
     if (lower.includes(token)) score += 3;
   }
+  if (lower.includes("storage.googleapis.com/")) score -= 8;
+  if (/\.(?:avif|gif|jpe?g|png|svg|webp|ico)(?:[?#]|$)/.test(lower)) score -= 10;
   if (/lnk|click|track|redirect/.test(lower)) score -= 4;
   return score;
 }
