@@ -138,7 +138,6 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
       try {
         classification = await classifyMessage(this.env.AI, config, parsed, pages);
       } catch (error) {
-        if (message.attempts + 1 < 4) throw error;
         classification = buildManualReviewClassification(parsed, error);
         logInfo("classification_exhausted_sent_to_digest", {
           messageId: message.id,
