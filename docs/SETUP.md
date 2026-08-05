@@ -62,7 +62,7 @@ npx wrangler secret put ZOHO_CLIENT_SECRET
 npx wrangler secret put ZOHO_REFRESH_TOKEN
 ```
 
-Change `ZOHO_ENABLED` to `true` in `wrangler.jsonc`, deploy, and manually start one run. Startup validates the account and requires exact folder names `Inbox` and `Dustwave`; a missing folder fails loudly instead of silently scanning the wrong place. The first successful sync imports seven days and later runs use an overlap checkpoint.
+Change `ZOHO_ENABLED` to `true` in `wrangler.jsonc`, deploy, and manually start one run. Startup validates the account and requires the exact folder names `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`; a missing folder fails loudly instead of silently scanning the wrong place. The first successful sync imports seven days and later runs use an overlap checkpoint.
 
 Zoho’s OAuth authorization-code process is documented at [Zoho Mail OAuth 2.0](https://www.zoho.com/mail/help/api/using-oauth-2.html).
 

@@ -55,7 +55,7 @@
     "ZOHO_ENABLED": "false",
     "ZOHO_ACCOUNT_EMAIL": "alonso@dustwave.xyz",
     "ZOHO_DATACENTER": "us",
-    "ZOHO_FOLDERS": "Inbox,Dustwave",
+    "ZOHO_FOLDERS": "Inbox,Dust Wave,Newsletter,Notification",
     "INITIAL_BACKFILL_DAYS": "7",
     "ATTACHMENT_MAX_BYTES": "20971520",
     "R2_RETENTION_HOURS": "24"

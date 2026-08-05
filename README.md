@@ -1,6 +1,6 @@
 # Dustwave Opportunity Radar
 
-Cloudflare-hosted email triage for creative opportunities. It receives broad HEY forwarding, pulls Zoho Inbox and `Dustwave`, extracts PDF/DOCX attachments, classifies the result with Workers AI, and batches eligible calls into Notion while emailing a digest of useful non-call items.
+Cloudflare-hosted email triage for creative opportunities. It receives broad HEY forwarding, pulls Zoho `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`, extracts PDF/DOCX attachments, classifies the result with Workers AI, and batches eligible calls into Notion while emailing a digest of useful non-call items.
 
 The production schedule is 7:00 AM and 7:00 PM `America/Denver`. Incoming mail is queued immediately; classification, Notion publishing, and digest delivery all wait for the next batch.
 
@@ -9,7 +9,7 @@ The production schedule is 7:00 AM and 7:00 PM `America/Denver`. Incoming mail i
 ```mermaid
 flowchart LR
   HEY["HEY official forwarding<br/>all non-spam mail"] --> ER["Cloudflare Email Routing<br/>hey@ingest.dustwave.xyz"]
-  Zoho["Zoho Mail API<br/>Inbox + Dustwave"] --> WF["12-hour Workflow"]
+  Zoho["Zoho Mail API<br/>Inbox + Dust Wave + Newsletter + Notification"] --> WF["12-hour Workflow"]
   ER --> R2["R2 raw MIME<br/>24-hour retention"]
   R2 --> WF
   WF --> Parse["MIME + PDF + DOCX parsing"]
