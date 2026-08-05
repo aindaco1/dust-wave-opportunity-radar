@@ -201,7 +201,7 @@ NOTION:
 - type must be one of the schema values and should match the call mechanism.
 - tags should use this vocabulary when appropriate: ${EXISTING_TAGS.join(", ")}.
 - bodyMarkdown should contain: Overview, Eligibility, Deadline / application window, How to apply, Materials / requirements, and Notes / watch-outs. Omit sections with no reliable information.
-- dueDate is the next application/submission deadline in YYYY-MM-DD.
+- dueDate is the final hard application/submission deadline in YYYY-MM-DD. When multiple fee tiers or deadlines are listed (early-bird, regular, late, final), use the last date on which a valid application can still be submitted—not an early-bird or discounted-fee date. List the intermediate dates in bodyMarkdown.
 - applicationOpenStart/applicationOpenEnd are the application window dates, not booleans.
 
 DIGEST:
