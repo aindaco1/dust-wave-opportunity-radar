@@ -198,7 +198,14 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
       classification.primaryUrl ?? `${classification.organization ?? ""}|${classification.title.toLowerCase()}`
     );
     const published = await publishOpportunity(this.env, config, message, classification, automationKey);
-    await upsertOpportunity(this.env.DB, automationKey, message.id, classification, published.pageId);
+    await upsertOpportunity(
+      this.env.DB,
+      automationKey,
+      message.id,
+      classification,
+      published.pageId,
+      published.managedMarkdown
+    );
     await saveClassification(this.env.DB, message.id, classification, "notion", classification.primaryUrl);
     logInfo("notion_opportunity_published", {
       messageId: message.id,

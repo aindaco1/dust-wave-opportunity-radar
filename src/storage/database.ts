@@ -186,7 +186,8 @@ export async function upsertOpportunity(
   automationKey: string,
   messageId: string,
   classification: Classification,
-  notionPageId: string
+  notionPageId: string,
+  managedMarkdown: string
 ): Promise<void> {
   const now = new Date().toISOString();
   await db.batch([
@@ -194,8 +195,8 @@ export async function upsertOpportunity(
     db.prepare(
       `INSERT INTO opportunities(
          automation_key, canonical_url, title, organization, notion_page_id,
-         latest_message_id, first_seen_at, last_seen_at, last_published_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         latest_message_id, first_seen_at, last_seen_at, last_published_at, managed_markdown
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(automation_key) DO UPDATE SET
          canonical_url = excluded.canonical_url,
          title = excluded.title,
@@ -203,7 +204,8 @@ export async function upsertOpportunity(
          notion_page_id = excluded.notion_page_id,
          latest_message_id = excluded.latest_message_id,
          last_seen_at = excluded.last_seen_at,
-         last_published_at = excluded.last_published_at`
+         last_published_at = excluded.last_published_at,
+         managed_markdown = excluded.managed_markdown`
     )
     .bind(
       automationKey,
@@ -214,7 +216,8 @@ export async function upsertOpportunity(
       messageId,
       now,
       now,
-      now
+      now,
+      managedMarkdown
     )
   ]);
 }

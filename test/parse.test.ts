@@ -2,10 +2,12 @@ import { zipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { canonicalizeUrl, extractUrls, htmlToText, parseDocxText, parsePdfText } from "../src/email/parse";
 import {
+  buildOpportunityMarkdown,
   meaningfulOpportunityTitleTokens,
   notionWebsiteVariants,
   opportunityTitlesLikelySame
 } from "../src/notion/client";
+import type { Classification } from "../src/types";
 
 describe("message parsing", () => {
   it("converts email HTML to compact text", () => {
@@ -40,6 +42,36 @@ describe("message parsing", () => {
       "Titmouse Foundation — Short Animation Fellowship"
     )).toBe(true);
     expect(opportunityTitlesLikelySame("IMGN Short Film Fund", "Other Short Film Fund")).toBe(false);
+  });
+
+  it("builds a Notion body without visible automation housekeeping", () => {
+    const markdown = buildOpportunityMarkdown({
+      decision: "notion",
+      confidence: 0.95,
+      title: "Short Film Fund",
+      organization: "Example Foundation",
+      summary: "A short-film funding opportunity.",
+      bodyMarkdown: "## Overview\n\nFunding for short films.",
+      primaryUrl: "https://example.org/fund",
+      applicationUrl: "https://example.org/apply",
+      dueDate: "2026-10-01",
+      applicationOpenStart: "2026-09-01",
+      applicationOpenEnd: "2026-10-01",
+      type: "Grant",
+      tags: ["Film", "Short"],
+      digestCategory: null,
+      eligibleStates: ["New Mexico", "Illinois", "Pennsylvania"],
+      explicitlyExcludedStates: [],
+      evidence: ["Applications close October 1."],
+      rationale: "A concrete application-based funding opportunity."
+    } satisfies Classification);
+
+    expect(markdown).toContain("## Overview");
+    expect(markdown).toContain("## Key dates and application");
+    expect(markdown).toContain("Applications close October 1.");
+    expect(markdown).not.toContain("Opportunity Radar managed section");
+    expect(markdown).not.toContain("Last checked");
+    expect(markdown).not.toContain("Automation change history");
   });
 
   it("extracts DOCX document text", async () => {

@@ -5,8 +5,8 @@ import { readBoundedText } from "../util/http";
 
 const NOTION_API = "https://api.notion.com/v1";
 const NOTION_VERSION = "2026-03-11";
-const MANAGED_START = "**Opportunity Radar managed section — do not edit below this line**";
-const MANAGED_END = "**End Opportunity Radar managed section**";
+const LEGACY_MANAGED_START = "**Opportunity Radar managed section — do not edit below this line**";
+const LEGACY_MANAGED_END = "**End Opportunity Radar managed section**";
 
 interface NotionPage {
   id: string;
@@ -36,6 +36,7 @@ export interface NotionPublishResult {
   pageId: string;
   url?: string;
   created: boolean;
+  managedMarkdown: string;
 }
 
 export interface NotionSchemaInspection {
@@ -104,6 +105,7 @@ export async function publishOpportunity(
   const existing = await findExistingPage(env.NOTION_TOKEN, config.notionDataSourceId, automationKey, classification);
   const checkedAt = new Date().toISOString();
   const properties = buildProperties(message, classification, automationKey, checkedAt);
+  const managedMarkdown = buildOpportunityMarkdown(classification);
 
   if (!existing) {
     const created = await notionJson<NotionPage>(env.NOTION_TOKEN, "/pages", {
@@ -111,18 +113,18 @@ export async function publishOpportunity(
       body: JSON.stringify({
         parent: { type: "data_source_id", data_source_id: config.notionDataSourceId },
         properties,
-        markdown: buildManagedMarkdown(classification, message, checkedAt)
+        markdown: managedMarkdown
       })
     });
-    return { pageId: created.id, url: created.url, created: true };
+    return { pageId: created.id, url: created.url, created: true, managedMarkdown };
   }
 
   await notionJson<NotionPage>(env.NOTION_TOKEN, `/pages/${existing.id}`, {
     method: "PATCH",
     body: JSON.stringify({ properties })
   });
-  await updateManagedContent(env.NOTION_TOKEN, existing.id, classification, message, checkedAt);
-  return { pageId: existing.id, url: existing.url, created: false };
+  await updateManagedContent(env, existing.id, managedMarkdown);
+  return { pageId: existing.id, url: existing.url, created: false, managedMarkdown };
 }
 
 async function findExistingPage(
@@ -228,35 +230,55 @@ export function notionWebsiteVariants(value: string | null): string[] {
 }
 
 async function updateManagedContent(
-  token: string,
+  env: Env,
   pageId: string,
-  classification: Classification,
-  message: MessageRecord,
-  checkedAt: string
+  next: string
 ): Promise<void> {
-  const current = await notionJson<NotionMarkdownResponse>(token, `/pages/${pageId}/markdown`);
+  const current = await notionJson<NotionMarkdownResponse>(env.NOTION_TOKEN, `/pages/${pageId}/markdown`);
   if (current.truncated) {
     throw new Error(`Cannot safely update truncated Notion page ${pageId}`);
   }
-  const previous = extractManagedBlock(current.markdown);
-  const next = buildManagedMarkdown(classification, message, checkedAt, previous ?? undefined);
+  const legacy = extractLegacyManagedBlock(current.markdown);
+  const previous = legacy ?? await loadStoredManagedMarkdown(env.DB, pageId);
+  if (current.markdown.includes(next)) return;
   if (previous) {
-    await notionJson(token, `/pages/${pageId}/markdown`, {
+    if (!current.markdown.includes(previous)) {
+      throw new Error(`Cannot safely update Notion page ${pageId} because its managed opportunity text was edited`);
+    }
+    await notionJson(env.NOTION_TOKEN, `/pages/${pageId}/markdown`, {
       method: "PATCH",
       body: JSON.stringify({
         type: "update_content",
         update_content: { content_updates: [{ old_str: previous, new_str: next }] }
       })
     });
-  } else {
-    await notionJson(token, `/pages/${pageId}/markdown`, {
+    return;
+  }
+  if (!current.markdown.trim()) {
+    await notionJson(env.NOTION_TOKEN, `/pages/${pageId}/markdown`, {
       method: "PATCH",
       body: JSON.stringify({
-        type: "insert_content",
-        insert_content: { position: { type: "end" }, content: `\n\n${next}` }
+        type: "replace_content",
+        replace_content: { new_str: next }
       })
     });
+    return;
   }
+  await notionJson(env.NOTION_TOKEN, `/pages/${pageId}/markdown`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      type: "insert_content",
+      insert_content: { position: { type: "end" }, content: `\n\n${next}` }
+    })
+  });
+}
+
+async function loadStoredManagedMarkdown(db: D1Database, pageId: string): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT managed_markdown FROM opportunities WHERE notion_page_id = ? AND managed_markdown IS NOT NULL LIMIT 1")
+    .bind(pageId)
+    .first<{ managed_markdown: string }>();
+  return row?.managed_markdown ?? null;
 }
 
 function buildProperties(
@@ -286,21 +308,11 @@ function buildProperties(
   return properties;
 }
 
-function buildManagedMarkdown(
-  classification: Classification,
-  message: MessageRecord,
-  checkedAt: string,
-  previous?: string
-): string {
-  const history = updateHistory(previous, classification, checkedAt);
+export function buildOpportunityMarkdown(classification: Classification): string {
   const applicationLine = classification.applicationUrl
     ? `- [Apply or submit here](${classification.applicationUrl})`
     : "- Use the official opportunity page linked above.";
-  return `${MANAGED_START}
-
-_Last checked ${checkedAt} from ${message.source === "hey" ? "HEY" : "Zoho"}: ${escapeInline(message.subject)}._
-
-${classification.bodyMarkdown.trim()}
+  return `${classification.bodyMarkdown.trim()}
 
 ## Key dates and application
 
@@ -311,35 +323,14 @@ ${applicationLine}
 
 ## Classification evidence
 
-${classification.evidence.map((item) => `- ${item}`).join("\n") || "- No short evidence excerpt returned."}
-
-## Automation change history
-
-${history.join("\n")}
-
-${MANAGED_END}`;
+${classification.evidence.map((item) => `- ${item}`).join("\n") || "- No short evidence excerpt returned."}`.trim();
 }
 
-function updateHistory(previous: string | undefined, classification: Classification, checkedAt: string): string[] {
-  const priorLines = previous
-    ?.match(/## Automation change history\s+([\s\S]*?)\s+\*\*End Opportunity Radar managed section\*\*/)?.[1]
-    ?.split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("- ")) ?? [];
-  const priorDeadline = previous?.match(/- Current deadline: ([^\n]+)/)?.[1]?.trim();
-  const date = checkedAt.slice(0, 10);
-  const currentDeadline = classification.dueDate ?? "Rolling or not stated";
-  const event = priorDeadline && priorDeadline !== currentDeadline
-    ? `- ${date}: deadline changed from ${priorDeadline} to ${currentDeadline}.`
-    : `- ${date}: opportunity details refreshed.`;
-  return [event, ...priorLines.filter((line) => line !== event)].slice(0, 12);
-}
-
-function extractManagedBlock(markdown: string): string | null {
-  const start = markdown.indexOf(MANAGED_START);
-  const end = markdown.indexOf(MANAGED_END, start);
+function extractLegacyManagedBlock(markdown: string): string | null {
+  const start = markdown.indexOf(LEGACY_MANAGED_START);
+  const end = markdown.indexOf(LEGACY_MANAGED_END, start);
   if (start === -1 || end === -1) return null;
-  return markdown.slice(start, end + MANAGED_END.length);
+  return markdown.slice(start, end + LEGACY_MANAGED_END.length);
 }
 
 async function notionJson<T = Record<string, unknown>>(
@@ -378,10 +369,6 @@ async function notionJson<T = Record<string, unknown>>(
 
 function requireNotionToken(env: Env): void {
   if (!env.NOTION_TOKEN) throw new Error("Notion is enabled but NOTION_TOKEN is missing");
-}
-
-function escapeInline(value: string): string {
-  return value.replace(/[\r\n]+/g, " ").replace(/([*_`])/g, "\\$1");
 }
 
 function delay(milliseconds: number): Promise<void> {
