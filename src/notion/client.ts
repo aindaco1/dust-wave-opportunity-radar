@@ -36,6 +36,25 @@ export interface NotionPublishResult {
   created: boolean;
 }
 
+export interface NotionSchemaInspection {
+  dataSourceId: string;
+  properties: Array<{ name: string; type: string }>;
+}
+
+export async function inspectNotionSchema(env: Env, config: RuntimeConfig): Promise<NotionSchemaInspection> {
+  requireNotionToken(env);
+  const source = await notionJson<DataSourceResponse>(
+    env.NOTION_TOKEN,
+    `/data_sources/${config.notionDataSourceId}`
+  );
+  return {
+    dataSourceId: source.id,
+    properties: Object.entries(source.properties)
+      .map(([name, property]) => ({ name, type: property.type ?? "unknown" }))
+      .sort((left, right) => left.name.localeCompare(right.name))
+  };
+}
+
 export async function ensureNotionSchema(env: Env, config: RuntimeConfig): Promise<void> {
   if (!config.notionEnabled) return;
   requireNotionToken(env);

@@ -1,5 +1,7 @@
 import { loadRuntimeConfig } from "./config";
 import { ingestForwardedHeyEmail, ingestImportedHeyEmail, type ImportedHeyEmail } from "./ingest/email-worker";
+import { inspectZohoConnection } from "./ingest/zoho";
+import { inspectNotionSchema } from "./notion/client";
 import { readBoundedJson } from "./util/http";
 import { timingSafeEqualText } from "./util/crypto";
 import { localBatchSlot, shouldStartBatch } from "./util/dates";
@@ -55,6 +57,12 @@ const worker = {
           const runs = await env.DB.prepare("SELECT * FROM runs ORDER BY started_at DESC LIMIT 25").all();
           return Response.json({ runs: runs.results });
         }
+        if (request.method === "GET" && url.pathname === "/admin/integrations") {
+          const config = loadRuntimeConfig(env);
+          const notion = await inspectIntegration(() => inspectNotionSchema(env, config));
+          const zoho = await inspectIntegration(() => inspectZohoConnection(env, config));
+          return Response.json({ ok: notion.ok && zoho.ok, notion, zoho }, { status: notion.ok && zoho.ok ? 200 : 502 });
+        }
         if (request.method === "POST" && url.pathname === "/admin/import/hey") {
           let input: ImportedHeyEmail;
           try {
@@ -85,4 +93,14 @@ async function isAuthorized(request: Request, env: Env): Promise<boolean> {
   const prefix = "Bearer ";
   const token = header.startsWith(prefix) ? header.slice(prefix.length) : "";
   return timingSafeEqualText(token, env.ADMIN_TOKEN);
+}
+
+async function inspectIntegration<T>(operation: () => Promise<T>): Promise<
+  { ok: true; value: T } | { ok: false; error: string }
+> {
+  try {
+    return { ok: true, value: await operation() };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }

@@ -58,12 +58,61 @@ export interface ZohoSyncResult {
   skipped: boolean;
 }
 
+export interface ZohoConnectionInspection {
+  accountEmail: string;
+  configuredFolders: string[];
+  matchedFolders: string[];
+}
+
+interface ZohoConnection {
+  mailBase: string;
+  accessToken: string;
+  account: ZohoAccount;
+  selectedFolders: ZohoFolder[];
+}
+
+export async function inspectZohoConnection(env: Env, config: RuntimeConfig): Promise<ZohoConnectionInspection> {
+  const connection = await connectZoho(env, config);
+  return {
+    accountEmail: connection.account.primaryEmailAddress,
+    configuredFolders: [...config.zohoFolders],
+    matchedFolders: connection.selectedFolders.map((folder) => folder.folderName)
+  };
+}
+
 export async function syncZoho(env: Env, config: RuntimeConfig): Promise<ZohoSyncResult> {
   if (!config.zohoEnabled) {
     return { folders: [], fetched: 0, ingested: 0, failed: 0, skipped: true };
   }
-  ensureZohoSecrets(env);
+  const connection = await connectZoho(env, config);
 
+  const result: ZohoSyncResult = {
+    folders: connection.selectedFolders.map((folder) => folder.folderName),
+    fetched: 0,
+    ingested: 0,
+    failed: 0,
+    skipped: false
+  };
+
+  for (const folder of connection.selectedFolders) {
+    const folderResult = await syncZohoFolder(
+      env,
+      config,
+      connection.mailBase,
+      connection.accessToken,
+      connection.account.accountId,
+      folder
+    );
+    result.fetched += folderResult.fetched;
+    result.ingested += folderResult.ingested;
+    result.failed += folderResult.failed;
+  }
+  logInfo("zoho_sync_completed", { ...result });
+  return result;
+}
+
+async function connectZoho(env: Env, config: RuntimeConfig): Promise<ZohoConnection> {
+  ensureZohoSecrets(env);
   const endpoints = DATA_CENTERS[config.zohoDatacenter];
   if (!endpoints) throw new Error(`Unsupported Zoho datacenter: ${config.zohoDatacenter}`);
 
@@ -82,28 +131,13 @@ export async function syncZoho(env: Env, config: RuntimeConfig): Promise<ZohoSyn
     accessToken
   );
   const requested = config.zohoFolders.map((name) => name.toLowerCase());
-  const selected = folders.filter((folder) => requested.includes(folder.folderName.toLowerCase()));
+  const selectedFolders = folders.filter((folder) => requested.includes(folder.folderName.toLowerCase()));
   const missing = config.zohoFolders.filter(
-    (name) => !selected.some((folder) => folder.folderName.toLowerCase() === name.toLowerCase())
+    (name) => !selectedFolders.some((folder) => folder.folderName.toLowerCase() === name.toLowerCase())
   );
   if (missing.length) throw new Error(`Zoho folder(s) not found: ${missing.join(", ")}`);
 
-  const result: ZohoSyncResult = {
-    folders: selected.map((folder) => folder.folderName),
-    fetched: 0,
-    ingested: 0,
-    failed: 0,
-    skipped: false
-  };
-
-  for (const folder of selected) {
-    const folderResult = await syncZohoFolder(env, config, endpoints.mail, accessToken, account.accountId, folder);
-    result.fetched += folderResult.fetched;
-    result.ingested += folderResult.ingested;
-    result.failed += folderResult.failed;
-  }
-  logInfo("zoho_sync_completed", { ...result });
-  return result;
+  return { mailBase: endpoints.mail, accessToken, account, selectedFolders };
 }
 
 async function syncZohoFolder(
