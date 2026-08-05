@@ -1,5 +1,6 @@
 import type { RuntimeConfig } from "../config";
 import type { Classification, MessageRecord } from "../types";
+import { canonicalizeUrl } from "../email/parse";
 import { readBoundedText } from "../util/http";
 
 const NOTION_API = "https://api.notion.com/v1";
@@ -10,6 +11,7 @@ const MANAGED_END = "**End Opportunity Radar managed section**";
 interface NotionPage {
   id: string;
   url?: string;
+  created_time?: string;
   properties?: Record<string, unknown>;
 }
 
@@ -132,14 +134,33 @@ async function findExistingPage(
   const or: Record<string, unknown>[] = [
     { property: "Automation Key", rich_text: { equals: automationKey } }
   ];
-  if (classification.primaryUrl) {
-    or.push({ property: "Website", rich_text: { equals: classification.primaryUrl } });
+  for (const website of notionWebsiteVariants(classification.primaryUrl)) {
+    or.push({ property: "Website", rich_text: { equals: website } });
   }
+  or.push({ property: "Name", title: { equals: classification.title } });
   const response = await notionJson<NotionQueryResponse>(token, `/data_sources/${dataSourceId}/query`, {
     method: "POST",
-    body: JSON.stringify({ filter: { or }, page_size: 5 })
+    body: JSON.stringify({ filter: { or }, page_size: 25 })
   });
-  return response.results[0] ?? null;
+  return response.results
+    .sort((left, right) => (left.created_time ?? "").localeCompare(right.created_time ?? ""))[0] ?? null;
+}
+
+export function notionWebsiteVariants(value: string | null): string[] {
+  if (!value) return [];
+  const canonical = canonicalizeUrl(value);
+  if (!canonical) return [];
+  const url = new URL(canonical);
+  const variants = new Set<string>([canonical]);
+  if (!url.hostname.startsWith("www.")) {
+    const withWww = new URL(url);
+    withWww.hostname = `www.${url.hostname}`;
+    variants.add(withWww.toString());
+  }
+  for (const variant of [...variants]) {
+    if (variant.endsWith("/")) variants.add(variant.slice(0, -1));
+  }
+  return [...variants];
 }
 
 async function updateManagedContent(
@@ -184,20 +205,20 @@ function buildProperties(
     Name: { title: [{ text: { content: classification.title } }] },
     Website: { rich_text: classification.primaryUrl ? [{ text: { content: classification.primaryUrl } }] : [] },
     Tags: { multi_select: classification.tags.map((name) => ({ name })) },
+    Type: { select: classification.type ? { name: classification.type } : null },
+    "Due Date": { date: classification.dueDate ? { start: classification.dueDate } : null },
+    "Application open": {
+      date: classification.applicationOpenStart
+        ? {
+            start: classification.applicationOpenStart,
+            end: classification.applicationOpenEnd ?? undefined
+          }
+        : null
+    },
     "Automation Key": { rich_text: [{ text: { content: automationKey } }] },
     Source: { select: { name: message.source === "hey" ? "HEY" : "Zoho" } },
     "Last Checked": { date: { start: checkedAt } }
   };
-  if (classification.type) properties.Type = { select: { name: classification.type } };
-  if (classification.dueDate) properties["Due Date"] = { date: { start: classification.dueDate } };
-  if (classification.applicationOpenStart) {
-    properties["Application open"] = {
-      date: {
-        start: classification.applicationOpenStart,
-        end: classification.applicationOpenEnd ?? undefined
-      }
-    };
-  }
   return properties;
 }
 

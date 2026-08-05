@@ -189,8 +189,9 @@ export async function upsertOpportunity(
   notionPageId: string
 ): Promise<void> {
   const now = new Date().toISOString();
-  await db
-    .prepare(
+  await db.batch([
+    db.prepare("DELETE FROM opportunities WHERE notion_page_id = ? AND automation_key <> ?").bind(notionPageId, automationKey),
+    db.prepare(
       `INSERT INTO opportunities(
          automation_key, canonical_url, title, organization, notion_page_id,
          latest_message_id, first_seen_at, last_seen_at, last_published_at
@@ -215,7 +216,7 @@ export async function upsertOpportunity(
       now,
       now
     )
-    .run();
+  ]);
 }
 
 export async function listUnsentDigestItems(db: D1Database): Promise<DigestItemRecord[]> {

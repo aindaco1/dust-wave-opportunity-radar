@@ -49,7 +49,7 @@
     "AI_CONFIDENCE_THRESHOLD": "0.82",
     "DIGEST_TO_EMAIL": "alonso@hey.com",
     "DIGEST_FROM_EMAIL": "opportunities@digest.dustwave.xyz",
-    "DIGEST_FROM_NAME": "Dustwave Opportunity Radar",
+    "DIGEST_FROM_NAME": "Dust Wave Opportunity Radar",
     "NOTION_ENABLED": "true",
     "NOTION_DATA_SOURCE_ID": "248a67e1-4d47-48f8-bc84-a9602ca91b78",
     "ZOHO_ENABLED": "true",

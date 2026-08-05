@@ -15,7 +15,8 @@ describe("opportunity digest", () => {
       received_at: "2026-08-04T12:00:00Z"
     };
     const digest = renderOpportunityDigest([item], new Date("2026-08-04T13:00:00Z"), "America/Denver");
-    expect(digest.subject).toContain("Dustwave Opportunity Radar");
+    expect(digest.subject).toContain("Dust Wave Opportunity Radar");
+    expect(digest.html).toContain("Relevant creative-industry calls that need a human look.");
     expect(digest.html).toContain("background:#0f0f0f");
     expect(digest.html).toContain("background:#f05a28");
     expect(digest.html).toContain("Artist &lt;Commission&gt;");

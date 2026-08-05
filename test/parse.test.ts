@@ -1,6 +1,7 @@
 import { zipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { canonicalizeUrl, extractUrls, htmlToText, parseDocxText, parsePdfText } from "../src/email/parse";
+import { notionWebsiteVariants } from "../src/notion/client";
 
 describe("message parsing", () => {
   it("converts email HTML to compact text", () => {
@@ -15,6 +16,15 @@ describe("message parsing", () => {
     expect(urls).toEqual(["https://example.com/call"]);
     expect(canonicalizeUrl("javascript:alert(1)")).toBeNull();
     expect(canonicalizeUrl("https://www.Example.com/call/")).toBe("https://example.com/call");
+  });
+
+  it("generates Notion lookup variants for existing links", () => {
+    expect(notionWebsiteVariants("https://www.Example.com/")).toEqual([
+      "https://example.com/",
+      "https://www.example.com/",
+      "https://example.com",
+      "https://www.example.com"
+    ]);
   });
 
   it("extracts DOCX document text", async () => {

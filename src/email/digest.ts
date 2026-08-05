@@ -58,7 +58,7 @@ export function renderOpportunityDigest(
   }).format(date);
   const grouped = groupItems(items);
   const sections = grouped.map(([category, categoryItems]) => renderSection(category, categoryItems)).join("\n");
-  const subject = `Dustwave Opportunity Radar — ${dateLabel}`;
+  const subject = `Dust Wave Opportunity Radar — ${dateLabel}`;
   const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -78,8 +78,8 @@ export function renderOpportunityDigest(
       <main class="radar-container" style="${styles.container}">
         <header style="${styles.header}">
           <p style="${styles.eyebrow}">${escapeHtml(dateLabel)} · ${items.length} item${items.length === 1 ? "" : "s"}</p>
-          <h1 style="${styles.h1}">Dustwave Opportunity Radar</h1>
-          <p style="${styles.deck}">Relevant creative-industry finds that did not meet the automatic Notion publishing rule. Possible calls are held here when their evidence or confidence needs a human look.</p>
+          <h1 style="${styles.h1}">Dust Wave Opportunity Radar</h1>
+          <p style="${styles.deck}">Relevant creative-industry calls that need a human look.</p>
         </header>
         ${sections}
         <footer style="${styles.footer}">
@@ -90,7 +90,7 @@ export function renderOpportunityDigest(
   </body>
 </html>`;
   const text = [
-    `DUSTWAVE OPPORTUNITY RADAR — ${dateLabel}`,
+    `DUST WAVE OPPORTUNITY RADAR — ${dateLabel}`,
     "",
     ...grouped.flatMap(([category, categoryItems]) => [
       category.toUpperCase(),
