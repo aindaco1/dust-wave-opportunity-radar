@@ -90,24 +90,52 @@ export async function classifyMessage(
   }
 
   const schema = z.toJSONSchema(classificationSchema, { target: "draft-7" });
-  const response = await ai.run(
-    MODEL,
-    {
+  const messages = [
+    { role: "system" as const, content: systemPrompt(config.aiConfidenceThreshold) },
+    { role: "user" as const, content: buildEvidencePacket(message, pages) }
+  ];
+  let response: unknown;
+  try {
+    response = await ai.run(
+      MODEL,
+      {
+        messages,
+        response_format: {
+          type: "json_schema",
+          json_schema: schema
+        },
+        temperature: 0.1,
+        max_tokens: 2_500
+      },
+      { tags: ["dustwave", "opportunity-classifier"] }
+    );
+  } catch (error) {
+    if (!isStructuredOutputFailure(error)) throw error;
+    const fallbackInput: Ai_Cf_Meta_Llama_3_3_70B_Instruct_Fp8_Fast_Messages = {
       messages: [
-        { role: "system", content: systemPrompt(config.aiConfidenceThreshold) },
+        {
+          role: "system",
+          content: `${systemPrompt(config.aiConfidenceThreshold)}\n\nReturn exactly one JSON object matching this JSON Schema:\n${JSON.stringify(schema)}`
+        },
         { role: "user", content: buildEvidencePacket(message, pages) }
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: schema
-      },
+      response_format: { type: "json_object" },
       temperature: 0.1,
       max_tokens: 2_500
-    },
-    { tags: ["dustwave", "opportunity-classifier"] }
-  );
+    };
+    response = await ai.run(
+      MODEL,
+      fallbackInput,
+      { tags: ["dustwave", "opportunity-classifier-json-fallback"] }
+    );
+  }
   const parsed = parseClassificationResponse(response);
   return enforceClassificationPolicy(parsed, config.aiConfidenceThreshold);
+}
+
+function isStructuredOutputFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("JSON Model couldn't be met") || message.includes("5024");
 }
 
 export function parseClassificationResponse(response: unknown): Classification {
