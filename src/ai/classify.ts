@@ -133,6 +133,32 @@ export async function classifyMessage(
   return enforceClassificationPolicy(parsed, config.aiConfidenceThreshold);
 }
 
+export function buildManualReviewClassification(message: ParsedMessage, error: unknown): Classification {
+  const title = (message.subject.trim() || "Email needing human review").slice(0, 240);
+  const sender = message.senderName?.trim() || message.senderEmail?.trim() || "the sender";
+  const errorMessage = (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 500);
+  return classificationSchema.parse({
+    decision: "digest",
+    confidence: 0,
+    title,
+    organization: message.senderName?.trim().slice(0, 240) || null,
+    summary: `Automatic classification could not produce a reliable structured result. Review the original ${message.source.toUpperCase()} email from ${sender}.`,
+    bodyMarkdown: "",
+    primaryUrl: message.urls[0] ?? null,
+    applicationUrl: null,
+    dueDate: null,
+    applicationOpenStart: null,
+    applicationOpenEnd: null,
+    type: null,
+    tags: [],
+    digestCategory: "Possible Opportunities",
+    eligibleStates: [],
+    explicitlyExcludedStates: [],
+    evidence: [`Email subject: ${title}`.slice(0, 400)],
+    rationale: `Sent for human review after automated classification exhausted its retries: ${errorMessage}`
+  });
+}
+
 function isStructuredOutputFailure(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes("JSON Model couldn't be met") || message.includes("5024");

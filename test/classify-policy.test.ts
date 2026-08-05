@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { enforceClassificationPolicy, parseClassificationResponse } from "../src/ai/classify";
+import {
+  buildManualReviewClassification,
+  enforceClassificationPolicy,
+  parseClassificationResponse
+} from "../src/ai/classify";
 import type { Classification } from "../src/types";
 
 describe("classification policy", () => {
@@ -48,6 +52,29 @@ describe("Workers AI classification response parsing", () => {
   it("parses legacy binding response strings", () => {
     const expected = baseClassification();
     expect(parseClassificationResponse({ response: JSON.stringify(expected) })).toEqual(expected);
+  });
+});
+
+describe("exhausted AI classification", () => {
+  it("sends the email to the human-review digest", () => {
+    const result = buildManualReviewClassification({
+      source: "zoho",
+      mailbox: "Newsletter",
+      externalId: "123",
+      subject: "Community opportunities roundup",
+      senderName: "American Film Association",
+      senderEmail: "news@example.org",
+      receivedAt: "2026-08-05T12:00:00Z",
+      text: "Roundup content",
+      urls: ["https://example.org/roundup"],
+      attachments: [],
+      warnings: []
+    }, new Error("Workers AI returned empty classification content"));
+
+    expect(result.decision).toBe("digest");
+    expect(result.digestCategory).toBe("Possible Opportunities");
+    expect(result.primaryUrl).toBe("https://example.org/roundup");
+    expect(result.summary).toContain("Review the original ZOHO email");
   });
 });
 

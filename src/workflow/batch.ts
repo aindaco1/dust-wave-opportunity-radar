@@ -1,5 +1,5 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
-import { classifyMessage } from "../ai/classify";
+import { buildManualReviewClassification, classifyMessage } from "../ai/classify";
 import { loadRuntimeConfig } from "../config";
 import { renderOpportunityDigest, sendOpportunityDigest } from "../email/digest";
 import { parseStoredMessage } from "../email/parse";
@@ -23,7 +23,14 @@ import {
   upsertDigestItem,
   upsertOpportunity
 } from "../storage/database";
-import { classificationSchema, type BatchParams, type BatchSummary, type MessageRecord, type ProcessResult } from "../types";
+import {
+  classificationSchema,
+  type BatchParams,
+  type BatchSummary,
+  type Classification,
+  type MessageRecord,
+  type ProcessResult
+} from "../types";
 import { sha256Hex } from "../util/crypto";
 import { subtractHours } from "../util/dates";
 import { logError, logInfo } from "../util/log";
@@ -127,7 +134,18 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
       await saveParsedKey(this.env.DB, message.id, parsedKey);
 
       const pages = await enrichCandidateUrls(parsed.urls);
-      const classification = await classifyMessage(this.env.AI, config, parsed, pages);
+      let classification: Classification;
+      try {
+        classification = await classifyMessage(this.env.AI, config, parsed, pages);
+      } catch (error) {
+        if (message.attempts + 1 < 4) throw error;
+        classification = buildManualReviewClassification(parsed, error);
+        logInfo("classification_exhausted_sent_to_digest", {
+          messageId: message.id,
+          source: message.source,
+          attempts: message.attempts + 1
+        });
+      }
       if (classification.decision === "notion") {
         await saveClassification(this.env.DB, message.id, classification, "pending_notion", classification.primaryUrl);
         if (!config.notionEnabled) {
