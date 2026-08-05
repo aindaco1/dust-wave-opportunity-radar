@@ -211,6 +211,7 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
       messageId: message.id,
       pageId: published.pageId,
       created: published.created,
+      trashedDuplicatePageIds: published.trashedDuplicatePageIds,
       title: classification.title
     });
     return { messageId: message.id, status: "notion", title: classification.title };

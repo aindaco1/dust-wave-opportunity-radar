@@ -41,6 +41,16 @@ describe("message parsing", () => {
       "2026-2027 Short Animation Fellowship Application",
       "Titmouse Foundation — Short Animation Fellowship"
     )).toBe(true);
+    expect(opportunityTitlesLikelySame(
+      "2027 Taos Film Festival",
+      "Taos Film Festival Submission"
+    )).toBe(true);
+    expect(opportunityTitlesLikelySame(
+      "Submit now: 2027 Taos Film Festival deadline",
+      "Taos Film Festival Submission"
+    )).toBe(true);
+    expect(opportunityTitlesLikelySame("Sundance Lab", "Sundance Lab Application")).toBe(true);
+    expect(opportunityTitlesLikelySame("2026 Taos Film Festival", "2027 Taos Film Festival")).toBe(false);
     expect(opportunityTitlesLikelySame("IMGN Short Film Fund", "Other Short Film Fund")).toBe(false);
   });
 

@@ -37,6 +37,7 @@ export interface NotionPublishResult {
   url?: string;
   created: boolean;
   managedMarkdown: string;
+  trashedDuplicatePageIds: string[];
 }
 
 export interface NotionSchemaInspection {
@@ -102,7 +103,8 @@ export async function publishOpportunity(
   if (!config.notionEnabled) throw new Error("Notion publishing is disabled");
   requireNotionToken(env);
 
-  const existing = await findExistingPage(env.NOTION_TOKEN, config.notionDataSourceId, automationKey, classification);
+  const match = await findExistingPages(env, config.notionDataSourceId, automationKey, classification);
+  const existing = match?.canonical ?? null;
   const checkedAt = new Date().toISOString();
   const properties = buildProperties(message, classification, automationKey, checkedAt);
   const managedMarkdown = buildOpportunityMarkdown(classification);
@@ -116,7 +118,13 @@ export async function publishOpportunity(
         markdown: managedMarkdown
       })
     });
-    return { pageId: created.id, url: created.url, created: true, managedMarkdown };
+    return {
+      pageId: created.id,
+      url: created.url,
+      created: true,
+      managedMarkdown,
+      trashedDuplicatePageIds: []
+    };
   }
 
   await notionJson<NotionPage>(env.NOTION_TOKEN, `/pages/${existing.id}`, {
@@ -124,15 +132,22 @@ export async function publishOpportunity(
     body: JSON.stringify({ properties })
   });
   await updateManagedContent(env, existing.id, managedMarkdown);
-  return { pageId: existing.id, url: existing.url, created: false, managedMarkdown };
+  const trashedDuplicatePageIds = await trashAutomationOwnedDuplicates(env, match?.duplicates ?? []);
+  return {
+    pageId: existing.id,
+    url: existing.url,
+    created: false,
+    managedMarkdown,
+    trashedDuplicatePageIds
+  };
 }
 
-async function findExistingPage(
-  token: string,
+async function findExistingPages(
+  env: Env,
   dataSourceId: string,
   automationKey: string,
   classification: Classification
-): Promise<NotionPage | null> {
+): Promise<{ canonical: NotionPage; duplicates: NotionPage[] } | null> {
   const or: Record<string, unknown>[] = [
     { property: "Automation Key", rich_text: { equals: automationKey } }
   ];
@@ -141,11 +156,21 @@ async function findExistingPage(
   }
   or.push({ property: "Name", title: { equals: classification.title } });
   or.push(...fuzzyTitleFilters(classification.title));
-  const response = await notionJson<NotionQueryResponse>(token, `/data_sources/${dataSourceId}/query`, {
-    method: "POST",
-    body: JSON.stringify({ filter: { or }, page_size: 50 })
-  });
-  const acceptable = response.results.filter((page) => {
+  const candidates: NotionPage[] = [];
+  let cursor: string | null | undefined;
+  do {
+    const response = await notionJson<NotionQueryResponse>(env.NOTION_TOKEN, `/data_sources/${dataSourceId}/query`, {
+      method: "POST",
+      body: JSON.stringify({
+        filter: { or },
+        page_size: 100,
+        ...(cursor ? { start_cursor: cursor } : {})
+      })
+    });
+    candidates.push(...response.results);
+    cursor = response.has_more ? response.next_cursor : null;
+  } while (cursor);
+  const acceptable = candidates.filter((page) => {
     const key = notionPropertyText(page, "Automation Key");
     const website = notionPropertyText(page, "Website");
     const title = notionPropertyText(page, "Name");
@@ -153,13 +178,21 @@ async function findExistingPage(
       || notionWebsiteVariants(website).some((variant) => notionWebsiteVariants(classification.primaryUrl).includes(variant))
       || opportunityTitlesLikelySame(title, classification.title);
   });
-  return acceptable
-    .sort((left, right) => (left.created_time ?? "").localeCompare(right.created_time ?? ""))[0] ?? null;
+  const sorted = acceptable.sort((left, right) => (left.created_time ?? "").localeCompare(right.created_time ?? ""));
+  const oldest = sorted[0];
+  if (!oldest) return null;
+  const ownership = await Promise.all(sorted.map(async (page) => ({
+    page,
+    automated: await isAutomationOwnedPage(env, page)
+  })));
+  const canonical = ownership.find((candidate) => !candidate.automated)?.page ?? oldest;
+  return { canonical, duplicates: sorted.filter((page) => page.id !== canonical.id) };
 }
 
 const TITLE_NOISE = new Set([
   "a", "an", "and", "application", "applications", "apply", "call", "calls", "for", "of", "open",
-  "opportunity", "program", "programme", "submission", "submissions", "the", "to"
+  "deadline", "deadlines", "entries", "entry", "opportunity", "program", "programme", "register",
+  "registration", "submission", "submissions", "submit", "submitting", "the", "to"
 ]);
 
 export function meaningfulOpportunityTitleTokens(value: string): string[] {
@@ -169,24 +202,42 @@ export function meaningfulOpportunityTitleTokens(value: string): string[] {
       .toLowerCase()
       .replace(/[\u0300-\u036f]/g, "")
       .split(/[^a-z0-9]+/)
-      .filter((token) => token.length > 1 && !/^\d{4}$/.test(token) && !TITLE_NOISE.has(token))
+      .filter((token) =>
+        token.length > 1
+        && !/^\d{4}$/.test(token)
+        && !/^\d+(?:st|nd|rd|th)$/.test(token)
+        && !TITLE_NOISE.has(token)
+      )
   )];
 }
 
 export function opportunityTitlesLikelySame(left: string, right: string): boolean {
+  const leftYears = titleYears(left);
+  const rightYears = titleYears(right);
+  if (leftYears.length && rightYears.length && !leftYears.some((year) => rightYears.includes(year))) return false;
   const leftTokens = meaningfulOpportunityTitleTokens(left);
   const rightTokens = meaningfulOpportunityTitleTokens(right);
-  if (leftTokens.length < 3 || rightTokens.length < 3) return false;
+  if (leftTokens.length < 2 || rightTokens.length < 2) return false;
   const rightSet = new Set(rightTokens);
   const intersection = leftTokens.filter((token) => rightSet.has(token)).length;
   const shorter = Math.min(leftTokens.length, rightTokens.length);
   const union = new Set([...leftTokens, ...rightTokens]).size;
+  if (shorter === 2) return intersection === 2 && union === 2;
   return intersection === shorter || (intersection >= 3 && intersection / union >= 0.75);
+}
+
+function titleYears(value: string): string[] {
+  return [...new Set(value.match(/\b(?:19|20)\d{2}\b/g) ?? [])];
 }
 
 function fuzzyTitleFilters(title: string): Record<string, unknown>[] {
   const tokens = meaningfulOpportunityTitleTokens(title).slice(0, 6);
-  if (tokens.length < 3) return [];
+  if (tokens.length < 2) return [];
+  if (tokens.length === 2) {
+    return [{
+      and: tokens.map((token) => ({ property: "Name", title: { contains: token } }))
+    }];
+  }
   const filters: Record<string, unknown>[] = [];
   for (let first = 0; first < tokens.length - 2; first += 1) {
     for (let second = first + 1; second < tokens.length - 1; second += 1) {
@@ -201,6 +252,24 @@ function fuzzyTitleFilters(title: string): Record<string, unknown>[] {
     }
   }
   return filters;
+}
+
+async function trashAutomationOwnedDuplicates(env: Env, duplicates: NotionPage[]): Promise<string[]> {
+  const trashed: string[] = [];
+  for (const duplicate of duplicates) {
+    if (!(await isAutomationOwnedPage(env, duplicate))) continue;
+    await trashNotionPage(env, duplicate.id);
+    trashed.push(duplicate.id);
+  }
+  return trashed;
+}
+
+async function isAutomationOwnedPage(env: Env, page: NotionPage): Promise<boolean> {
+  if (notionPropertyText(page, "Automation Key")) return true;
+  return Boolean(await env.DB
+    .prepare("SELECT notion_page_id FROM opportunities WHERE notion_page_id = ? LIMIT 1")
+    .bind(page.id)
+    .first("notion_page_id"));
 }
 
 function notionPropertyText(page: NotionPage, propertyName: string): string {
