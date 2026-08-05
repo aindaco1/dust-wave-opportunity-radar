@@ -263,14 +263,17 @@ async function fetchZohoRawMessage(
     const bytes = await readBoundedBytes(original, MAX_RAW_BYTES);
     const contentType = original.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
-      const decoded = JSON.parse(new TextDecoder().decode(bytes)) as ZohoApiResponse<string>;
-      if (typeof decoded.data !== "string") throw new Error("Zoho original message response did not contain MIME text");
-      return new TextEncoder().encode(decoded.data).buffer;
+      const decoded = JSON.parse(new TextDecoder().decode(bytes)) as ZohoApiResponse<
+        string | { content?: string }
+      >;
+      const mime = typeof decoded.data === "string" ? decoded.data : decoded.data?.content;
+      if (mime) return new TextEncoder().encode(mime).buffer;
+    } else {
+      return new Uint8Array(bytes).buffer;
     }
-    return new Uint8Array(bytes).buffer;
   }
 
-  await original.body?.cancel();
+  if (!original.ok) await original.body?.cancel();
   const content = await zohoData<{ content?: string }>(
     mailBase,
     `/accounts/${accountId}/folders/${folderId}/messages/${email.messageId}/content`,
