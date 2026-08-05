@@ -1,0 +1,21 @@
+name: Sync Zoho source only
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pull configured Zoho folders
+        env:
+          WORKER_URL: ${{ vars.WORKER_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: Bearer $ADMIN_TOKEN" \
+            "$WORKER_URL/admin/sync/zoho" | jq .

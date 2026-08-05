@@ -111,7 +111,11 @@ export async function classifyMessage(
 }
 
 export function parseClassificationResponse(response: unknown): Classification {
-  return classificationSchema.parse(unwrapAiValue(response));
+  const candidate = unwrapAiValue(response);
+  const result = classificationSchema.safeParse(candidate);
+  if (result.success) return result.data;
+  const preview = JSON.stringify(candidate).slice(0, 1_000);
+  throw new Error(`Workers AI returned an invalid classification. Candidate: ${preview}. Issues: ${result.error.message}`);
 }
 
 function unwrapAiValue(value: unknown, depth = 0): unknown {

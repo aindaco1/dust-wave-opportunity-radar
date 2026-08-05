@@ -1,6 +1,6 @@
 import { loadRuntimeConfig } from "./config";
 import { ingestForwardedHeyEmail, ingestImportedHeyEmail, type ImportedHeyEmail } from "./ingest/email-worker";
-import { inspectZohoConnection } from "./ingest/zoho";
+import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
 import { inspectNotionSchema } from "./notion/client";
 import { readBoundedJson } from "./util/http";
 import { timingSafeEqualText } from "./util/crypto";
@@ -62,6 +62,10 @@ const worker = {
           const notion = await inspectIntegration(() => inspectNotionSchema(env, config));
           const zoho = await inspectIntegration(() => inspectZohoConnection(env, config));
           return Response.json({ ok: notion.ok && zoho.ok, notion, zoho }, { status: notion.ok && zoho.ok ? 200 : 502 });
+        }
+        if (request.method === "POST" && url.pathname === "/admin/sync/zoho") {
+          const config = loadRuntimeConfig(env);
+          return Response.json(await syncZoho(env, config));
         }
         if (request.method === "POST" && url.pathname === "/admin/import/hey") {
           let input: ImportedHeyEmail;

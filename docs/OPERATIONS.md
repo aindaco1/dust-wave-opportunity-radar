@@ -30,9 +30,12 @@ curl https://WORKER_URL/admin/runs \
 
 curl https://WORKER_URL/admin/integrations \
   -H "Authorization: Bearer $ADMIN_TOKEN"
+
+curl -X POST https://WORKER_URL/admin/sync/zoho \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
-`/health` is public and exposes flags only, never credentials or message data. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only credential, Notion schema, Zoho account, and configured-folder checks without returning message content or tokens.
+`/health` is public and exposes flags only, never credentials or message data. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only credential, Notion schema, Zoho account, and configured-folder checks without returning message content or tokens. `/admin/sync/zoho` pulls only the configured Zoho folders without starting classification or digest delivery.
 
 Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `message_processing_failed`, `digest_sent`, and `batch_completed`.
 
