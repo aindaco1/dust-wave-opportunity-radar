@@ -36,8 +36,8 @@ Email and page text are treated as untrusted evidence, never as instructions. Th
 
 The application can be deployed with the safe source flags in [`wrangler.jsonc`](wrangler.jsonc):
 
-- `NOTION_ENABLED=false` — qualifying items remain `pending_notion`; none are lost.
-- `ZOHO_ENABLED=false` — HEY ingestion and processing can operate independently.
+- `NOTION_ENABLED=true` — qualifying items publish to the connected Opportunities data source.
+- `ZOHO_ENABLED=true` — the configured Zoho folders are synchronized at each batch.
 - HEY forwarding must be enabled once in the HEY account after Cloudflare provisions the inbound address.
 
 See [Setup](docs/SETUP.md) for the remaining account steps and [Operations](docs/OPERATIONS.md) for monitoring and recovery.

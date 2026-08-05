@@ -66,7 +66,7 @@ Change `ZOHO_ENABLED` to `true` in `wrangler.jsonc`, deploy, and manually start 
 
 Zoho’s OAuth authorization-code process is documented at [Zoho Mail OAuth 2.0](https://www.zoho.com/mail/help/api/using-oauth-2.html).
 
-## 5. Notion (deferred)
+## 5. Notion
 
 When integration access is ready, share the Opportunities data source with the integration and install its token:
 
