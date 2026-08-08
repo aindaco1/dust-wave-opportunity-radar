@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { readFile, unlink } from "node:fs/promises";
 import path from "node:path";
+import { parseBackfillTargets } from "./hey-backfill-targets.mjs";
 
 const workerUrl = requiredEnv("WORKER_URL").replace(/\/$/, "");
 const adminToken = requiredEnv("ADMIN_TOKEN");
@@ -9,6 +10,7 @@ const mcpRoot = path.resolve(requiredEnv("HEY_MCP_ROOT"));
 const days = positiveInteger(process.env.BACKFILL_DAYS ?? "7", "BACKFILL_DAYS", 31);
 const cutoff = new Date(Date.now() - days * 86_400_000);
 const folders = ["imbox", "feed", "paper_trail"];
+const targets = parseBackfillTargets(process.env.HEY_BACKFILL_TARGETS_JSON);
 const seen = new Set();
 let imported = 0;
 let skipped = 0;
@@ -23,8 +25,19 @@ const client = new Client({ name: "dustwave-hey-backfill", version: "0.1.0" });
 
 try {
   await client.connect(transport);
-  for (const folder of folders) await importFolder(folder);
-  console.log(JSON.stringify({ imported, skipped, cutoff: cutoff.toISOString(), folders }));
+  if (targets.length) {
+    for (const target of targets) await importThread(target.id, target.folder, {});
+  } else {
+    for (const folder of folders) await importFolder(folder);
+  }
+  console.log(JSON.stringify({
+    imported,
+    skipped,
+    cutoff: cutoff.toISOString(),
+    mode: targets.length ? "targeted" : "folders",
+    targetCount: targets.length,
+    folders: targets.length ? [...new Set(targets.map((target) => target.folder))] : folders
+  }));
 } finally {
   await client.close().catch(() => undefined);
 }

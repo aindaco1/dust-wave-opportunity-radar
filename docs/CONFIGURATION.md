@@ -59,6 +59,7 @@ Install with `npx wrangler secret put NAME`. Use a random admin token with at le
 | Secret | `CLOUDFLARE_API_TOKEN` | Manual deploy/migration workflow |
 | Secret | `ADMIN_TOKEN` | Manual admin workflows and HEY import |
 | Secret | `HEY_COOKIES_JSON` | Temporary HEY historical import only; delete afterward |
+| Secret | `HEY_BACKFILL_TARGETS_JSON` | Optional temporary recovery list of `{id,folder}` objects; delete afterward |
 | Variable | `CLOUDFLARE_ACCOUNT_ID` | Wrangler deployment target |
 | Variable | `WORKER_URL` | Manual admin workflow target |
 

@@ -33,6 +33,14 @@ jobs:
       - run: npm ci
       - run: bun install --frozen-lockfile
         working-directory: mcp-hey
+      - name: Apply audited HEY pagination compatibility patch
+        working-directory: mcp-hey
+        run: |
+          git apply --check "$GITHUB_WORKSPACE/patches/mcp-hey-pagination.patch"
+          git apply "$GITHUB_WORKSPACE/patches/mcp-hey-pagination.patch"
+      - name: Test patched HEY pagination
+        working-directory: mcp-hey
+        run: bun test src/__tests__/pagination.test.ts
       - name: Install HEY session
         shell: bash
         env:
@@ -45,3 +53,4 @@ jobs:
           WORKER_URL: ${{ vars.WORKER_URL }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           BACKFILL_DAYS: ${{ inputs.days }}
+          HEY_BACKFILL_TARGETS_JSON: ${{ secrets.HEY_BACKFILL_TARGETS_JSON }}

@@ -49,14 +49,14 @@ HEY’s official forwarding sends all non-spam mail, including material surfaced
 
 ## 3. HEY seven-day backfill
 
-Ongoing forwarding does not backfill existing mail. The manual GitHub Action runs the pinned `Sealjay/mcp-hey` revision on a disposable GitHub runner, imports Imbox/Feed/Paper Trail, then the runner is destroyed.
+Ongoing forwarding does not backfill existing mail. The manual GitHub Action runs the pinned `Sealjay/mcp-hey` revision on a disposable GitHub runner, applies the repository's reviewed pagination compatibility patch, runs the upstream pagination regression test, imports Imbox/Feed/Paper Trail, then the runner is destroyed. The patch accepts both root and folder-scoped opaque cursor links; without it, HEY can silently repeat the newest page.
 
 Because HEY has no public read API, this one-time path needs a valid `data/hey-cookies.json` captured by upstream `mcp-hey` on an authenticated machine. Add its complete JSON value as the private repository secret `HEY_COOKIES_JSON`. Also add:
 
 - repository secret `ADMIN_TOKEN` — same value installed in the Worker
 - repository variable `WORKER_URL` — deployed `https://…workers.dev` URL
 
-Run Actions → **HEY seven-day backfill** → Run workflow. The importer is idempotent by the stable HEY external ID and imports Imbox, Feed, and Paper Trail over the selected window. Delete `HEY_COOKIES_JSON` after the backfill succeeds. Ongoing official forwarding does not require this cookie.
+Run Actions → **HEY seven-day backfill** → Run workflow. The importer is idempotent by the stable HEY external ID and imports Imbox, Feed, and Paper Trail over the selected window. For a proven pagination gap, an operator may temporarily set `HEY_BACKFILL_TARGETS_JSON` to a bounded array of `{id,folder}` objects so the runner reads only those known threads. Delete `HEY_COOKIES_JSON` and `HEY_BACKFILL_TARGETS_JSON` after the backfill succeeds. Ongoing official forwarding does not require either secret.
 
 ## 4. Zoho OAuth
 
