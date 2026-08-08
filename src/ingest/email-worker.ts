@@ -16,6 +16,10 @@ export interface ImportedHeyEmail {
 }
 
 export async function ingestForwardedHeyEmail(message: ForwardableEmailMessage, env: Env): Promise<void> {
+  if (!Number.isSafeInteger(message.rawSize) || message.rawSize < 1) {
+    message.setReject("Message has an invalid size");
+    return;
+  }
   if (message.rawSize > MAX_RAW_MESSAGE_BYTES) {
     message.setReject("Message exceeds the 25 MiB ingestion limit");
     return;
@@ -27,9 +31,11 @@ export async function ingestForwardedHeyEmail(message: ForwardableEmailMessage, 
   const receivedAt = parseDate(message.headers.get("date"), new Date()).toISOString();
   const datePrefix = receivedAt.slice(0, 10);
   const rawR2Key = `raw/hey/${datePrefix}/${id}.eml`;
+  let phase: "r2_upload" | "d1_upsert" = "r2_upload";
 
   try {
-    await env.MAIL_BUCKET.put(rawR2Key, message.raw, {
+    const fixedLengthRaw = message.raw.pipeThrough(new FixedLengthStream(message.rawSize));
+    await env.MAIL_BUCKET.put(rawR2Key, fixedLengthRaw, {
       httpMetadata: { contentType: "message/rfc822" },
       customMetadata: {
         source: "hey",
@@ -38,6 +44,7 @@ export async function ingestForwardedHeyEmail(message: ForwardableEmailMessage, 
       }
     });
 
+    phase = "d1_upsert";
     await upsertMessage(env.DB, {
       id,
       source: "hey",
@@ -50,12 +57,12 @@ export async function ingestForwardedHeyEmail(message: ForwardableEmailMessage, 
       rawR2Key,
       rawSize: message.rawSize
     });
-    logInfo("hey_email_ingested", { id, externalId, rawSize: message.rawSize });
+    logInfo("hey_email_ingested", { id, rawSize: message.rawSize });
   } catch (error) {
     await env.MAIL_BUCKET.delete(rawR2Key).catch((cleanupError: unknown) => {
       logError("hey_ingest_cleanup_failed", cleanupError, { rawR2Key });
     });
-    logError("hey_email_ingest_failed", error, { id, externalId });
+    logError("hey_email_ingest_failed", error, { id, phase, rawSize: message.rawSize });
     throw error;
   }
 }
@@ -104,7 +111,7 @@ export async function ingestImportedHeyEmail(input: ImportedHeyEmail, env: Env):
     await env.MAIL_BUCKET.delete(rawR2Key).catch(() => undefined);
     throw error;
   }
-  logInfo("hey_email_backfill_ingested", { id, externalId, rawSize: raw.byteLength, mailbox });
+  logInfo("hey_email_backfill_ingested", { id, rawSize: raw.byteLength, mailbox });
   return { id };
 }
 

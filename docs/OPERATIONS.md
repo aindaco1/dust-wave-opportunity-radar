@@ -42,7 +42,7 @@ curl -X POST https://WORKER_URL/admin/notion/trash \
 
 `/health` is public and exposes flags only, never credentials or message data. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only credential, Notion schema, Zoho account, and configured-folder checks without returning message content or tokens. `/admin/sync/zoho` pulls only the configured Zoho folders without starting classification or digest delivery. `/admin/notion/trash` is an authenticated recovery tool; it moves exactly one supplied page ID to Notion trash and can be reversed in Notion.
 
-Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `classification_exhausted_sent_to_digest`, `notion_publish_deferred`, `message_processing_failed`, and `digest_sent`. Use `/admin/runs` for authoritative completed/failed run counts.
+Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `classification_exhausted_sent_to_digest`, `notion_publish_deferred`, `message_processing_failed`, and `digest_sent`. A `hey_email_ingest_failed` event includes a privacy-safe `phase` (`r2_upload` or `d1_upsert`), the internal hashed message ID, and the declared raw size; it never includes sender, subject, Message-ID, or MIME content. Use `/admin/runs` for authoritative completed/failed run counts.
 
 See [Admin API](API.md) for response shapes and boundary errors.
 
@@ -82,6 +82,7 @@ See [Admin API](API.md) for response shapes and boundary errors.
 - Expired Zoho refresh token: install a new `ZOHO_REFRESH_TOKEN`, then manually run.
 - Notion outage: leave `NOTION_ENABLED=true`, correct access, then manually run; `pending_notion` drains. A page whose prior generated body was manually edited requires deliberate reconciliation rather than automatic overwrite.
 - HEY forwarding interruption: restore forwarding. For a gap longer than retained messages, rerun the HEY backfill Action with the required day count (maximum 31).
+- HEY Worker exception: reproduce with `test/email-runtime.test.ts`, fix and deploy, verify one synthetic inbound canary reaches R2 and D1, then backfill the historical gap. Do not backfill while live delivery still fails.
 
 ## Safe rollout
 

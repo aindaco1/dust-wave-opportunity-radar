@@ -3,6 +3,7 @@ import { ingestForwardedHeyEmail, ingestImportedHeyEmail } from "../src/ingest/e
 import { getMessage } from "../src/storage/database";
 import { env as baseEnv } from "./support/fixtures";
 import { createTestDatabase, type TestDatabase } from "./support/d1";
+import "./support/fixed-length-stream";
 
 const open: TestDatabase[] = [];
 
@@ -95,6 +96,15 @@ describe("forwarded HEY ingestion", () => {
     expect(bucket.put).not.toHaveBeenCalled();
   });
 
+  it.each([Number.NaN, -1, 0, 1.5])("rejects an invalid platform raw size (%s)", async (rawSize) => {
+    const { env, bucket } = setup();
+    const setReject = vi.fn();
+    const message = { rawSize, setReject } as unknown as ForwardableEmailMessage;
+    await ingestForwardedHeyEmail(message, env);
+    expect(setReject).toHaveBeenCalledWith("Message has an invalid size");
+    expect(bucket.put).not.toHaveBeenCalled();
+  });
+
   it("queues a valid forwarded MIME stream and sanitizes headers", async () => {
     const { env } = setup();
     const raw = "Message-ID: <forwarded-1@example.org>\r\nSubject: Open call\r\n\r\nApply";
@@ -125,5 +135,23 @@ describe("forwarded HEY ingestion", () => {
       mailbox: "Forwarded non-spam",
       subject: "Film  call"
     });
+  });
+
+  it("rejects a raw stream whose bytes do not match the declared size", async () => {
+    const { env, bucket, objects } = setup();
+    const raw = "Subject: Short\r\n\r\nBody";
+    const message = {
+      rawSize: raw.length + 1,
+      raw: new Response(raw).body,
+      from: "sender@example.org",
+      headers: new Headers({ "message-id": "<short@example.org>" }),
+      setReject: vi.fn()
+    } as unknown as ForwardableEmailMessage;
+
+    await expect(ingestForwardedHeyEmail(message, env)).rejects.toThrow("too few bytes");
+    expect(bucket.delete).toHaveBeenCalledOnce();
+    expect(objects.size).toBe(0);
+    await expect(env.DB.prepare("SELECT COUNT(*) AS count FROM messages").first<{ count: number }>())
+      .resolves.toEqual({ count: 0 });
   });
 });
