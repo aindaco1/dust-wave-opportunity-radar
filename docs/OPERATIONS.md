@@ -42,7 +42,9 @@ curl -X POST https://WORKER_URL/admin/notion/trash \
 
 `/health` is public and exposes flags only, never credentials or message data. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only credential, Notion schema, Zoho account, and configured-folder checks without returning message content or tokens. `/admin/sync/zoho` pulls only the configured Zoho folders without starting classification or digest delivery. `/admin/notion/trash` is an authenticated recovery tool; it moves exactly one supplied page ID to Notion trash and can be reversed in Notion.
 
-Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `message_processing_failed`, `digest_sent`, and `batch_completed`.
+Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `classification_exhausted_sent_to_digest`, `notion_publish_deferred`, `message_processing_failed`, and `digest_sent`. Use `/admin/runs` for authoritative completed/failed run counts.
+
+See [Admin API](API.md) for response shapes and boundary errors.
 
 ## Expected states
 
@@ -54,13 +56,15 @@ Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, 
 | `notion` | Published or updated | None |
 | `digest` | Added to digest queue/sent | None |
 | `ignored` | Deterministically or semantically irrelevant | None |
-| `failed` | Parsing/classification/publishing failed | Check `last_error` and logs; retry after correcting cause |
+| `failed` | Parsing/storage/unhandled processing failed | Check `last_error` and logs; retry after correcting cause |
 
 ## Failure behavior
 
 - External APIs retry rate limits and server errors with bounded exponential backoff.
-- A message failure does not abort the entire digest.
+- A message failure does not abort other message processing or a non-empty digest.
+- Invalid full AI output receives a smaller recovery classification. If both AI passes fail, the message becomes a generic human-review digest item rather than disappearing.
 - Notion-disabled calls are retained as structured classifications; 24-hour raw-mail deletion does not lose the classification.
+- Notion API failures remain `pending_notion` rather than becoming terminal `failed` rows.
 - Empty digests are not sent.
 - Missing Zoho folders, credentials, or Notion access fail explicitly and leave source flags visible in `/health`.
 
@@ -74,9 +78,9 @@ Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, 
 ## Recovery
 
 - Missed regular run: use `/admin/run`; source checkpoints overlap by one hour.
-- Duplicate source delivery: D1 unique source/external-ID keys and Notion automation keys make reprocessing idempotent.
+- Duplicate source delivery: D1 unique source/external-ID keys make ingestion idempotent. Notion find-before-create combines automation key, Website variants, and conservative title equivalence.
 - Expired Zoho refresh token: install a new `ZOHO_REFRESH_TOKEN`, then manually run.
-- Notion outage: leave `NOTION_ENABLED=true`, correct access, then manually run; `pending_notion` drains.
+- Notion outage: leave `NOTION_ENABLED=true`, correct access, then manually run; `pending_notion` drains. A page whose prior generated body was manually edited requires deliberate reconciliation rather than automatic overwrite.
 - HEY forwarding interruption: restore forwarding. For a gap longer than retained messages, rerun the HEY backfill Action with the required day count (maximum 31).
 
 ## Safe rollout
@@ -86,3 +90,11 @@ Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, 
 3. Enable Zoho, run once, and inspect counts/logs.
 4. Enable Notion only after confirming the property names and integration access.
 5. Inspect the first digest and first five Notion records; tune the AI threshold or prompt only with examples retained as tests.
+
+## Change management
+
+- Run `npm run check` for every change; run `npm run test:coverage` for pipeline changes.
+- Apply a remote D1 migration before code that requires it, using the manually dispatched deployment path.
+- Deployment does not itself start a manual batch; the hourly cron continues to select the next local slot.
+- Configuration/secrets and deploy/migrate/run/sync/trash operations are distinct production changes. Record which ones were performed in the handoff.
+- Use [Troubleshooting](TROUBLESHOOTING.md) for symptom-driven recovery rather than repeatedly forcing batches.

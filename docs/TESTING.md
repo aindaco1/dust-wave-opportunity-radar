@@ -1,0 +1,68 @@
+# Testing
+
+The test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node and does not contact Cloudflare, HEY, Zoho, Notion, or public websites.
+
+## Commands
+
+```bash
+npm test                 # all tests once
+npm run test:watch       # focused local iteration
+npm run test:coverage    # tests plus enforced coverage floors
+npm run docs:check       # required docs and local Markdown links
+npm run typecheck        # Cloudflare generated-type check + TypeScript
+npm run deploy:dry       # production bundle without upload
+npm run check            # complete required quality gate
+```
+
+Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functions, and 75% lines. The thresholds are a regression floor, not a substitute for risk-based assertions.
+
+## Test layers
+
+| Area | Files | What is verified |
+|---|---|---|
+| Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, recovery, tags/URLs, model pin, invalid config |
+| Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
+| Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
+| Ingestion adapters | `email-worker.test.ts`, `zoho.test.ts` | HEY limits/cleanup, OAuth/account/folders, MIME/fallback, checkpoints |
+| Persistence | `database.test.ts` | real migrations, uniqueness, state machine, stale claims, retention, runs |
+| Notion | `notion.test.ts` | schema, find-before-create, manual-page preference, safe body update, duplicate trash ownership |
+| Rendering/delivery | `digest.test.ts` | copy, escaping, category order, compaction, binding request |
+| Entrypoints/orchestration | `index.test.ts`, `workflow.test.ts` | auth/routes, scheduling, empty suppression, durable batch path |
+
+## D1 test adapter
+
+`test/support/d1.ts` wraps Node’s built-in SQLite engine in the subset of the D1 interface the application uses. Every test database applies the real migration files in order. This validates SQL constraints, conflict behavior, SQLite date expressions, atomic batches, and state queries without needing a remote database.
+
+When adding a migration, add its filename to the adapter’s migration list and add a migration/state assertion. The adapter is intentionally small; extend it only when production code begins using another D1 method.
+
+## Cloudflare runtime shim
+
+Vitest aliases `cloudflare:workers` to `test/support/cloudflare-workers.ts`. The shim supplies enough `WorkflowEntrypoint` behavior to instantiate the real Workflow class under Node. It does not claim to emulate Cloudflare durability or scheduler infrastructure. `npm run deploy:dry` is the complementary bundle/runtime compatibility gate; production integration checks remain explicit operator actions.
+
+## External API tests
+
+Stub global `fetch` and respond at the HTTP boundary. Assert the meaningful contract:
+
+- exact host/path and method;
+- authorization/version headers without real values;
+- bounded/error behavior;
+- write payload shape;
+- state written after success; and
+- cleanup or retry state after failure.
+
+Always restore global mocks in `afterEach`. Avoid implementation-only call counts when a state/result assertion is stronger.
+
+## Fixtures and privacy
+
+Use invented domains such as `example.org`, fictional organizations, and synthetic MIME/PDF/DOCX content. Do not copy a production email, sender list, private opportunity URL, Notion response, HEY cookie, or OAuth payload into the repository. Keep fixtures small and inline unless reuse materially improves clarity.
+
+## Adding a regression test
+
+1. Reproduce the smallest general behavior at the lowest appropriate layer.
+2. Assert both the desired positive case and a nearby negative case when matching, security, or dedupe is involved.
+3. Confirm the test fails for the old behavior when practical.
+4. Make the implementation change.
+5. Run the focused test, then `npm run check` and `npm run test:coverage`.
+6. Update the relevant reference/runbook if operator-visible behavior changes.
+
+Production investigation may use redacted characteristics to design a fixture, but raw content must remain outside Git.

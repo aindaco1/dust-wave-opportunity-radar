@@ -1,6 +1,16 @@
 # Setup
 
-The Worker is designed to be deployed before account credentials are available. Keep Zoho and Notion disabled until their secrets and access checks pass.
+This runbook provisions a new environment. The checked-in production configuration currently enables Zoho and Notion; for a fresh deployment, set both variables to `false` until secrets and read-only integration checks pass. See [Configuration](CONFIGURATION.md) for the complete binding/variable inventory.
+
+## Prerequisites
+
+- Node.js 24 or newer and npm
+- a Cloudflare account with `dustwave.xyz`
+- access to `alonso@hey.com` and `alonso@dustwave.xyz`
+- the Dust Wave Notion workspace and Opportunities data source
+- repository-admin access for GitHub secrets/variables
+
+From the repository root, run `npm ci` and `npm run check` before provisioning anything.
 
 ## 1. Cloudflare resources
 
@@ -14,6 +24,8 @@ npx wrangler r2 bucket create dustwave-opportunity-radar-mail --location wnam
 npm run migrate:remote
 npm run deploy
 ```
+
+For a new Cloudflare account, copy the D1 database ID returned by `wrangler d1 create` into `wrangler.jsonc` before migrating. Remote migration and deployment change production state; run them only for the intended account/environment.
 
 If Wrangler reports that the inbound subdomain is not onboarded, open Cloudflare → `dustwave.xyz` → Compute → Email Service → Email Routing → Settings → Subdomains and add `ingest.dustwave.xyz`. This keeps the apex MX records on Zoho. Do **not** enable Email Routing at the `dustwave.xyz` apex.
 
@@ -44,7 +56,7 @@ Because HEY has no public read API, this one-time path needs a valid `data/hey-c
 - repository secret `ADMIN_TOKEN` — same value installed in the Worker
 - repository variable `WORKER_URL` — deployed `https://…workers.dev` URL
 
-Run Actions → **HEY seven-day backfill** → Run workflow. The importer is idempotent by HEY topic ID and includes attachments up to the configured limit. Delete `HEY_COOKIES_JSON` after the backfill succeeds.
+Run Actions → **HEY seven-day backfill** → Run workflow. The importer is idempotent by the stable HEY external ID and imports Imbox, Feed, and Paper Trail over the selected window. Delete `HEY_COOKIES_JSON` after the backfill succeeds. Ongoing official forwarding does not require this cookie.
 
 ## 4. Zoho OAuth
 
@@ -62,7 +74,7 @@ npx wrangler secret put ZOHO_CLIENT_SECRET
 npx wrangler secret put ZOHO_REFRESH_TOKEN
 ```
 
-Change `ZOHO_ENABLED` to `true` in `wrangler.jsonc`, deploy, and manually start one run. Startup validates the account and requires the exact folder names `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`; a missing folder fails loudly instead of silently scanning the wrong place. The first successful sync imports seven days and later runs use an overlap checkpoint.
+Change `ZOHO_ENABLED` to `true` in `wrangler.jsonc`, deploy, and run the read-only integration check before starting a batch. Connection setup validates the account and requires the folder names `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`; matching is case-insensitive, and a missing folder fails loudly instead of silently scanning the wrong place. The first successful sync imports seven days and later runs use a one-hour overlap checkpoint.
 
 Zoho’s OAuth authorization-code process is documented at [Zoho Mail OAuth 2.0](https://www.zoho.com/mail/help/api/using-oauth-2.html).
 
@@ -74,10 +86,24 @@ When integration access is ready, share the Opportunities data source with the i
 npx wrangler secret put NOTION_TOKEN
 ```
 
-The configured data source ID is `248a67e1-4d47-48f8-bc84-a9602ca91b78`. Change `NOTION_ENABLED` to `true` and deploy. On the next run the adapter verifies access, adds only missing automation properties (`Automation Key`, `Source`, `Last Checked`), and drains `pending_notion` records.
+The configured data source ID is `248a67e1-4d47-48f8-bc84-a9602ca91b78`. Change `NOTION_ENABLED` to `true` and deploy. On the next run the adapter verifies access, adds only missing automation properties (`Automation Key`, `Source`, `Last Checked`), and drains `pending_notion` records. It queries existing pages before every create and stores its prior generated Markdown in D1 rather than adding visible automation markers to a page.
 
 Before enabling, confirm the existing property names used by the adapter: `Name`, `Website`, `Tags`, `Type`, `Due Date`, and `Application open`. Property matching is exact.
 
+See [Notion integration](NOTION.md) before modifying properties or duplicate/entity matching.
+
 ## 6. GitHub deployment credentials
 
-The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a scoped token with Workers Scripts, Workflows, D1, R2, Workers AI, Email Routing, and Email Sending permissions. Keep production deployment manual until both source integrations have completed a test batch.
+The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a scoped token with only the permissions required to deploy the configured Worker resources. Also set repository variable `WORKER_URL` and repository secret `ADMIN_TOKEN` for the manual operations workflows. Keep production deployment manual until both source integrations have completed a test batch.
+
+## 7. Activation verification
+
+1. Call public `/health`; verify timezone, batch hours, and reviewed feature flags.
+2. Run **Check source integrations**; both Notion and Zoho must be `ok`.
+3. Confirm one forwarded HEY test message produces `hey_email_ingested` and a D1 `queued` row.
+4. Run **Sync Zoho source only**; verify the four folders and bounded counts without classification.
+5. Start one manual batch.
+6. Review `/admin/runs`, the first five Notion changes, and any non-empty digest.
+7. Confirm no visible automation markers/history were added to Notion bodies and no duplicate page was created for an existing equivalent opportunity.
+
+The route and command shapes are in [Admin API](API.md); normal monitoring is in [Operations](OPERATIONS.md).

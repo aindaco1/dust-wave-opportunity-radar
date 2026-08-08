@@ -1,0 +1,101 @@
+# Troubleshooting
+
+Start with the least invasive evidence:
+
+1. `GET /health` for deployed flags and schedule values.
+2. `GET /admin/integrations` for live Notion/Zoho access.
+3. `GET /admin/runs` for batch outcome counts and failure text.
+4. Cloudflare structured logs for the run/message ID.
+5. D1 metadata only when the first four do not explain the state.
+
+Do not retrieve or print raw R2 MIME unless the investigation explicitly requires private content and the user has authorized that handling.
+
+## Schedule and run
+
+### No batch at the expected time
+
+- Confirm `/health.timezone` is `America/Denver` and `batchHours` is `[7,19]`.
+- The cron runs hourly in UTC; local-slot code chooses the two Mountain-time ticks.
+- Check Workflow instances and logs for `scheduled_tick_skipped` versus `batch_workflow_started`.
+- Start one recovery batch with the manual GitHub Action or `POST /admin/run`. A manual run is forced and uses a unique ID.
+
+### Run remains `running`
+
+Inspect Cloudflare Workflow step status. Message claims become reclaimable after 15 minutes, but the durable Workflow may still be retrying an external step. Do not start repeated manual batches until the current execution state is understood.
+
+### Empty digest
+
+No email is expected when `digest_items` has no unsent rows. A successful run with `digestSent: false` is normal. Check notion/digest/ignored/failed counts before treating it as delivery failure.
+
+## HEY
+
+### New HEY messages are absent
+
+- Confirm official forwarding still targets `hey@ingest.dustwave.xyz`.
+- Check Cloudflare Email Routing for the `ingest.dustwave.xyz` subdomain; do not move the apex MX records away from Zoho.
+- Look for `hey_email_ingested` or `hey_email_ingest_failed`.
+- A message over 25 MiB is rejected at the email boundary.
+
+For a historical gap, use the HEY backfill workflow only after supplying a fresh temporary `HEY_COOKIES_JSON`; delete it after the import. Imports are idempotent by stable external ID.
+
+## Zoho
+
+### Folder not found
+
+The configured names must resolve case-insensitively to all four folders: `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`. `/admin/integrations` reports every missing name. Correct the Zoho folder or reviewed configuration; do not silently remove a folder to make the check green.
+
+### OAuth refresh failed
+
+Confirm the client/refresh token belong to the configured data center and include the minimum mail-read scopes. Replace the expired/revoked `ZOHO_REFRESH_TOKEN` with `wrangler secret put`, then use `/admin/integrations` before a batch.
+
+### Messages fetched but not ingested
+
+Inspect `sampleErrors` from `/admin/sync/zoho` and `zoho_message_ingest_failed` logs. The sync stores the original MIME when available and builds bounded fallback MIME from the content endpoint otherwise. A failed item moves the checkpoint back to the oldest failed receive time so a later sync retries it.
+
+## Classification
+
+### Automatic classification could not produce a reliable structured result
+
+This sentence appears only after both the full JSON-schema pass and smaller recovery pass fail. The item is deliberately held in `Possible Opportunities`.
+
+Investigate:
+
+- Workers AI service/model errors in logs;
+- evidence size or a malformed/opaque newsletter body;
+- an unexpected response envelope/schema issue;
+- attachment parsing warnings; and
+- repeated failures from the same template/sender.
+
+The system already compacts oversized tracking URLs, bounds evidence sections, parses common response envelopes, and retries with a reduced schema. If a reproducible template still fails, create a synthetic fixture and improve response parsing/evidence construction or the recovery prompt. Do not bypass schema validation or auto-publish the fallback result.
+
+### Wrong Notion/digest decision
+
+Capture the generalizable evidence pattern without private data, add a classification regression test, then adjust deterministic policy or prompt wording. Check whether the issue is actually missing official-URL evidence or confidence demotion before changing the threshold.
+
+## Notion
+
+### `pending_notion`
+
+The structured classification is safe in D1. Verify `NOTION_ENABLED=true`, token/data-source access, and exact properties through `/admin/integrations`. The next batch retries `pending_notion` without needing raw MIME.
+
+### Duplicate opportunity
+
+Compare title year, canonical Website, Automation Key, and D1 ownership. Add positive and negative title-matching regression cases before extending entity resolution. Automated reconciliation prefers a manual page and trashes only proven automation-owned duplicates.
+
+### Managed opportunity text was edited
+
+The adapter found D1’s prior generated Markdown but not that exact text in the page. It refuses to overwrite possible manual edits. Review the page, decide which content is canonical, and make a deliberate migration/reconciliation change. Do not clear the safety check just to unblock the batch.
+
+### Truncated Notion Markdown
+
+The API did not return the complete page, so replacement is unsafe. Shorten/archive the page manually or change the update design with tests; do not proceed with partial text.
+
+### Need to remove a bad automated page
+
+Use Notion UI trash or the exact-page authenticated workflow described in [Admin API](API.md#post-adminnotiontrash). Verify the target page ID first. Trashing is recoverable in Notion.
+
+## Retention and failed messages
+
+R2 cleanup intentionally leaves D1 classifications and errors. A failed message stops automatic queue selection at four attempts. Fix the cause and deliberately re-import/requeue it; if its raw key was expired and cleared, source re-import resets attempts and returns it to `queued`.
+
+See [Operations](OPERATIONS.md) for normal state meanings and [Security](SECURITY.md) for incident response.

@@ -1,6 +1,6 @@
 import { zipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
-import { canonicalizeUrl, extractUrls, htmlToText, parseDocxText, parsePdfText } from "../src/email/parse";
+import { canonicalizeUrl, extractUrls, htmlToText, parseDocxText, parsePdfText, parseStoredMessage } from "../src/email/parse";
 import {
   buildOpportunityMarkdown,
   meaningfulOpportunityTitleTokens,
@@ -8,11 +8,18 @@ import {
   opportunityTitlesLikelySame
 } from "../src/notion/client";
 import type { Classification } from "../src/types";
+import { messageRecord } from "./support/fixtures";
 
 describe("message parsing", () => {
   it("converts email HTML to compact text", () => {
     expect(htmlToText("<style>x{}</style><h1>Open Call</h1><p>Apply &amp; submit.</p>"))
       .toContain("Open Call");
+  });
+
+  it("removes scripts and decodes named, decimal, and hexadecimal entities", () => {
+    const text = htmlToText("<script>alert(1)</script><p>Art&nbsp;&amp; Film &#35;1 &#x1F3A5;</p>");
+    expect(text).toContain("Art & Film #1 🎥");
+    expect(text).not.toContain("alert");
   });
 
   it("canonicalizes and deduplicates opportunity URLs", () => {
@@ -22,6 +29,13 @@ describe("message parsing", () => {
     expect(urls).toEqual(["https://example.com/call"]);
     expect(canonicalizeUrl("javascript:alert(1)")).toBeNull();
     expect(canonicalizeUrl("https://www.Example.com/call/")).toBe("https://example.com/call");
+  });
+
+  it("filters low-signal links and caps extracted sources", () => {
+    const candidates = Array.from({ length: 35 }, (_, index) => `https://example.org/call-${index}`).join(" ");
+    const urls = extractUrls(`${candidates} https://example.org/unsubscribe https://facebook.com/share/thing`);
+    expect(urls).toHaveLength(30);
+    expect(urls.every((url) => !url.includes("unsubscribe") && !url.includes("facebook"))).toBe(true);
   });
 
   it("generates Notion lookup variants for existing links", () => {
@@ -94,9 +108,84 @@ describe("message parsing", () => {
     await expect(parseDocxText(docx)).resolves.toContain("Photography open call");
   });
 
+  it("rejects a ZIP that is not a readable DOCX", async () => {
+    const zip = zipSync({ "notes.txt": strToU8("not Word XML") });
+    await expect(parseDocxText(zip)).rejects.toThrow("did not contain readable Word XML");
+  });
+
   it("extracts PDF text with the serverless PDF.js build", async () => {
     const pdf = buildSimplePdf("Film grant applications open September 1");
     await expect(parsePdfText(pdf)).resolves.toContain("Film grant applications open September 1");
+  });
+});
+
+describe("stored MIME parsing", () => {
+  it("rejects expired and missing R2 objects clearly", async () => {
+    const bucket = { get: async () => null } as unknown as R2Bucket;
+    await expect(parseStoredMessage(bucket, messageRecord({ raw_r2_key: "" }), 1_000)).rejects.toThrow("expired from R2");
+    await expect(parseStoredMessage(bucket, messageRecord(), 1_000)).rejects.toThrow("missing from R2");
+  });
+
+  it("parses HTML metadata, source links, and a text attachment", async () => {
+    const mime = [
+      "Message-ID: <mime-1@example.org>",
+      "Subject: Photography Open Call",
+      "From: Arts Group <calls@example.org>",
+      "Date: Wed, 05 Aug 2026 12:00:00 GMT",
+      "MIME-Version: 1.0",
+      'Content-Type: multipart/mixed; boundary="dustwave"',
+      "",
+      "--dustwave",
+      'Content-Type: text/html; charset="UTF-8"',
+      "",
+      '<h1>Apply now</h1><a href="https://example.org/call?utm_source=email">Details</a>',
+      "--dustwave",
+      'Content-Type: text/plain; name="requirements.txt"',
+      'Content-Disposition: attachment; filename="requirements.txt"',
+      "",
+      "Portfolio required",
+      "--dustwave--"
+    ].join("\r\n");
+    const raw = new TextEncoder().encode(mime);
+    const bucket = {
+      get: async () => ({ arrayBuffer: async () => raw.buffer })
+    } as unknown as R2Bucket;
+    const parsed = await parseStoredMessage(bucket, messageRecord(), 10_000);
+    expect(parsed).toMatchObject({
+      messageId: "<mime-1@example.org>",
+      subject: "Photography Open Call",
+      senderName: "Arts Group",
+      senderEmail: "calls@example.org",
+      receivedAt: "2026-08-05T12:00:00.000Z"
+    });
+    expect(parsed.text).toContain("Apply now");
+    expect(parsed.urls).toEqual(["https://example.org/call"]);
+    expect(parsed.attachments).toEqual([expect.objectContaining({ filename: "requirements.txt", mimeType: "text/plain" })]);
+  });
+
+  it("reports and skips an attachment over the configured cap", async () => {
+    const mime = [
+      "Subject: Film call",
+      "MIME-Version: 1.0",
+      'Content-Type: multipart/mixed; boundary="dustwave"',
+      "",
+      "--dustwave",
+      "Content-Type: text/plain",
+      "",
+      "Apply now",
+      "--dustwave",
+      'Content-Type: application/pdf; name="large.pdf"',
+      'Content-Disposition: attachment; filename="large.pdf"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      btoa("this is larger than ten bytes"),
+      "--dustwave--"
+    ].join("\r\n");
+    const raw = new TextEncoder().encode(mime);
+    const bucket = { get: async () => ({ arrayBuffer: async () => raw.buffer }) } as unknown as R2Bucket;
+    const parsed = await parseStoredMessage(bucket, messageRecord(), 10);
+    expect(parsed.attachments[0]?.warning).toContain("exceeds the 10 byte attachment cap");
+    expect(parsed.warnings[0]).toContain("large.pdf");
   });
 });
 

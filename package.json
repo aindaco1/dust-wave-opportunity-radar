@@ -6,15 +6,17 @@
   "description": "Cloudflare-based HEY and Zoho opportunity ingestion for Dustwave.",
   "license": "UNLICENSED",
   "scripts": {
-    "check": "npm run typecheck && npm test && npm run deploy:dry",
+    "check": "npm run docs:check && npm run typecheck && npm run test:coverage && npm run deploy:dry",
     "backfill:hey": "node scripts/hey-backfill.mjs",
     "cf-typegen": "wrangler types --env-file .env.example",
     "deploy": "wrangler deploy",
     "deploy:dry": "wrangler deploy --dry-run",
     "dev": "wrangler dev --test-scheduled",
+    "docs:check": "node scripts/check-docs.mjs",
     "migrate:local": "wrangler d1 migrations apply dustwave-opportunity-radar --local",
     "migrate:remote": "wrangler d1 migrations apply dustwave-opportunity-radar --remote",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "wrangler types --env-file .env.example --check && tsc --noEmit"
   },

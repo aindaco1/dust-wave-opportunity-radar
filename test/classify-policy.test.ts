@@ -1,12 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildEvidencePacket,
   buildManualReviewClassification,
+  classifyMessage,
   enforceClassificationPolicy,
   mapRecoveryClassification,
-  parseClassificationResponse
+  parseClassificationResponse,
+  parseRecoveryClassification
 } from "../src/ai/classify";
 import type { Classification } from "../src/types";
+import { parsedMessage, runtimeConfig } from "./support/fixtures";
 
 describe("classification policy", () => {
   it("holds low-confidence calls in the digest", () => {
@@ -32,6 +35,22 @@ describe("classification policy", () => {
     );
     expect(result.decision).toBe("notion");
   });
+
+  it("demotes a call without an official source URL", () => {
+    const result = enforceClassificationPolicy(baseClassification({ primaryUrl: null }), 0.82);
+    expect(result).toMatchObject({ decision: "digest", digestCategory: "Possible Opportunities", primaryUrl: null });
+  });
+
+  it("canonicalizes links and retains only known tags case-insensitively", () => {
+    const result = enforceClassificationPolicy(baseClassification({
+      primaryUrl: "https://www.Example.org/grant/?utm_source=email#top",
+      applicationUrl: "https://EXAMPLE.org/apply/?ref=newsletter",
+      tags: ["film", "PHOTOGRAPHY", "Not in the database", "Film"]
+    }), 0.82);
+    expect(result.primaryUrl).toBe("https://example.org/grant");
+    expect(result.applicationUrl).toBe("https://example.org/apply");
+    expect(result.tags).toEqual(["Film", "Photography"]);
+  });
 });
 
 describe("Workers AI classification response parsing", () => {
@@ -54,6 +73,83 @@ describe("Workers AI classification response parsing", () => {
   it("parses legacy binding response strings", () => {
     const expected = baseClassification();
     expect(parseClassificationResponse({ response: JSON.stringify(expected) })).toEqual(expected);
+  });
+
+  it("parses fenced JSON and output_text envelopes", () => {
+    const expected = baseClassification();
+    expect(parseClassificationResponse({ output_text: `\`\`\`json\n${JSON.stringify(expected)}\n\`\`\`` })).toEqual(expected);
+  });
+
+  it("rejects empty, invalid, and excessively nested content", () => {
+    expect(() => parseClassificationResponse({ response: "" })).toThrow("empty classification content");
+    expect(() => parseClassificationResponse({ decision: "notion" })).toThrow("invalid classification");
+    const nested = { response: { response: { response: { response: { response: { response: { response: {} } } } } } } };
+    expect(() => parseClassificationResponse(nested)).toThrow("nested too deeply");
+  });
+
+  it("parses the recovery schema independently", () => {
+    expect(parseRecoveryClassification({ response: JSON.stringify({
+      decision: "digest",
+      confidence: 0.8,
+      title: "Film workshop",
+      organization: null,
+      summary: "A practical workshop.",
+      primaryUrl: null,
+      digestCategory: "Workshops & Training",
+      rationale: "Relevant training."
+    }) })).toMatchObject({ decision: "digest", title: "Film workshop" });
+  });
+});
+
+describe("Workers AI execution", () => {
+  it("returns the policy-enforced primary structured result", async () => {
+    const run = vi.fn().mockResolvedValue({ response: JSON.stringify(baseClassification({
+      primaryUrl: "https://example.org/grant/?utm_source=email",
+      tags: ["film", "unknown"]
+    })) });
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage(), []);
+    expect(result).toMatchObject({ decision: "notion", primaryUrl: "https://example.org/grant", tags: ["Film"] });
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0]?.[2]).toEqual({ tags: ["dustwave", "opportunity-classifier"] });
+  });
+
+  it("uses the smaller recovery classifier after a malformed primary result", async () => {
+    const run = vi.fn()
+      .mockResolvedValueOnce({ response: "not-json" })
+      .mockResolvedValueOnce({ response: JSON.stringify({
+        decision: "digest",
+        confidence: 0.9,
+        title: "Film workshop",
+        organization: "Example Arts",
+        summary: "A workshop for independent filmmakers.",
+        primaryUrl: "https://example.org/workshop",
+        digestCategory: "Workshops & Training",
+        rationale: "Relevant skills training."
+      }) });
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage(), []);
+    expect(result).toMatchObject({ decision: "digest", title: "Film workshop", digestCategory: "Workshops & Training" });
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[1]?.[2]).toEqual({ tags: ["dustwave", "opportunity-classifier-recovery"] });
+  });
+
+  it("surfaces both failures when primary and recovery classification fail", async () => {
+    const run = vi.fn()
+      .mockRejectedValueOnce(new Error("primary unavailable"))
+      .mockResolvedValueOnce({ response: "{}" });
+    const promise = classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage(), []);
+    await expect(promise).rejects.toThrow("primary and recovery classification both failed");
+    await expect(promise).rejects.toBeInstanceOf(AggregateError);
+  });
+
+  it("fails closed when configured with an unreviewed model", async () => {
+    const run = vi.fn();
+    await expect(classifyMessage(
+      { run } as unknown as Ai,
+      runtimeConfig({ aiModel: "@cf/some/other-model" }),
+      parsedMessage(),
+      []
+    )).rejects.toThrow("is not supported");
+    expect(run).not.toHaveBeenCalled();
   });
 });
 

@@ -11,7 +11,8 @@ Email bodies, attachments, linked pages, sender identities, and AI output are un
 - Web enrichment accepts only HTTP(S), standard ports, and public-looking hosts. Redirects are followed manually and each hop is revalidated. Responses have time and byte limits.
 - The classifier uses structured schema output. Prompt text explicitly treats embedded instructions as data, and deterministic code re-checks confidence, URL presence, geography, and category.
 - The AI cannot invoke Notion, email, storage, or network tools.
-- Notion writes are idempotent and confined to one configured data source. Updates replace only the automation-managed page section and managed properties.
+- Notion writes are confined to one configured data source and query for existing entities before creating. Updates replace only the exact prior generated Markdown stored in D1 (or a legacy managed block) plus managed properties; a mismatch fails safely.
+- A manually created equivalent Notion page is preferred as canonical. Only pages proven automation-owned by an Automation Key or D1 mapping can be automatically moved to trash.
 - Digest HTML is escaped; links must already pass URL validation.
 - Admin authorization uses a long random bearer token and constant-time digest comparison.
 - Email Sending is allowlisted to one sender and one recipient.
@@ -23,9 +24,18 @@ HEY’s official forwarding is the production path. The one-time historical impo
 
 ## Incident response
 
-1. Disable the Worker or set both source flags false.
+1. Disable the Worker/Email Routing as appropriate, and set Zoho/Notion flags false to stop those external reads/writes. The two flags alone do not disable inbound HEY delivery.
 2. Rotate `ADMIN_TOKEN` and any affected source token.
 3. Delete `HEY_COOKIES_JSON` and revoke the HEY session if involved.
 4. Inspect Cloudflare logs, D1 run/message errors, and GitHub Action history.
 5. Purge R2 objects if the normal 24-hour job cannot run.
-6. Redeploy only after adding a regression test for the failure mode.
+6. Redeploy only after adding a privacy-safe regression test for the failure mode and running the full quality gate.
+
+## Secret and private-data handling
+
+- `.dev.vars`, HEY cookie files, Wrangler state, coverage output, and downloaded mail must remain untracked.
+- Logs may include IDs, source/folder labels, counts, titles for successful Notion publication, and bounded error messages. Do not add bodies, extracted attachment text, auth headers, or token-bearing URLs.
+- Tests and docs use synthetic content and `example.org`; production messages are not fixtures.
+- `/health` is public by design but exposes only service name, timezone, batch hours, and two feature flags. All stateful/read-through routes use the admin bearer token.
+
+See [Configuration](CONFIGURATION.md) for secret locations and [Data model](DATA-MODEL.md) for retained fields.

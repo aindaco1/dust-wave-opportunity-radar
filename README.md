@@ -1,48 +1,38 @@
 # Dustwave Opportunity Radar
 
-Cloudflare-hosted email triage for creative opportunities. It receives broad HEY forwarding, pulls Zoho `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`, extracts PDF/DOCX attachments, classifies the result with Workers AI, and batches eligible calls into Notion while emailing a digest of useful non-call items.
+Dustwave Opportunity Radar is a Cloudflare-hosted email triage service for creative-industry opportunities. It receives broad HEY forwarding, pulls selected Zoho folders, parses linked pages and PDF/DOCX attachments, classifies each message with Workers AI, and runs a 12-hour publishing batch.
 
-The production schedule is 7:00 AM and 7:00 PM `America/Denver`. Incoming mail is queued immediately; classification, Notion publishing, and digest delivery all wait for the next batch.
+Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 
-## Architecture
+## Production behavior
+
+- Schedule: 07:00 and 19:00 in `America/Denver`; an hourly cron selects those local slots across daylight-saving changes.
+- HEY: official forwarding of non-spam mail to Cloudflare Email Routing. `Sealjay/mcp-hey` is limited to the optional historical backfill.
+- Zoho: `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`, with a seven-day initial window and one-hour checkpoint overlap.
+- Notion: automatic create/update at batch time, including conservative equivalent-title matching and cleanup of automation-owned duplicate pages.
+- Digest: sent to `alonso@hey.com` only when at least one item is waiting.
+- Retention: raw and parsed R2 objects are purged after 24 hours; D1 retains operational metadata and structured classification results.
+
+## System map
 
 ```mermaid
 flowchart LR
-  HEY["HEY official forwarding<br/>all non-spam mail"] --> ER["Cloudflare Email Routing<br/>hey@ingest.dustwave.xyz"]
-  Zoho["Zoho Mail API<br/>Inbox + Dust Wave + Newsletter + Notification"] --> WF["12-hour Workflow"]
-  ER --> R2["R2 raw MIME<br/>24-hour retention"]
-  R2 --> WF
-  WF --> Parse["MIME + PDF + DOCX parsing"]
-  Parse --> Web["Bounded public-page enrichment"]
-  Web --> AI["Workers AI structured classification"]
-  AI -->|"qualifying call"| Notion["Notion Opportunities<br/>create or update"]
-  AI -->|"other useful item"| Digest["Styled email digest<br/>alonso@hey.com"]
-  AI -->|"irrelevant"| Ignore["Ignore"]
-  D1["D1 queue, dedupe,<br/>checkpoints, run history"] --- WF
+  HEY["HEY forwarding"] --> Email["Cloudflare Email Routing"]
+  Zoho["Zoho Mail API"] --> Workflow["12-hour Workflow"]
+  Email --> R2["R2 raw MIME"]
+  R2 --> Workflow
+  Workflow --> Parse["MIME + PDF/DOCX parsing"]
+  Parse --> Web["Bounded public web enrichment"]
+  Web --> AI["Workers AI classification"]
+  AI -->|"qualifying call"| Notion["Notion Opportunities"]
+  AI -->|"human look"| Digest["Dust Wave email digest"]
+  AI -->|"irrelevant"| Ignore["Ignored"]
+  D1["D1 queue, dedupe, checkpoints, runs"] --- Workflow
 ```
 
-## Classification policy
+See [Architecture](docs/ARCHITECTURE.md) for component and sequence details and [Classification policy](docs/CLASSIFICATION.md) for the exact decision rules.
 
-- Notion: open calls where a person or team applies/submits for funding, selection, exhibition, screening, publication, a residency, fellowship, award, lab, pitch, or similar concrete opportunity.
-- Digest: related jobs/commissions, workshops, events, games/interactive items, industry news, and uncertain calls. Empty digests are suppressed.
-- Ignore: irrelevant material, closed notices without continuing value, routine receipts, and obvious promotions.
-- Geography: reject only when New Mexico, Illinois, and Pennsylvania are all explicitly excluded. Eligibility in any one of the three is sufficient.
-- Confidence: a supposed Notion item below `0.82`, or one without an official URL, is demoted to `Possible Opportunities` in the digest.
-- Deduplication: URL plus a stable automation key. Recurring opportunities update one rolling Notion page and retain a short automation history.
-
-Email and page text are treated as untrusted evidence, never as instructions. The AI receives a strict JSON schema and has no direct tools or credentials.
-
-## Current activation state
-
-The application can be deployed with the safe source flags in [`wrangler.jsonc`](wrangler.jsonc):
-
-- `NOTION_ENABLED=true` — qualifying items publish to the connected Opportunities data source.
-- `ZOHO_ENABLED=true` — the configured Zoho folders are synchronized at each batch.
-- HEY forwarding must be enabled once in the HEY account after Cloudflare provisions the inbound address.
-
-See [Setup](docs/SETUP.md) for the remaining account steps and [Operations](docs/OPERATIONS.md) for monitoring and recovery.
-
-## Development
+## Start here
 
 ```bash
 npm ci
@@ -51,24 +41,41 @@ npm run migrate:local
 npm run dev
 ```
 
-`npm run check` regenerates/checks Cloudflare types, type-checks TypeScript, runs the test suite, and builds a deployment bundle without uploading it.
+`npm run check` validates documentation links, checks generated Cloudflare types, type-checks TypeScript, runs the automated suite with enforced coverage floors, and builds a dry-run Worker bundle. `npm run test:coverage` runs the test/coverage portion alone and writes `coverage/coverage-summary.json`.
+
+For a fresh Codex task, open this repository as the project folder and start with [Codex handoff](docs/CODEX-HANDOFF.md) and [AGENTS.md](AGENTS.md).
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Setup](docs/SETUP.md)
+- [Operations](docs/OPERATIONS.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Configuration reference](docs/CONFIGURATION.md)
+- [Admin API](docs/API.md)
+- [Testing](docs/TESTING.md)
+- [Security model](docs/SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Repository layout
 
-- `src/ingest` — Email Worker, Zoho API sync, safe web enrichment
-- `src/email` — MIME/PDF/DOCX parsing and digest rendering
-- `src/ai` — structured classification and policy enforcement
-- `src/notion` — idempotent create/update adapter
-- `src/workflow` — durable batch orchestration
-- `migrations` — D1 schema and configuration seed
-- `scripts/hey-backfill.mjs` — one-time, cloud-run seven-day HEY import through `Sealjay/mcp-hey`
-- `.github/workflows` — CI, manual deployment, and HEY backfill
+| Path | Responsibility |
+|---|---|
+| `src/ingest` | HEY ingestion, Zoho synchronization, and safe web enrichment |
+| `src/email` | MIME/PDF/DOCX parsing and digest rendering/sending |
+| `src/ai` | Workers AI prompts, structured parsing, recovery, and deterministic policy |
+| `src/notion` | Schema checks, entity resolution, safe create/update, duplicate cleanup |
+| `src/storage` | D1 queue, state, checkpoint, digest, opportunity, and run persistence |
+| `src/workflow` | Durable batch orchestration and retention cleanup |
+| `migrations` | Ordered D1 schema migrations |
+| `test` | Unit, adapter, route, state-machine, and orchestration tests |
+| `scripts` | HEY import and documentation validation tools |
+| `.github/workflows` | CI and manually dispatched production operations |
 
-## Upstream references
+## External references
 
-- HEY: official [forwarding](https://help.hey.com/article/1055-forwarding) for ongoing ingestion; [Sealjay/mcp-hey](https://github.com/Sealjay/mcp-hey) only for the one-time backfill.
-- Zoho: official [Mail API](https://www.zoho.com/mail/help/api/) and MIME [original message endpoint](https://www.zoho.com/mail/help/api/get-original-message.html).
-- Cloudflare: Workers, Workflows, D1, R2, Workers AI, Email Routing, and Email Sending.
-- Digest visual reference: [`aindaco1/rss-feed-digest`](https://github.com/aindaco1/rss-feed-digest); attribution is recorded in [`NOTICE.md`](NOTICE.md).
+- HEY: official [forwarding](https://help.hey.com/article/1055-forwarding) for ongoing ingestion; [`Sealjay/mcp-hey`](https://github.com/Sealjay/mcp-hey) for historical import only.
+- Zoho: official [Mail API](https://www.zoho.com/mail/help/api/) and [original message endpoint](https://www.zoho.com/mail/help/api/get-original-message.html).
+- Digest visual reference: [`aindaco1/rss-feed-digest`](https://github.com/aindaco1/rss-feed-digest), credited in [Notices](NOTICE.md).
 
-Private project. No email contents or credentials belong in Git.
+Private project. Never commit email content, session cookies, OAuth credentials, API tokens, or `.dev.vars`.
