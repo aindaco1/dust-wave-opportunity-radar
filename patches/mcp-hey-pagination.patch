@@ -1,0 +1,31 @@
+diff --git a/src/__tests__/pagination.test.ts b/src/__tests__/pagination.test.ts
+index b45c2d5..9b4925e 100644
+--- a/src/__tests__/pagination.test.ts
++++ b/src/__tests__/pagination.test.ts
+@@ -11,6 +11,13 @@ describe("Cursor pagination — extractNextCursor", () => {
+     expect(extractNextCursor(html)).toBe("/?page=eyJwYWdlX251bWJlciI6Mn0%3D")
+   })
+ 
++  test("extracts a cursor whose href includes the current folder path", () => {
++    const html = `<nav><a href="/paper_trail?page=eyJwYWdlX251bWJlciI6Mn0%3D">More</a></nav>`
++    expect(extractNextCursor(html)).toBe(
++      "/paper_trail?page=eyJwYWdlX251bWJlciI6Mn0%3D",
++    )
++  })
++
+   test("returns null when there is no next-page link", () => {
+     expect(extractNextCursor("<div>nothing to paginate</div>")).toBeNull()
+   })
+diff --git a/src/tools/read.ts b/src/tools/read.ts
+index 007668e..2bb0afc 100644
+--- a/src/tools/read.ts
++++ b/src/tools/read.ts
+@@ -698,7 +698,7 @@ function createNetworkMetadata(): CacheMetadata {
+  * "next page" cursor href so callers can follow real pagination.
+  */
+ export function extractNextCursor(html: string): string | null {
+-  const match = html.match(/href="(\/\?page=[^"]+)"/)
++  const match = html.match(/href="(\/(?:[^"?]+)?\?page=[^"]+)"/)
+   return match ? match[1].replace(/&amp;/g, "&") : null
+ }
+ 

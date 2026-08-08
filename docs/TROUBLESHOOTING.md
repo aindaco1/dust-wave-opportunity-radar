@@ -43,7 +43,7 @@ For `hey_email_ingest_failed`, use the logged phase without retrieving the MIME:
 
 Run `npx vitest run test/email-runtime.test.ts` before any production canary. This uses a real local Email Worker event and local bindings, and should create one queued D1 row plus an equal-sized R2 object without logging sender, subject, or body.
 
-For a historical gap, use the HEY backfill workflow only after supplying a fresh temporary `HEY_COOKIES_JSON`; delete it after the import. Imports are idempotent by stable external ID.
+For a historical gap, use the HEY backfill workflow only after supplying a fresh temporary `HEY_COOKIES_JSON`; delete it after the import. Imports are idempotent by stable external ID. Compare the oldest imported timestamp and failed/missing-raw aggregates before and after the run. If only the newest 30 Paper Trail rows appear, verify the audited pagination patch applied and its regression test passed; HEY may emit folder-scoped `/paper_trail?page=...` cursors rather than root `/?page=...` cursors. For rows already proven failed with expired raw data, use the bounded temporary `HEY_BACKFILL_TARGETS_JSON` recovery list rather than scanning unrelated mail, then delete that secret with the cookie secret.
 
 ## Zoho
 
