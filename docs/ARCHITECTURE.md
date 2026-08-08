@@ -40,12 +40,14 @@ sequenceDiagram
   Zoho->>R2: store original/fallback MIME
   Zoho->>D1: upsert message + checkpoint
   Flow->>D1: list and claim retryable messages
+  Note over Flow,AI: Prepare MIME and classify in bounded groups of up to four
   Flow->>R2: load MIME, store parsed JSON
   Flow->>AI: strict JSON-schema classification
   alt primary result invalid
     Flow->>AI: smaller recovery JSON classification
   end
   alt qualifying call
+    Note over Flow,Notion: Serialize Notion reconciliation after parallel preparation
     Flow->>Notion: query equivalent pages before write
     Flow->>Notion: create or safely update canonical page
     Flow->>D1: save page identity and managed Markdown
@@ -75,7 +77,7 @@ sequenceDiagram
 
 ## Failure isolation
 
-Each message is processed independently inside the batch. Parsing/classification failures become a failed message or a human-review recovery item; they do not prevent other messages from completing. Notion failures become `pending_notion` so the structured result can retry without reparsing expired raw MIME. A failure outside per-message work marks the run failed and lets the Workflow retry according to its step policy.
+Each message is processed independently inside the batch. MIME preparation, enrichment, and AI classification run as separately durable steps with a maximum concurrency of four, which stays below the Workers runtime's connection ceiling and far below the Workers AI text-generation rate limit. Notion reconciliation remains serialized after preparation so two equivalent calls cannot race through find-before-create. Parsing/classification failures become a failed message or a human-review recovery item; they do not prevent other messages from completing. Notion failures become `pending_notion` so the structured result can retry without reparsing expired raw MIME. A failure outside per-message work marks the run failed and lets the Workflow retry according to its step policy.
 
 ## Code map
 

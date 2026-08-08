@@ -96,7 +96,7 @@ export async function trashNotionPage(env: Env, pageId: string): Promise<void> {
 export async function publishOpportunity(
   env: Env,
   config: RuntimeConfig,
-  message: MessageRecord,
+  message: Pick<MessageRecord, "id" | "source">,
   classification: Classification,
   automationKey: string
 ): Promise<NotionPublishResult> {
@@ -351,7 +351,7 @@ async function loadStoredManagedMarkdown(db: D1Database, pageId: string): Promis
 }
 
 function buildProperties(
-  message: MessageRecord,
+  message: Pick<MessageRecord, "source">,
   classification: Classification,
   automationKey: string,
   checkedAt: string
