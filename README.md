@@ -1,6 +1,6 @@
-# Dustwave Opportunity Radar
+# Dust Wave Opportunity Radar
 
-Dustwave Opportunity Radar is a Cloudflare-hosted email triage service for creative-industry opportunities. It receives broad HEY forwarding, pulls selected Zoho folders, parses linked pages and PDF/DOCX attachments, classifies each message with Workers AI, and runs a 12-hour publishing batch.
+Dust Wave Opportunity Radar is a Cloudflare-hosted email triage service for creative-industry opportunities. It receives broad HEY forwarding, pulls selected Zoho folders, parses linked pages and PDF/DOCX attachments, classifies each message with Workers AI, and runs a 12-hour publishing batch.
 
 Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 

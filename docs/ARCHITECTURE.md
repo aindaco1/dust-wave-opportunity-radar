@@ -2,7 +2,7 @@
 
 ## Context
 
-Dustwave Opportunity Radar converts two private mail sources into one controlled creative-opportunity workflow. Cloudflare hosts every persistent and scheduled component. GitHub provides CI and explicitly dispatched operational workflows; it is not in the steady-state message path.
+Dust Wave Opportunity Radar converts two private mail sources into one controlled creative-opportunity workflow. Cloudflare hosts every persistent and scheduled component. GitHub provides CI and explicitly dispatched operational workflows; it is not in the steady-state message path.
 
 ## Components
 

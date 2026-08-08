@@ -1,6 +1,6 @@
 # Codex project instructions
 
-This repository is the complete project context for Dustwave Opportunity Radar. Read [docs/CODEX-HANDOFF.md](docs/CODEX-HANDOFF.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before changing behavior.
+This repository is the complete project context for Dust Wave Opportunity Radar. Read [docs/CODEX-HANDOFF.md](docs/CODEX-HANDOFF.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before changing behavior.
 
 ## Product invariants
 

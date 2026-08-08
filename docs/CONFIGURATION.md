@@ -2,6 +2,8 @@
 
 `wrangler.jsonc` is the reviewed production configuration. `.env.example` lists secret names for local development; copy it to the untracked `.dev.vars` and fill values only when a local operation needs them.
 
+The GitHub repository and local project folder are named `dust-wave-opportunity-radar`. Existing deployed Cloudflare resources intentionally retain their stable `dustwave-opportunity-radar` identifiers; renaming the repository does not rename or recreate production infrastructure.
+
 ## Cloudflare bindings
 
 | Binding | Resource | Purpose |

@@ -5,7 +5,7 @@
 Use the repository root—not its parent—as the Codex project folder:
 
 ```text
-/Users/aindaco1/Library/Mobile Documents/com~apple~CloudDocs/dustwave-opportunity-radar
+/Users/aindaco1/Library/Mobile Documents/com~apple~CloudDocs/dust-wave-opportunity-radar
 ```
 
 The folder is already a complete Git repository. No copy or move is required; opening it directly avoids splitting the worktree or losing history. `AGENTS.md` gives a fresh Codex task the project invariants automatically.

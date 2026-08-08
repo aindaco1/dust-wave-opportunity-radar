@@ -1,9 +1,9 @@
 {
-  "name": "dustwave-opportunity-radar",
+  "name": "dust-wave-opportunity-radar",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Cloudflare-based HEY and Zoho opportunity ingestion for Dustwave.",
+  "description": "Cloudflare-based HEY and Zoho opportunity ingestion for Dust Wave.",
   "license": "UNLICENSED",
   "scripts": {
     "check": "npm run docs:check && npm run typecheck && npm run test:coverage && npm run deploy:dry",
