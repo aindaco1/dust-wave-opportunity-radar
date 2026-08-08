@@ -1,0 +1,21 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "dust-wave-opportunity-radar-email-test",
+  "main": "./support/email-runtime-worker.ts",
+  "compatibility_date": "2026-08-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dust-wave-opportunity-radar-email-test",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "../migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MAIL_BUCKET",
+      "bucket_name": "dust-wave-opportunity-radar-email-test"
+    }
+  ]
+}

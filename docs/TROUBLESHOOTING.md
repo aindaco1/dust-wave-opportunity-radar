@@ -36,6 +36,13 @@ No email is expected when `digest_items` has no unsent rows. A successful run wi
 - Look for `hey_email_ingested` or `hey_email_ingest_failed`.
 - A message over 25 MiB is rejected at the email boundary.
 
+For `hey_email_ingest_failed`, use the logged phase without retrieving the MIME:
+
+- `r2_upload`: verify the incoming stream is passed through `FixedLengthStream(message.rawSize)` before `MAIL_BUCKET.put`; R2 rejects arbitrary streams whose length is unknown. A byte-count mismatch also fails here and removes any partial object.
+- `d1_upsert`: the MIME reached R2 but the metadata row failed. Inspect D1 availability/schema and confirm the cleanup event did not fail.
+
+Run `npx vitest run test/email-runtime.test.ts` before any production canary. This uses a real local Email Worker event and local bindings, and should create one queued D1 row plus an equal-sized R2 object without logging sender, subject, or body.
+
 For a historical gap, use the HEY backfill workflow only after supplying a fresh temporary `HEY_COOKIES_JSON`; delete it after the import. Imports are idempotent by stable external ID.
 
 ## Zoho

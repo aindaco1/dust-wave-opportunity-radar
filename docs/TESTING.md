@@ -1,6 +1,6 @@
 # Testing
 
-The test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node and does not contact Cloudflare, HEY, Zoho, Notion, or public websites.
+The test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Notion, or public websites.
 
 ## Commands
 
@@ -23,7 +23,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, recovery, tags/URLs, model pin, invalid config |
 | Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
-| Ingestion adapters | `email-worker.test.ts`, `zoho.test.ts` | HEY limits/cleanup, OAuth/account/folders, MIME/fallback, checkpoints |
+| Ingestion adapters | `email-worker.test.ts`, `email-runtime.test.ts`, `zoho.test.ts` | HEY limits/cleanup, production-shaped Email Worker streams with local R2/D1, OAuth/account/folders, MIME/fallback, checkpoints |
 | Persistence | `database.test.ts` | real migrations, uniqueness, state machine, stale claims, retention, runs |
 | Notion | `notion.test.ts` | schema, find-before-create, manual-page preference, safe body update, duplicate trash ownership |
 | Rendering/delivery | `digest.test.ts` | copy, escaping, category order, compaction, binding request |
@@ -38,6 +38,8 @@ When adding a migration, add its filename to the adapter’s migration list and 
 ## Cloudflare runtime shim
 
 Vitest aliases `cloudflare:workers` to `test/support/cloudflare-workers.ts`. The shim supplies enough `WorkflowEntrypoint` behavior to instantiate the real Workflow class under Node. It does not claim to emulate Cloudflare durability or scheduler infrastructure. `npm run deploy:dry` is the complementary bundle/runtime compatibility gate; production integration checks remain explicit operator actions.
+
+`email-runtime.test.ts` closes the most important gap in that shim. Wrangler's local integration harness dispatches a real `email()` event to the production ingestion function with local R2 and D1 bindings. The test verifies fixed-length streaming, durable object size, D1 queue state, idempotent redelivery, privacy-safe logs, and a five-second local responsiveness budget. Its dedicated `test/wrangler.email.jsonc` intentionally omits remote AI, Workflow, email-sending, and production credentials.
 
 ## External API tests
 
