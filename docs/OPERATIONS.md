@@ -98,6 +98,7 @@ See [Admin API](API.md) for response shapes and boundary errors.
 
 - Run `npm run check` for every change; run `npm run test:coverage` for pipeline changes.
 - Apply a remote D1 migration before code that requires it, using the manually dispatched deployment path.
+- Routine `npm run deploy` does not reconcile the stable inbound Email Routing address. Use `npm run deploy:email-routing` only when an explicitly authorized operator intends to change that route and has reviewed Wrangler's plan.
 - Deployment does not itself start a manual batch; the hourly cron continues to select the next local slot.
 - Configuration/secrets and deploy/migrate/run/sync/trash operations are distinct production changes. Record which ones were performed in the handoff.
 - Use [Troubleshooting](TROUBLESHOOTING.md) for symptom-driven recovery rather than repeatedly forcing batches.

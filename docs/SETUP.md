@@ -22,10 +22,10 @@ npx wrangler login
 npx wrangler d1 create dustwave-opportunity-radar --location wnam
 npx wrangler r2 bucket create dustwave-opportunity-radar-mail --location wnam
 npm run migrate:remote
-npm run deploy
+npm run deploy:email-routing
 ```
 
-For a new Cloudflare account, copy the D1 database ID returned by `wrangler d1 create` into `wrangler.jsonc` before migrating. Remote migration and deployment change production state; run them only for the intended account/environment.
+For a new Cloudflare account, copy the D1 database ID returned by `wrangler d1 create` into `wrangler.jsonc` before migrating. The initial `deploy:email-routing` provisions the reviewed inbound address as well as the Worker. Later routine deployments use `npm run deploy`, which leaves the route untouched. Remote migration and either deployment command change production state; run them only for the intended account/environment.
 
 If Wrangler reports that the inbound subdomain is not onboarded, open Cloudflare → `dustwave.xyz` → Compute → Email Service → Email Routing → Settings → Subdomains and add `ingest.dustwave.xyz`. This keeps the apex MX records on Zoho. Do **not** enable Email Routing at the `dustwave.xyz` apex.
 
@@ -94,7 +94,7 @@ See [Notion integration](NOTION.md) before modifying properties or duplicate/ent
 
 ## 6. GitHub deployment credentials
 
-The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a scoped token with only the permissions required to deploy the configured Worker resources. Also set repository variable `WORKER_URL` and repository secret `ADMIN_TOKEN` for the manual operations workflows. Keep production deployment manual until both source integrations have completed a test batch.
+The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a user API token restricted to the intended Cloudflare account with exactly `Workers Scripts: Edit` and `D1: Edit`. Routine CI deliberately omits Email Routing reconciliation; do not add user-profile, membership, cross-account, zone, R2, or Email Routing access to this token. Also set repository variable `WORKER_URL` and repository secret `ADMIN_TOKEN` for the manual operations workflows. Keep production deployment manual until both source integrations have completed a test batch.
 
 ## 7. Activation verification
 

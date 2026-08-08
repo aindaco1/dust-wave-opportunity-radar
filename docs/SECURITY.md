@@ -16,6 +16,7 @@ Email bodies, attachments, linked pages, sender identities, and AI output are un
 - Digest HTML is escaped; links must already pass URL validation.
 - Admin authorization uses a long random bearer token and constant-time digest comparison.
 - Email Sending is allowlisted to one sender and one recipient.
+- The GitHub deployment token is restricted to one Cloudflare account and only `Workers Scripts: Edit` plus `D1: Edit`. Routine deployment omits Email Routing reconciliation; route changes require a separate interactive operator action.
 - R2 message content is purged after 24 hours.
 
 ## Known boundary

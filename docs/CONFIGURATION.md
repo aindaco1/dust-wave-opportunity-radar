@@ -16,6 +16,8 @@ The GitHub repository and local project folder are named `dust-wave-opportunity-
 
 The inbound Worker address is `hey@ingest.dustwave.xyz`. Email Sending is allowlisted from `opportunities@digest.dustwave.xyz` to `alonso@hey.com`.
 
+`wrangler.jsonc` retains the inbound `addresses` declaration as the reviewed Email Routing source of truth. Routine `npm run deploy` derives a mode-`0600` temporary config that omits only `addresses`, so Wrangler leaves the already-provisioned route untouched and the CI credential does not need permission to change mail routing. The temporary file is removed after Wrangler exits. Use `npm run deploy:email-routing` only for an explicitly authorized route change with an interactive operator credential, after reviewing Wrangler's Email Routing plan.
+
 ## Plain Worker variables
 
 | Variable | Production value | Meaning |
@@ -56,7 +58,7 @@ Install with `npx wrangler secret put NAME`. Use a random admin token with at le
 
 | Kind | Name | Purpose |
 |---|---|---|
-| Secret | `CLOUDFLARE_API_TOKEN` | Manual deploy/migration workflow |
+| Secret | `CLOUDFLARE_API_TOKEN` | Manual deploy/migration workflow; one-account `Workers Scripts: Edit` and `D1: Edit` only |
 | Secret | `ADMIN_TOKEN` | Manual admin workflows and HEY import |
 | Secret | `HEY_COOKIES_JSON` | Temporary HEY historical import only; delete afterward |
 | Secret | `HEY_BACKFILL_TARGETS_JSON` | Optional temporary recovery list of `{id,folder}` objects; delete afterward |
@@ -74,3 +76,4 @@ Install with `npx wrangler secret put NAME`. Use a random admin token with at le
 3. Run `npm run cf-typegen` only if binding/type output changes, then `npm run check`.
 4. Confirm Email Sending allowlists and external-resource IDs before deployment.
 5. Treat enabling a source, changing retention, or changing the AI threshold as a production behavior change requiring an explicit deployment.
+6. Treat `npm run deploy:email-routing` as a separate privileged production action; routine deployment must not require Email Routing access.
