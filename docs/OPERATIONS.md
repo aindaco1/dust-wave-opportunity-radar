@@ -44,6 +44,8 @@ curl -X POST https://WORKER_URL/admin/notion/trash \
 
 Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `classification_exhausted_sent_to_digest`, `notion_publish_deferred`, `message_processing_failed`, and `digest_sent`. A `hey_email_ingest_failed` event includes a privacy-safe `phase` (`r2_upload` or `d1_upsert`), the internal hashed message ID, and the declared raw size; it never includes sender, subject, Message-ID, or MIME content. Use `/admin/runs` for authoritative completed/failed run counts.
 
+Batch preparation is intentionally capped at four concurrent messages. This reduces wall time for R2 parsing and Workers AI while keeping Notion find-before-create serialized. Investigate a sustained rate below roughly four classifications per minute with message-status aggregates and Workflow step timings; do not raise concurrency until R2, D1, Workers AI limits, and Notion race safety have been revalidated.
+
 See [Admin API](API.md) for response shapes and boundary errors.
 
 ## Expected states

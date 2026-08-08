@@ -9,6 +9,7 @@ import { createTestDatabase, type TestDatabase } from "./support/d1";
 const open: TestDatabase[] = [];
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
   while (open.length) open.pop()?.close();
 });
@@ -67,6 +68,10 @@ function event(id = "run-1", overrides: Partial<BatchParams> = {}): WorkflowEven
     },
     timestamp: new Date("2026-08-05T13:00:00.000Z")
   } as WorkflowEvent<BatchParams>;
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 }
 
 describe("batch workflow orchestration", () => {
@@ -160,5 +165,150 @@ describe("batch workflow orchestration", () => {
     expect(objects.has("parsed/hey/message-1.json")).toBe(true);
     expect(email.send).toHaveBeenCalledOnce();
     expect(email.send.mock.calls[0]?.[0]).toMatchObject({ to: "alonso@hey.com", subject: expect.stringContaining("Dust Wave Opportunity Radar") });
+  });
+
+  it("prepares messages with bounded concurrency", async () => {
+    const { workflow, step, env, ai, email, names, objects } = setup();
+    const total = 5;
+    for (let index = 0; index < total; index += 1) {
+      const id = `message-${index}`;
+      const rawKey = `raw/hey/2026-08-05/${id}.eml`;
+      const mime = [
+        `Message-ID: <${id}@example.org>`,
+        `Subject: Routine update ${index}`,
+        "From: Example Sender <sender@example.org>",
+        "Date: Wed, 05 Aug 2026 12:00:00 GMT",
+        "Content-Type: text/plain; charset=UTF-8",
+        "",
+        "This synthetic fixture contains no opportunity."
+      ].join("\r\n");
+      objects.set(rawKey, new TextEncoder().encode(mime));
+      await upsertMessage(env.DB, {
+        id,
+        source: "hey",
+        externalId: `${id}@example.org`,
+        mailbox: "Paper Trail",
+        subject: `Routine update ${index}`,
+        receivedAt: `2026-08-05T12:00:0${index}.000Z`,
+        rawR2Key: rawKey,
+        rawSize: mime.length
+      });
+    }
+
+    let active = 0;
+    let maximumActive = 0;
+    ai.run.mockImplementation(async () => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      active -= 1;
+      return { response: JSON.stringify(classification({
+        decision: "ignore",
+        confidence: 0.2,
+        title: "Routine update",
+        organization: null,
+        summary: "No concrete opportunity is present.",
+        bodyMarkdown: "No concrete opportunity is present.",
+        primaryUrl: null,
+        applicationUrl: null,
+        dueDate: null,
+        applicationOpenStart: null,
+        applicationOpenEnd: null,
+        type: null,
+        tags: [],
+        eligibleStates: [],
+        evidence: ["No application mechanism."],
+        rationale: "This is a routine update."
+      })) };
+    });
+
+    await expect(workflow.run(event(), step)).resolves.toMatchObject({
+      queued: total,
+      ignored: total,
+      failed: 0,
+      digestSent: false
+    });
+    expect(maximumActive).toBe(4);
+    expect(names.filter((name) => name.startsWith("prepare message-"))).toHaveLength(total);
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it("serializes Notion publishing after concurrent preparation", async () => {
+    const { workflow, step, env, ai, names, objects } = setup();
+    env.NOTION_ENABLED = "true";
+    for (let index = 0; index < 2; index += 1) {
+      const id = `notion-message-${index}`;
+      const rawKey = `raw/hey/2026-08-05/${id}.eml`;
+      const mime = [
+        `Message-ID: <${id}@example.org>`,
+        `Subject: Open call ${index}`,
+        "From: Example Foundation <calls@example.org>",
+        "Date: Wed, 05 Aug 2026 12:00:00 GMT",
+        "Content-Type: text/plain; charset=UTF-8",
+        "",
+        "Applications are open at https://example.org/apply."
+      ].join("\r\n");
+      objects.set(rawKey, new TextEncoder().encode(mime));
+      await upsertMessage(env.DB, {
+        id,
+        source: "hey",
+        externalId: `${id}@example.org`,
+        mailbox: "Imbox",
+        subject: `Open call ${index}`,
+        receivedAt: `2026-08-05T12:00:0${index}.000Z`,
+        rawR2Key: rawKey,
+        rawSize: mime.length
+      });
+    }
+
+    let classificationIndex = 0;
+    ai.run.mockImplementation(async () => {
+      const index = classificationIndex;
+      classificationIndex += 1;
+      return { response: JSON.stringify(classification({
+        title: `Open Call ${index}`,
+        primaryUrl: `https://example.org/call-${index}`,
+        applicationUrl: `https://example.org/apply-${index}`
+      })) };
+    });
+
+    let activeCreates = 0;
+    let maximumActiveCreates = 0;
+    let created = 0;
+    vi.stubGlobal("fetch", vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.startsWith("https://example.org/") && method === "GET") {
+        return new Response("<html><body>Synthetic application page.</body></html>", {
+          headers: { "content-type": "text/html; charset=utf-8" }
+        });
+      }
+      if (url.includes("/data_sources/") && method === "GET") {
+        return json({
+          id: "248a67e1-4d47-48f8-bc84-a9602ca91b78",
+          properties: { "Automation Key": { type: "rich_text" }, Source: { type: "select" }, "Last Checked": { type: "date" } }
+        });
+      }
+      if (url.endsWith("/query") && method === "POST") return json({ results: [], has_more: false });
+      if (url.endsWith("/pages") && method === "POST") {
+        activeCreates += 1;
+        maximumActiveCreates = Math.max(maximumActiveCreates, activeCreates);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        activeCreates -= 1;
+        created += 1;
+        return json({ id: `00000000-0000-0000-0000-${String(created).padStart(12, "0")}`, url: "https://notion.so/test" });
+      }
+      throw new Error(`Unexpected Notion request: ${method} ${url}`);
+    }));
+
+    await expect(workflow.run(event(), step)).resolves.toMatchObject({
+      queued: 2,
+      notion: 2,
+      failed: 0
+    });
+    expect(maximumActiveCreates).toBe(1);
+    const lastPreparation = Math.max(...names.map((name, index) => name.startsWith("prepare ") ? index : -1));
+    const firstPublish = names.findIndex((name) => name.startsWith("publish "));
+    expect(firstPublish).toBeGreaterThan(lastPreparation);
   });
 });

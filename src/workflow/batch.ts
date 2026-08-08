@@ -35,6 +35,14 @@ import { sha256Hex } from "../util/crypto";
 import { subtractHours } from "../util/dates";
 import { logError, logInfo } from "../util/log";
 
+const MESSAGE_PREPARATION_CONCURRENCY = 4;
+
+type NotionMessage = Pick<MessageRecord, "id" | "source">;
+
+type PreparedMessageResult =
+  | { kind: "complete"; result: ProcessResult | null }
+  | { kind: "notion"; message: NotionMessage; classification: Classification };
+
 export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParams> {
   override async run(event: WorkflowEvent<BatchParams>, step: WorkflowStep): Promise<BatchSummary> {
     const config = loadRuntimeConfig(this.env);
@@ -64,14 +72,33 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
       const messages = await step.do("load queued messages", async () =>
         listQueuedMessages(this.env.DB, config.notionEnabled)
       );
-      const results: ProcessResult[] = [];
-      for (const message of messages) {
-        const result = await step.do(
-          `process ${message.id.slice(0, 24)}`,
-          { retries: { limit: 2, delay: "10 seconds", backoff: "exponential" }, timeout: "5 minutes" },
-          async () => this.processMessage(message, config)
+      const preparedResults: PreparedMessageResult[] = [];
+      for (let offset = 0; offset < messages.length; offset += MESSAGE_PREPARATION_CONCURRENCY) {
+        const chunk = messages.slice(offset, offset + MESSAGE_PREPARATION_CONCURRENCY);
+        const preparedChunk = await Promise.all(
+          chunk.map((message) =>
+            step.do(
+              `prepare ${message.id.slice(0, 24)}`,
+              { retries: { limit: 2, delay: "10 seconds", backoff: "exponential" }, timeout: "5 minutes" },
+              async () => this.prepareMessage(message, config)
+            )
+          )
         );
-        if (result) results.push(result);
+        preparedResults.push(...preparedChunk);
+      }
+
+      const results: ProcessResult[] = [];
+      for (const prepared of preparedResults) {
+        if (prepared.kind === "complete") {
+          if (prepared.result) results.push(prepared.result);
+          continue;
+        }
+        const result = await step.do(
+          `publish ${prepared.message.id.slice(0, 24)}`,
+          { retries: { limit: 2, delay: "10 seconds", backoff: "exponential" }, timeout: "5 minutes" },
+          async () => this.publishToNotionOrKeepPending(prepared.message, prepared.classification, config)
+        );
+        results.push(result);
       }
 
       const digestSent = await step.do(
@@ -112,17 +139,17 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
     }
   }
 
-  private async processMessage(
+  private async prepareMessage(
     message: MessageRecord,
     config: ReturnType<typeof loadRuntimeConfig>
-  ): Promise<ProcessResult | null> {
+  ): Promise<PreparedMessageResult> {
     try {
       const claimed = await claimMessageProcessing(this.env.DB, message.id);
-      if (!claimed) return null;
+      if (!claimed) return { kind: "complete", result: null };
 
       if (message.status === "pending_notion" && message.classification_json) {
         const stored = classificationSchema.parse(JSON.parse(message.classification_json));
-        return await this.publishToNotionOrKeepPending(message, stored, config);
+        return { kind: "notion", message: notionMessage(message), classification: stored };
       }
 
       const parsed = await parseStoredMessage(this.env.MAIL_BUCKET, message, config.attachmentMaxBytes);
@@ -148,30 +175,42 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
       if (classification.decision === "notion") {
         await saveClassification(this.env.DB, message.id, classification, "pending_notion", classification.primaryUrl);
         if (!config.notionEnabled) {
-          return { messageId: message.id, status: "pending_notion", title: classification.title };
+          return {
+            kind: "complete",
+            result: { messageId: message.id, status: "pending_notion", title: classification.title }
+          };
         }
-        return await this.publishToNotionOrKeepPending(message, classification, config);
+        return { kind: "notion", message: notionMessage(message), classification };
       }
       if (classification.decision === "digest") {
         await upsertDigestItem(this.env.DB, message, classification);
         await saveClassification(this.env.DB, message.id, classification, "digest", classification.primaryUrl);
-        return { messageId: message.id, status: "digest", title: classification.title };
+        return {
+          kind: "complete",
+          result: { messageId: message.id, status: "digest", title: classification.title }
+        };
       }
       await saveClassification(this.env.DB, message.id, classification, "ignored", classification.primaryUrl);
-      return { messageId: message.id, status: "ignored", title: classification.title };
+      return {
+        kind: "complete",
+        result: { messageId: message.id, status: "ignored", title: classification.title }
+      };
     } catch (error) {
       await markMessageFailed(this.env.DB, message.id, error);
       logError("message_processing_failed", error, { messageId: message.id, source: message.source });
       return {
-        messageId: message.id,
-        status: "failed",
-        error: error instanceof Error ? error.message : String(error)
+        kind: "complete",
+        result: {
+          messageId: message.id,
+          status: "failed",
+          error: error instanceof Error ? error.message : String(error)
+        }
       };
     }
   }
 
   private async publishToNotionOrKeepPending(
-    message: MessageRecord,
+    message: NotionMessage,
     classification: ReturnType<typeof classificationSchema.parse>,
     config: ReturnType<typeof loadRuntimeConfig>
   ): Promise<ProcessResult> {
@@ -190,7 +229,7 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
   }
 
   private async publishToNotion(
-    message: MessageRecord,
+    message: NotionMessage,
     classification: ReturnType<typeof classificationSchema.parse>,
     config: ReturnType<typeof loadRuntimeConfig>
   ): Promise<ProcessResult> {
@@ -216,6 +255,10 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
     });
     return { messageId: message.id, status: "notion", title: classification.title };
   }
+}
+
+function notionMessage(message: MessageRecord): NotionMessage {
+  return { id: message.id, source: message.source };
 }
 
 async function cleanupExpiredMail(env: Env, retentionHours: number): Promise<number> {
