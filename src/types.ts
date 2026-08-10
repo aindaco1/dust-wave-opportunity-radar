@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const sourceSchema = z.enum(["hey", "zoho"]);
+export const sourceSchema = z.enum(["hey", "zoho", "creative_west"]);
 export type MessageSource = z.infer<typeof sourceSchema>;
 
 export const messageStatusSchema = z.enum([

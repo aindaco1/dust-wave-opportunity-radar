@@ -1,5 +1,6 @@
 import { loadRuntimeConfig } from "./config";
 import { ingestForwardedHeyEmail, ingestImportedHeyEmail, type ImportedHeyEmail } from "./ingest/email-worker";
+import { inspectCreativeWestConnection, syncCreativeWest } from "./ingest/creative-west";
 import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
 import { inspectNotionSchema, trashNotionPage } from "./notion/client";
 import { readBoundedJson } from "./util/http";
@@ -39,7 +40,8 @@ const worker = {
           timezone: config.timezone,
           batchHours: [...config.batchHours],
           notionEnabled: config.notionEnabled,
-          zohoEnabled: config.zohoEnabled
+          zohoEnabled: config.zohoEnabled,
+          creativeWestEnabled: config.creativeWestEnabled
         });
       }
 
@@ -61,11 +63,17 @@ const worker = {
           const config = loadRuntimeConfig(env);
           const notion = await inspectIntegration(() => inspectNotionSchema(env, config));
           const zoho = await inspectIntegration(() => inspectZohoConnection(env, config));
-          return Response.json({ ok: notion.ok && zoho.ok, notion, zoho }, { status: notion.ok && zoho.ok ? 200 : 502 });
+          const creativeWest = await inspectIntegration(() => inspectCreativeWestConnection(config, new Date()));
+          const ok = notion.ok && zoho.ok && creativeWest.ok;
+          return Response.json({ ok, notion, zoho, creativeWest }, { status: ok ? 200 : 502 });
         }
         if (request.method === "POST" && url.pathname === "/admin/sync/zoho") {
           const config = loadRuntimeConfig(env);
           return Response.json(await syncZoho(env, config));
+        }
+        if (request.method === "POST" && url.pathname === "/admin/sync/creative-west") {
+          const config = loadRuntimeConfig(env);
+          return Response.json(await syncCreativeWest(env, config, new Date()));
         }
         if (request.method === "POST" && url.pathname === "/admin/notion/trash") {
           try {

@@ -17,8 +17,10 @@ describe("runtime configuration", () => {
   });
 
   it("enables feature flags only for the literal true value", () => {
-    expect(loadRuntimeConfig(env({ NOTION_ENABLED: "true", ZOHO_ENABLED: "true" }))).toMatchObject({ notionEnabled: true, zohoEnabled: true });
-    expect(loadRuntimeConfig(env({ NOTION_ENABLED: "TRUE", ZOHO_ENABLED: "1" }))).toMatchObject({ notionEnabled: false, zohoEnabled: false });
+    expect(loadRuntimeConfig(env({ NOTION_ENABLED: "true", ZOHO_ENABLED: "true", CREATIVE_WEST_ENABLED: "true" })))
+      .toMatchObject({ notionEnabled: true, zohoEnabled: true, creativeWestEnabled: true });
+    expect(loadRuntimeConfig(env({ NOTION_ENABLED: "TRUE", ZOHO_ENABLED: "1", CREATIVE_WEST_ENABLED: "TRUE" })))
+      .toMatchObject({ notionEnabled: false, zohoEnabled: false, creativeWestEnabled: false });
   });
 
   it.each([
@@ -36,8 +38,9 @@ describe("runtime configuration", () => {
 });
 
 describe("source labels", () => {
-  it("renders human-readable HEY and Zoho origins", () => {
+  it("renders human-readable source origins", () => {
     expect(sourceLabel("hey", "Imbox")).toBe("HEY · Imbox");
     expect(sourceLabel("zoho", "Dust Wave")).toBe("Zoho · Dust Wave");
+    expect(sourceLabel("creative_west", "New Mexico")).toBe("Creative West · New Mexico");
   });
 });

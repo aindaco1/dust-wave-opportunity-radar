@@ -1,6 +1,6 @@
 # Testing
 
-The test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Notion, or public websites.
+The test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Creative West, Notion, or public websites.
 
 ## Commands
 
@@ -23,7 +23,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, recovery, tags/URLs, model pin, invalid config |
 | Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
-| Ingestion adapters | `email-worker.test.ts`, `email-runtime.test.ts`, `zoho.test.ts` | HEY limits/cleanup, production-shaped Email Worker streams with local R2/D1, OAuth/account/folders, MIME/fallback, checkpoints |
+| Ingestion adapters | `email-worker.test.ts`, `email-runtime.test.ts`, `zoho.test.ts`, `creative-west.test.ts` | HEY limits/cleanup, production-shaped Email Worker streams with local R2/D1, OAuth/account/folders, MIME/fallback, checkpoints, exact public-feed filters/window, and snapshot dedupe |
 | Persistence | `database.test.ts` | real migrations, uniqueness, state machine, stale claims, retention, runs |
 | Notion | `notion.test.ts` | schema, find-before-create, manual-page preference, safe body update, duplicate trash ownership |
 | Rendering/delivery | `digest.test.ts` | copy, escaping, category order, compaction, binding request |
@@ -57,6 +57,8 @@ Always restore global mocks in `afterEach`. Avoid implementation-only call count
 ## Fixtures and privacy
 
 Use invented domains such as `example.org`, fictional organizations, and synthetic MIME/PDF/DOCX content. Do not copy a production email, sender list, private opportunity URL, Notion response, HEY cookie, or OAuth payload into the repository. Keep fixtures small and inline unless reuse materially improves clarity.
+
+`creative-west.test.ts` verifies the exact effective portal filters, Mountain-time 31-day range, bounded synthetic MIME, snapshot dedupe/update behavior, disabled switch, inspection count, and malformed/upstream failure paths using only fictional responses.
 
 ## Adding a regression test
 

@@ -11,7 +11,7 @@ Choose the shortest path for the task at hand.
 
 ## Provision and deploy
 
-- [Setup](SETUP.md) — Cloudflare, HEY, Zoho, Notion, and GitHub account steps.
+- [Setup](SETUP.md) — Cloudflare, HEY, Zoho, Creative West, Notion, and GitHub account steps.
 - [Configuration](CONFIGURATION.md) — bindings, plain variables, secrets, and feature flags.
 - [Security](SECURITY.md) — trust boundaries, controls, retention, and incident response.
 - [Decisions](DECISIONS.md) — why the system uses these services and safety patterns.

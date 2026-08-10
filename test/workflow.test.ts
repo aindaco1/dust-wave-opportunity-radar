@@ -44,6 +44,7 @@ function setup() {
     EMAIL: email,
     AI: ai,
     ZOHO_ENABLED: "false",
+    CREATIVE_WEST_ENABLED: "false",
     NOTION_ENABLED: "false"
   });
   const names: string[] = [];
@@ -89,9 +90,10 @@ describe("batch workflow orchestration", () => {
     expect(names).toEqual([
       "create batch run",
       "sync Zoho folders",
+      "sync Creative West opportunities",
       "load queued messages",
       "send non-empty digest",
-      "purge expired raw mail",
+      "purge expired source payloads",
       "complete batch run"
     ]);
     expect(email.send).not.toHaveBeenCalled();

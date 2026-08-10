@@ -2,11 +2,12 @@
 
 ## Trust boundaries
 
-Email bodies, attachments, linked pages, sender identities, and AI output are untrusted. Secrets are stored only as Cloudflare or GitHub Actions secrets. No secret is placed in D1, R2 metadata, logs, source code, or generated types.
+Email bodies, Creative West API fields, attachments, linked pages, sender/provider identities, and AI output are untrusted. Secrets are stored only as Cloudflare or GitHub Actions secrets. No secret is placed in D1, R2 metadata, logs, source code, or generated types.
 
 ## Controls
 
 - Inbound messages and HTTP import bodies have strict size caps before buffering.
+- Creative West uses one fixed HTTPS GraphQL endpoint, exact reviewed filters, bounded responses, validated IDs, safe public URL checks, and bounded synthetic MIME. Listing text is never logged.
 - PDF extraction is limited by file size, page count, pixel count, and wall time; DOCX decompression limits uncompressed XML size and accepted ZIP paths.
 - Web enrichment accepts only HTTP(S), standard ports, and public-looking hosts. Redirects are followed manually and each hop is revalidated. Responses have time and byte limits.
 - The classifier uses structured schema output. Prompt text explicitly treats embedded instructions as data, and deterministic code re-checks confidence, URL presence, geography, and category.
@@ -17,7 +18,7 @@ Email bodies, attachments, linked pages, sender identities, and AI output are un
 - Admin authorization uses a long random bearer token and constant-time digest comparison.
 - Email Sending is allowlisted to one sender and one recipient.
 - The GitHub deployment token is restricted to one Cloudflare account and only `Workers Scripts: Edit` plus `D1: Edit`. Routine deployment omits Email Routing reconciliation; route changes require a separate interactive operator action.
-- R2 message content is purged after 24 hours.
+- R2 source content is purged after 24 hours.
 
 ## Known boundary
 
@@ -25,7 +26,7 @@ HEY’s official forwarding is the production path. The one-time historical impo
 
 ## Incident response
 
-1. Disable the Worker/Email Routing as appropriate, and set Zoho/Notion flags false to stop those external reads/writes. The two flags alone do not disable inbound HEY delivery.
+1. Disable the Worker/Email Routing as appropriate, and set the Zoho, Creative West, and Notion flags false to stop those external reads/writes. These flags do not disable inbound HEY delivery.
 2. Rotate `ADMIN_TOKEN` and any affected source token.
 3. Delete `HEY_COOKIES_JSON` and revoke the HEY session if involved.
 4. Inspect Cloudflare logs, D1 run/message errors, and GitHub Action history.
@@ -37,6 +38,6 @@ HEY’s official forwarding is the production path. The one-time historical impo
 - `.dev.vars`, HEY cookie files, Wrangler state, coverage output, and downloaded mail must remain untracked.
 - Logs may include IDs, source/folder labels, counts, titles for successful Notion publication, and bounded error messages. Do not add bodies, extracted attachment text, auth headers, or token-bearing URLs.
 - Tests and docs use synthetic content and `example.org`; production messages are not fixtures.
-- `/health` is public by design but exposes only service name, timezone, batch hours, and two feature flags. All stateful/read-through routes use the admin bearer token.
+- `/health` is public by design but exposes only service name, timezone, batch hours, and three feature flags. All stateful/read-through routes use the admin bearer token.
 
 See [Configuration](CONFIGURATION.md) for secret locations and [Data model](DATA-MODEL.md) for retained fields.

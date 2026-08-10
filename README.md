@@ -1,6 +1,6 @@
 # Dust Wave Opportunity Radar
 
-Dust Wave Opportunity Radar is a Cloudflare-hosted email triage service for creative-industry opportunities. It receives broad HEY forwarding, pulls selected Zoho folders, parses linked pages and PDF/DOCX attachments, classifies each message with Workers AI, and runs a 12-hour publishing batch.
+Dust Wave Opportunity Radar is a Cloudflare-hosted source triage service for creative-industry opportunities. It receives broad HEY forwarding, pulls selected Zoho folders, fetches a filtered Creative West opportunity feed, parses linked pages and PDF/DOCX attachments, classifies each item with Workers AI, and runs a 12-hour publishing batch.
 
 Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 
@@ -9,6 +9,7 @@ Qualifying apply-or-submit calls are created or updated in the Notion Opportunit
 - Schedule: 07:00 and 19:00 in `America/Denver`; an hourly cron selects those local slots across daylight-saving changes.
 - HEY: official forwarding of non-spam mail to Cloudflare Email Routing. `Sealjay/mcp-hey` is limited to the optional historical backfill.
 - Zoho: `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`, with a seven-day initial window and one-hour checkpoint overlap.
+- Creative West: open New Mexico opportunities for artists or organizations whose deadlines fall between the Mountain-time run date and 31 days later, sorted by newest open date.
 - Notion: automatic create/update at batch time, including conservative equivalent-title matching and cleanup of automation-owned duplicate pages.
 - Digest: sent to `alonso@hey.com` only when at least one item is waiting.
 - Retention: raw and parsed R2 objects are purged after 24 hours; D1 retains operational metadata and structured classification results.
@@ -19,7 +20,8 @@ Qualifying apply-or-submit calls are created or updated in the Notion Opportunit
 flowchart LR
   HEY["HEY forwarding"] --> Email["Cloudflare Email Routing"]
   Zoho["Zoho Mail API"] --> Workflow["12-hour Workflow"]
-  Email --> R2["R2 raw MIME"]
+  CreativeWest["Creative West API"] --> Workflow
+  Email --> R2["R2 source MIME"]
   R2 --> Workflow
   Workflow --> Parse["MIME + PDF/DOCX parsing"]
   Parse --> Web["Bounded public web enrichment"]
@@ -61,7 +63,7 @@ For a fresh Codex task, open this repository as the project folder and start wit
 
 | Path | Responsibility |
 |---|---|
-| `src/ingest` | HEY ingestion, Zoho synchronization, and safe web enrichment |
+| `src/ingest` | HEY ingestion, Zoho/Creative West synchronization, and safe web enrichment |
 | `src/email` | MIME/PDF/DOCX parsing and digest rendering/sending |
 | `src/ai` | Workers AI prompts, structured parsing, recovery, and deterministic policy |
 | `src/notion` | Schema checks, entity resolution, safe create/update, duplicate cleanup |
@@ -76,6 +78,7 @@ For a fresh Codex task, open this repository as the project folder and start wit
 
 - HEY: official [forwarding](https://help.hey.com/article/1055-forwarding) for ongoing ingestion; [`Sealjay/mcp-hey`](https://github.com/Sealjay/mcp-hey) for historical import only.
 - Zoho: official [Mail API](https://www.zoho.com/mail/help/api/) and [original message endpoint](https://www.zoho.com/mail/help/api/get-original-message.html).
+- Creative West: public [Art Opps search](https://opportunities.wearecreativewest.org/search).
 - Digest visual reference: [`aindaco1/rss-feed-digest`](https://github.com/aindaco1/rss-feed-digest), credited in [Notices](NOTICE.md).
 
 Private project. Never commit email content, session cookies, OAuth credentials, API tokens, or `.dev.vars`.

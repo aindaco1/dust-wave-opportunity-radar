@@ -3,6 +3,7 @@ import { buildManualReviewClassification, classifyMessage } from "../ai/classify
 import { loadRuntimeConfig } from "../config";
 import { renderOpportunityDigest, sendOpportunityDigest } from "../email/digest";
 import { parseStoredMessage } from "../email/parse";
+import { syncCreativeWest } from "../ingest/creative-west";
 import { syncZoho } from "../ingest/zoho";
 import { enrichCandidateUrls } from "../ingest/web-enrichment";
 import { ensureNotionSchema, publishOpportunity } from "../notion/client";
@@ -59,6 +60,12 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
         "sync Zoho folders",
         { retries: { limit: 3, delay: "10 seconds", backoff: "exponential" }, timeout: "10 minutes" },
         async () => syncZoho(this.env, config)
+      );
+
+      await step.do(
+        "sync Creative West opportunities",
+        { retries: { limit: 3, delay: "10 seconds", backoff: "exponential" }, timeout: "10 minutes" },
+        async () => syncCreativeWest(this.env, config, new Date(event.payload.scheduledFor))
       );
 
       if (config.notionEnabled) {
@@ -119,7 +126,7 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
         }
       );
 
-      await step.do("purge expired raw mail", async () => cleanupExpiredMail(this.env, config.r2RetentionHours));
+      await step.do("purge expired source payloads", async () => cleanupExpiredMail(this.env, config.r2RetentionHours));
       await step.do("complete batch run", async () => completeRun(this.env.DB, runId, results, messages.length));
 
       const count = (status: ProcessResult["status"]) => results.filter((result) => result.status === status).length;

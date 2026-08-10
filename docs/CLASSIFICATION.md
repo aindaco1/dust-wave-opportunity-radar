@@ -2,7 +2,7 @@
 
 ## Product definition
 
-The radar is intentionally broad at ingestion and narrow at automatic publication. Film, visual art, photography, animation, video games, interactive media, writing, music, and adjacent creative fields are relevant.
+The radar is intentionally broad within each configured source scope and narrow at automatic publication. Film, visual art, photography, animation, video games, interactive media, writing, music, and adjacent creative fields are relevant. Creative West's New Mexico/open/applicant/deadline query defines that source's requested scope; every returned listing still enters the shared batch policy rather than bypassing classification.
 
 ### Publish to Notion
 
@@ -48,7 +48,7 @@ Unknown geography is not the same as exclusion.
 
 ## Evidence and safety
 
-The evidence packet contains metadata, up to eight compact source links, bounded email text, bounded attachment text, and up to three fetched public pages. Long opaque tracking URLs are compacted before inference. Email, documents, web pages, and embedded prompts are explicitly labelled untrusted.
+The evidence packet contains metadata, up to eight compact source links, bounded source text, bounded attachment text, and up to three fetched public pages. Long opaque tracking URLs are compacted before inference. Email, Creative West listing fields, documents, web pages, and embedded prompts are explicitly labelled untrusted.
 
 The model has no Notion, email, storage, secret, or general tool access. Deterministic code canonicalizes URLs, normalizes known Notion tags, enforces the confidence/source rule, and applies the all-three-states exclusion after inference.
 

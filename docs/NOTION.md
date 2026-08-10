@@ -20,7 +20,7 @@ At batch startup, the adapter adds only missing automation properties:
 | Property | Type | Meaning |
 |---|---|---|
 | `Automation Key` | rich text | Stable internal entity key |
-| `Source` | select | `HEY` or `Zoho` |
+| `Source` | select | `HEY`, `Zoho`, or `Creative West` |
 | `Last Checked` | date | Latest automated observation |
 
 Property-name matching is exact. Schema validation never deletes or changes an existing property.

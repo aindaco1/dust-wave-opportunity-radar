@@ -12,6 +12,7 @@ export interface RuntimeConfig {
   notionEnabled: boolean;
   notionDataSourceId: string;
   zohoEnabled: boolean;
+  creativeWestEnabled: boolean;
   zohoAccountEmail: string;
   zohoDatacenter: string;
   zohoFolders: string[];
@@ -33,6 +34,7 @@ export function loadRuntimeConfig(env: Env): RuntimeConfig {
     notionEnabled: String(env.NOTION_ENABLED) === "true",
     notionDataSourceId: env.NOTION_DATA_SOURCE_ID,
     zohoEnabled: String(env.ZOHO_ENABLED) === "true",
+    creativeWestEnabled: String(env.CREATIVE_WEST_ENABLED) === "true",
     zohoAccountEmail: env.ZOHO_ACCOUNT_EMAIL.toLowerCase(),
     zohoDatacenter: env.ZOHO_DATACENTER.toLowerCase(),
     zohoFolders: parseCsv(env.ZOHO_FOLDERS),
@@ -43,7 +45,9 @@ export function loadRuntimeConfig(env: Env): RuntimeConfig {
 }
 
 export function sourceLabel(source: MessageSource, mailbox: string): string {
-  return source === "hey" ? `HEY · ${mailbox}` : `Zoho · ${mailbox}`;
+  if (source === "hey") return `HEY · ${mailbox}`;
+  if (source === "zoho") return `Zoho · ${mailbox}`;
+  return `Creative West · ${mailbox}`;
 }
 
 function parseCsv(value: string): string[] {

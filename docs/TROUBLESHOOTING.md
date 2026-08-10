@@ -3,7 +3,7 @@
 Start with the least invasive evidence:
 
 1. `GET /health` for deployed flags and schedule values.
-2. `GET /admin/integrations` for live Notion/Zoho access.
+2. `GET /admin/integrations` for live Notion/Zoho/Creative West access.
 3. `GET /admin/runs` for batch outcome counts and failure text.
 4. Cloudflare structured logs for the run/message ID.
 5. D1 metadata only when the first four do not explain the state.
@@ -58,6 +58,10 @@ Confirm the client/refresh token belong to the configured data center and includ
 ### Messages fetched but not ingested
 
 Inspect `sampleErrors` from `/admin/sync/zoho` and `zoho_message_ingest_failed` logs. The sync stores the original MIME when available and builds bounded fallback MIME from the content endpoint otherwise. A failed item moves the checkpoint back to the oldest failed receive time so a later sync retries it.
+
+### Creative West sync fails or returns unexpected counts
+
+Use `/admin/integrations` to confirm the public GraphQL query is reachable, then `/admin/sync/creative-west` to inspect only the requested `deadlineFrom`, `deadlineTo`, and counts. The window starts on the current `America/Denver` calendar date and ends 31 calendar days later. Expected filters are New Mexico, open status, artist or organization (including the portal's combined applicant values), and newest open date first. Do not log or paste listing descriptions while diagnosing. A malformed individual listing increments `failed`; an invalid page-level response fails the durable sync step so Workflow retry policy applies.
 
 ## Classification
 

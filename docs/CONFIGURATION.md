@@ -33,6 +33,7 @@ The inbound Worker address is `hey@ingest.dustwave.xyz`. Email Sending is allowl
 | `NOTION_ENABLED` | `true` | Schema check, pending drain, and publication switch |
 | `NOTION_DATA_SOURCE_ID` | `248a67e1-4d47-48f8-bc84-a9602ca91b78` | Opportunities data source |
 | `ZOHO_ENABLED` | `true` | Zoho batch synchronization switch |
+| `CREATIVE_WEST_ENABLED` | `true` | Creative West filtered-feed synchronization switch |
 | `ZOHO_ACCOUNT_EMAIL` | `alonso@dustwave.xyz` | Required account/alias |
 | `ZOHO_DATACENTER` | `us` | API endpoint family |
 | `ZOHO_FOLDERS` | `Inbox,Dust Wave,Newsletter,Notification` | Exact folders required at startup |
@@ -40,7 +41,7 @@ The inbound Worker address is `hey@ingest.dustwave.xyz`. Email Sending is allowl
 | `ATTACHMENT_MAX_BYTES` | `20971520` | Per-attachment parse cap (20 MiB) |
 | `R2_RETENTION_HOURS` | `24` | Raw/parsed object retention |
 
-Feature switches parse as enabled only for the exact string `true`. `BATCH_HOURS` must contain integers from 0–23. Confidence must be 0–1; the three size/retention values must be positive integers.
+Feature switches parse as enabled only for the exact string `true`. `BATCH_HOURS` must contain integers from 0–23. Confidence must be 0–1; the three size/retention values must be positive integers. Creative West's endpoint and source scope are code-reviewed constants: New Mexico, open status, artist/organization eligibility, open-date sorting, and a deadline range from the local run date through 31 calendar days later.
 
 ## Cloudflare secrets
 

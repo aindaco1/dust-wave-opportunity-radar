@@ -1,6 +1,6 @@
 # Setup
 
-This runbook provisions a new environment. The checked-in production configuration currently enables Zoho and Notion; for a fresh deployment, set both variables to `false` until secrets and read-only integration checks pass. See [Configuration](CONFIGURATION.md) for the complete binding/variable inventory.
+This runbook provisions a new environment. The checked-in production configuration currently enables Zoho, Creative West, and Notion; for a fresh deployment, set `ZOHO_ENABLED`, `CREATIVE_WEST_ENABLED`, and `NOTION_ENABLED` to `false` until the relevant setup and read-only integration checks pass. See [Configuration](CONFIGURATION.md) for the complete binding/variable inventory.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ From the repository root, run `npm ci` and `npm run check` before provisioning a
 
 ## 1. Cloudflare resources
 
-The Wrangler configuration defines one Worker, one Workflow, D1, R2, Workers AI, an Email Sending binding, and the inbound address `hey@ingest.dustwave.xyz`.
+The Wrangler configuration defines one Worker, one Workflow, D1, R2, Workers AI, an Email Sending binding, the inbound address `hey@ingest.dustwave.xyz`, and the public Creative West source switch.
 
 ```bash
 npm ci
@@ -78,7 +78,11 @@ Change `ZOHO_ENABLED` to `true` in `wrangler.jsonc`, deploy, and run the read-on
 
 Zoho’s OAuth authorization-code process is documented at [Zoho Mail OAuth 2.0](https://www.zoho.com/mail/help/api/using-oauth-2.html).
 
-## 5. Notion
+## 5. Creative West public source
+
+Creative West requires no secret. `CREATIVE_WEST_ENABLED=true` activates the reviewed public GraphQL query during each batch. The adapter keeps the source filters fixed to New Mexico, open listings, artist/organization eligibility, and open-date sorting; it computes the deadline bounds from the Mountain-time run date through 31 days later. Before enabling classification, use the authenticated `/admin/integrations` check and `/admin/sync/creative-west` source-only route to verify the returned bounds and counts.
+
+## 6. Notion
 
 When integration access is ready, share the Opportunities data source with the integration and install its token:
 
@@ -92,18 +96,19 @@ Before enabling, confirm the existing property names used by the adapter: `Name`
 
 See [Notion integration](NOTION.md) before modifying properties or duplicate/entity matching.
 
-## 6. GitHub deployment credentials
+## 7. GitHub deployment credentials
 
-The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a user API token restricted to the intended Cloudflare account with exactly `Workers Scripts: Edit` and `D1: Edit`. Routine CI deliberately omits Email Routing reconciliation; do not add user-profile, membership, cross-account, zone, R2, or Email Routing access to this token. Also set repository variable `WORKER_URL` and repository secret `ADMIN_TOKEN` for the manual operations workflows. Keep production deployment manual until both source integrations have completed a test batch.
+The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a user API token restricted to the intended Cloudflare account with exactly `Workers Scripts: Edit` and `D1: Edit`. Routine CI deliberately omits Email Routing reconciliation; do not add user-profile, membership, cross-account, zone, R2, or Email Routing access to this token. Also set repository variable `WORKER_URL` and repository secret `ADMIN_TOKEN` for the manual operations workflows. Keep production deployment manual until every enabled source has completed a test batch.
 
-## 7. Activation verification
+## 8. Activation verification
 
 1. Call public `/health`; verify timezone, batch hours, and reviewed feature flags.
-2. Run **Check source integrations**; both Notion and Zoho must be `ok`.
+2. Run **Check source integrations**; Notion, Zoho, and Creative West must be `ok`.
 3. Confirm one forwarded HEY test message produces `hey_email_ingested` and a D1 `queued` row.
 4. Run **Sync Zoho source only**; verify the four folders and bounded counts without classification.
-5. Start one manual batch.
-6. Review `/admin/runs`, the first five Notion changes, and any non-empty digest.
-7. Confirm no visible automation markers/history were added to Notion bodies and no duplicate page was created for an existing equivalent opportunity.
+5. Run the Creative West source-only sync; verify the local date through +31-day bounds and bounded counts without classification.
+6. Start one manual batch.
+7. Review `/admin/runs`, the first five Notion changes, and any non-empty digest.
+8. Confirm no visible automation markers/history were added to Notion bodies and no duplicate page was created for an existing equivalent opportunity.
 
 The route and command shapes are in [Admin API](API.md); normal monitoring is in [Operations](OPERATIONS.md).

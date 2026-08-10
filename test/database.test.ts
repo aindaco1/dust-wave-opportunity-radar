@@ -54,9 +54,23 @@ async function seedMessage(db: D1Database, overrides: Partial<Parameters<typeof 
 describe("D1 migrations", () => {
   it("applies every migration and seeds safe feature flags", () => {
     const { sqlite } = database();
-    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'schema_version'").get()).toEqual({ value: "3" });
+    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'schema_version'").get()).toEqual({ value: "4" });
     expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'notion_publish_enabled'").get()).toEqual({ value: "false" });
+    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'creative_west_sync_enabled'").get()).toEqual({ value: "false" });
     expect(sqlite.prepare("PRAGMA table_info(opportunities)").all()).toContainEqual(expect.objectContaining({ name: "managed_markdown" }));
+  });
+
+  it("accepts Creative West messages while retaining foreign-key enforcement", async () => {
+    const { db, sqlite } = database();
+    await seedMessage(db, {
+      id: "creative-west-message",
+      source: "creative_west",
+      externalId: "CAFE:123:snapshot",
+      rawR2Key: "raw/creative-west/creative-west-message.eml"
+    });
+    expect(sqlite.prepare("SELECT source FROM messages WHERE id = 'creative-west-message'").get())
+      .toEqual({ source: "creative_west" });
+    expect(sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   });
 });
 

@@ -112,6 +112,25 @@ describe("Notion publishing", () => {
     expect(body.markdown).not.toContain("Automation change history");
   });
 
+  it("labels Creative West as its own Notion source", async () => {
+    const { env, config } = setup();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json({ results: [], has_more: false }))
+      .mockResolvedValueOnce(json({ id: "11111111-1111-1111-1111-111111111111" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await publishOpportunity(
+      env,
+      config,
+      messageRecord({ source: "creative_west" }),
+      classification(),
+      "creative-west-opportunity"
+    );
+
+    const request = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body)).properties.Source.select.name).toBe("Creative West");
+  });
+
   it("updates a manual canonical page and trashes only the automated duplicate", async () => {
     const { env, config } = setup();
     const manualId = "11111111-1111-1111-1111-111111111111";

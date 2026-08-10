@@ -70,7 +70,13 @@ export async function ensureNotionSchema(env: Env, config: RuntimeConfig): Promi
   if (!source.properties["Automation Key"]) properties["Automation Key"] = { rich_text: {} };
   if (!source.properties.Source) {
     properties.Source = {
-      select: { options: [{ name: "HEY", color: "blue" }, { name: "Zoho", color: "green" }] }
+      select: {
+        options: [
+          { name: "HEY", color: "blue" },
+          { name: "Zoho", color: "green" },
+          { name: "Creative West", color: "orange" }
+        ]
+      }
     };
   }
   if (!source.properties["Last Checked"]) properties["Last Checked"] = { date: {} };
@@ -371,10 +377,16 @@ function buildProperties(
         : null
     },
     "Automation Key": { rich_text: [{ text: { content: automationKey } }] },
-    Source: { select: { name: message.source === "hey" ? "HEY" : "Zoho" } },
+    Source: { select: { name: notionSourceName(message.source) } },
     "Last Checked": { date: { start: checkedAt } }
   };
   return properties;
+}
+
+function notionSourceName(source: MessageRecord["source"]): string {
+  if (source === "hey") return "HEY";
+  if (source === "zoho") return "Zoho";
+  return "Creative West";
 }
 
 export function buildOpportunityMarkdown(classification: Classification): string {

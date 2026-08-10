@@ -7,15 +7,16 @@ Cloudflare invokes an hourly cron. The Worker starts a batch only when Mountain 
 Each batch:
 
 1. pulls new Zoho messages when enabled;
-2. verifies Notion access/schema when enabled;
-3. claims queued or retryable records from D1;
-4. parses MIME and permitted PDF/DOCX attachments;
-5. enriches up to three safe public URLs;
-6. classifies with Workers AI and applies deterministic policy checks;
-7. creates/updates Notion records or queues digest items;
-8. sends one non-empty digest;
-9. deletes R2 payloads older than 24 hours; and
-10. records run counts and status.
+2. pulls new or changed Creative West listings using the fixed New Mexico/open/artist-or-organization filters and the local run date through 31 days later;
+3. verifies Notion access/schema when enabled;
+4. claims queued or retryable records from D1;
+5. parses MIME and permitted PDF/DOCX attachments;
+6. enriches up to three safe public URLs;
+7. classifies with Workers AI and applies deterministic policy checks;
+8. creates/updates Notion records or queues digest items;
+9. sends one non-empty digest;
+10. deletes R2 payloads older than 24 hours; and
+11. records run counts and status.
 
 ## Health and manual run
 
@@ -34,15 +35,18 @@ curl https://WORKER_URL/admin/integrations \
 curl -X POST https://WORKER_URL/admin/sync/zoho \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 
+curl -X POST https://WORKER_URL/admin/sync/creative-west \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
 curl -X POST https://WORKER_URL/admin/notion/trash \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   --data '{"pageId":"NOTION_PAGE_ID"}'
 ```
 
-`/health` is public and exposes flags only, never credentials or message data. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only credential, Notion schema, Zoho account, and configured-folder checks without returning message content or tokens. `/admin/sync/zoho` pulls only the configured Zoho folders without starting classification or digest delivery. `/admin/notion/trash` is an authenticated recovery tool; it moves exactly one supplied page ID to Notion trash and can be reversed in Notion.
+`/health` is public and exposes flags only, never credentials or source content. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only Notion schema, Zoho account/folder, and Creative West filtered-query checks without returning message/listing content or tokens. The two `/admin/sync/*` routes ingest only their named source without starting classification or digest delivery. `/admin/notion/trash` is an authenticated recovery tool; it moves exactly one supplied page ID to Notion trash and can be reversed in Notion.
 
-Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `classification_exhausted_sent_to_digest`, `notion_publish_deferred`, `message_processing_failed`, and `digest_sent`. A `hey_email_ingest_failed` event includes a privacy-safe `phase` (`r2_upload` or `d1_upsert`), the internal hashed message ID, and the declared raw size; it never includes sender, subject, Message-ID, or MIME content. Use `/admin/runs` for authoritative completed/failed run counts.
+Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `creative_west_sync_completed`, `classification_exhausted_sent_to_digest`, `notion_publish_deferred`, `message_processing_failed`, and `digest_sent`. A `hey_email_ingest_failed` event includes a privacy-safe `phase` (`r2_upload` or `d1_upsert`), the internal hashed message ID, and the declared raw size; it never includes sender, subject, Message-ID, or MIME content. Creative West logs contain only counts, the requested date bounds, and page/item indexes for failures—never listing descriptions. Use `/admin/runs` for authoritative completed/failed run counts.
 
 Batch preparation is intentionally capped at four concurrent messages. This reduces wall time for R2 parsing and Workers AI while keeping Notion find-before-create serialized. Investigate a sustained rate below roughly four classifications per minute with message-status aggregates and Workflow step timings; do not raise concurrency until R2, D1, Workers AI limits, and Notion race safety have been revalidated.
 
@@ -68,11 +72,11 @@ See [Admin API](API.md) for response shapes and boundary errors.
 - Notion-disabled calls are retained as structured classifications; 24-hour raw-mail deletion does not lose the classification.
 - Notion API failures remain `pending_notion` rather than becoming terminal `failed` rows.
 - Empty digests are not sent.
-- Missing Zoho folders, credentials, or Notion access fail explicitly and leave source flags visible in `/health`.
+- Missing Zoho folders, credentials, Notion access, or a valid Creative West response fail explicitly and leave source flags visible in `/health`.
 
 ## Data retention
 
-- Raw MIME and parsed payloads: R2, purged 24 hours after ingestion by every batch (historical message dates do not shorten this window).
+- Raw/synthetic MIME and parsed payloads: R2, purged 24 hours after ingestion by every batch (historical source dates do not shorten this window).
 - D1: identifiers, extracted classifications, dedupe keys, digest metadata, checkpoints, and run history; no attachment binaries.
 - Workers logs: governed by the Cloudflare account’s observability retention.
 - GitHub HEY runner: ephemeral; delete `HEY_COOKIES_JSON` after backfill.
@@ -80,7 +84,7 @@ See [Admin API](API.md) for response shapes and boundary errors.
 ## Recovery
 
 - Missed regular run: use `/admin/run`; source checkpoints overlap by one hour.
-- Duplicate source delivery: D1 unique source/external-ID keys make ingestion idempotent. Notion find-before-create combines automation key, Website variants, and conservative title equivalence.
+- Duplicate source delivery: D1 unique source/external-ID keys make ingestion idempotent. Creative West content snapshots requeue changed listings without requeueing unchanged ones. Notion find-before-create combines automation key, Website variants, and conservative title equivalence.
 - Expired Zoho refresh token: install a new `ZOHO_REFRESH_TOKEN`, then manually run.
 - Notion outage: leave `NOTION_ENABLED=true`, correct access, then manually run; `pending_notion` drains. A page whose prior generated body was manually edited requires deliberate reconciliation rather than automatic overwrite.
 - HEY forwarding interruption: restore forwarding. For a gap longer than retained messages, rerun the HEY backfill Action with the required day count (maximum 31).
@@ -88,11 +92,12 @@ See [Admin API](API.md) for response shapes and boundary errors.
 
 ## Safe rollout
 
-1. Deploy with Zoho and Notion disabled.
+1. Deploy with Zoho, Creative West, and Notion disabled.
 2. Verify `/health`, inbound HEY delivery, D1 queueing, and an empty/manual batch.
 3. Enable Zoho, run once, and inspect counts/logs.
-4. Enable Notion only after confirming the property names and integration access.
-5. Inspect the first digest and first five Notion records; tune the AI threshold or prompt only with examples retained as tests.
+4. Enable Creative West, run its source-only sync, and confirm the deadline bounds and queue counts.
+5. Enable Notion only after confirming the property names and integration access.
+6. Inspect the first digest and first five Notion records; tune the AI threshold or prompt only with examples retained as tests.
 
 ## Change management
 

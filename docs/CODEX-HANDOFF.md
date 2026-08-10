@@ -33,6 +33,7 @@ Then read:
 - Public URL: `https://dustwave-opportunity-radar.jogo.workers.dev`
 - Schedule: 07:00 and 19:00 `America/Denver`
 - Notion and Zoho runtime flags: enabled in `wrangler.jsonc`
+- Creative West runtime flag: enabled in `wrangler.jsonc`; New Mexico open artist/organization listings through local run date +31 days
 - Zoho folders: `Inbox`, `Dust Wave`, `Newsletter`, `Notification`
 - Notion data source ID: `248a67e1-4d47-48f8-bc84-a9602ca91b78`
 - Digest: `opportunities@digest.dustwave.xyz` → `alonso@hey.com`; empty suppressed

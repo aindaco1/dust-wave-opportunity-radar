@@ -41,7 +41,8 @@ describe("Worker HTTP routes", () => {
       timezone: "America/Denver",
       batchHours: [7, 19],
       notionEnabled: true,
-      zohoEnabled: true
+      zohoEnabled: true,
+      creativeWestEnabled: true
     });
   });
 
@@ -80,6 +81,13 @@ describe("Worker HTTP routes", () => {
     const response = await worker.fetch(admin("/admin/runs"), env);
     expect(response.status).toBe(200);
     expect(await body(response)).toMatchObject({ runs: [expect.objectContaining({ id: "run-1", status: "running" })] });
+  });
+
+  it("exposes a source-only Creative West sync route", async () => {
+    const { env } = setup({ CREATIVE_WEST_ENABLED: "false" });
+    const response = await worker.fetch(admin("/admin/sync/creative-west", { method: "POST" }), env);
+    expect(response.status).toBe(200);
+    expect(await body(response)).toMatchObject({ fetched: 0, ingested: 0, skipped: true });
   });
 
   it("validates trash and HEY import bodies at the HTTP boundary", async () => {
