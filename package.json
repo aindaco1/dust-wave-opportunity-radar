@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "fflate": "^0.8.3",
-    "postal-mime": "^2.7.5",
+    "postal-mime": "^2.7.6",
     "unpdf": "^1.8.0",
     "zod": "^4.4.3"
   },
