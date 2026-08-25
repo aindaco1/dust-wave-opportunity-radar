@@ -81,4 +81,4 @@ For a fresh Codex task, open this repository as the project folder and start wit
 - Creative West: public [Art Opps search](https://opportunities.wearecreativewest.org/search).
 - Digest visual reference: [`aindaco1/rss-feed-digest`](https://github.com/aindaco1/rss-feed-digest), credited in [Notices](NOTICE.md).
 
-Private project. Never commit email content, session cookies, OAuth credentials, API tokens, or `.dev.vars`.
+Public source repository. Never commit email content, session cookies, OAuth credentials, API tokens, or `.dev.vars`.
