@@ -162,6 +162,15 @@ export async function markNotionReviewRequired(
     .run();
 }
 
+export async function markNotionReviewGroupReconciled(db: D1Database, messageIds: string[]): Promise<void> {
+  if (!messageIds.length) return;
+  await db.batch(messageIds.map((messageId) =>
+    db.prepare(
+      "UPDATE messages SET status = 'notion', last_error = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'notion_review'"
+    ).bind(messageId)
+  ));
+}
+
 export async function upsertDigestItem(
   db: D1Database,
   message: MessageRecord,

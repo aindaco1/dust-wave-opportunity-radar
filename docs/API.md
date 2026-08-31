@@ -132,6 +132,9 @@ Returns bounded, content-free comparison metadata for messages awaiting a Notion
 {
   "items": [{
     "messageId": "64-character opaque ID",
+    "pageKey": "16-character opaque fingerprint",
+    "groupSize": 2,
+    "isLatest": true,
     "reason": "managed_content_changed",
     "comparison": "manual_changes",
     "currentLength": 1200,
@@ -143,7 +146,7 @@ Returns bounded, content-free comparison metadata for messages awaiting a Notion
 
 ## `POST /admin/notion/reconcile`
 
-Reconciles exactly one `notion_review` item. `refresh_managed` is rejected with `409` unless the current body is exact or formatting-equivalent to the stored managed body. `preserve_manual` does not write page Markdown.
+Selects the page group containing one exact `notion_review` message ID and reconciles that actual page once using the group's newest received message. Every review message resolving to the same page becomes terminal together, so an older message cannot overwrite a newer classification. `refresh_managed` is rejected with `409` unless the current body is exact or formatting-equivalent to the stored managed body. `preserve_manual` does not write page Markdown.
 
 ```json
 {
@@ -151,6 +154,8 @@ Reconciles exactly one `notion_review` item. `refresh_managed` is rejected with 
   "action": "preserve_manual"
 }
 ```
+
+The response includes the selected newest message ID, opaque page fingerprint, and reconciled group count; it does not expose page content, title, URL, or raw Notion page ID.
 
 ## Errors
 
