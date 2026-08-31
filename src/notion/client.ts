@@ -65,6 +65,19 @@ export interface NotionReviewInspection {
 }
 
 export type NotionReconciliationAction = "refresh_managed" | "preserve_manual";
+export type NotionReconciliationStage =
+  | "update_managed_body"
+  | "persist_body_ownership"
+  | "publish_page"
+  | "persist_page_mapping"
+  | "finalize_review_group";
+
+export class NotionReconciliationStageError extends Error {
+  constructor(readonly stage: NotionReconciliationStage) {
+    super(`Notion reconciliation failed during ${stage}`);
+    this.name = "NotionReconciliationStageError";
+  }
+}
 
 export class NotionReviewRequiredError extends Error {
   constructor(
@@ -245,48 +258,62 @@ export async function reconcileNotionReview(
       throw new Error("Managed refresh is unsafe because the current Notion body contains substantive changes");
     }
     if (inspection.comparison === "stored_exact") {
-      await updateManagedContent(env, context.page.id, context.nextMarkdown, context.previousMarkdown);
+      await runReconciliationStage("update_managed_body", () =>
+        updateManagedContent(env, context.page.id, context.nextMarkdown, context.previousMarkdown)
+      );
     } else if (inspection.comparison === "formatting_equivalent") {
-      await replaceNotionMarkdown(env, context.page.id, context.nextMarkdown);
+      await runReconciliationStage("update_managed_body", () =>
+        replaceNotionMarkdown(env, context.page.id, context.nextMarkdown)
+      );
     }
-    await upsertOpportunity(
-      env.DB,
-      context.automationKey,
-      context.message.id,
-      context.classification,
-      context.page.id,
-      context.nextMarkdown,
-      "managed"
+    await runReconciliationStage("persist_body_ownership", () =>
+      upsertOpportunity(
+        env.DB,
+        context.automationKey,
+        context.message.id,
+        context.classification,
+        context.page.id,
+        context.nextMarkdown,
+        "managed"
+      )
     );
   } else {
-    await upsertOpportunity(
+    await runReconciliationStage("persist_body_ownership", () =>
+      upsertOpportunity(
+        env.DB,
+        context.automationKey,
+        context.message.id,
+        context.classification,
+        context.page.id,
+        null,
+        "manual"
+      )
+    );
+  }
+  const published = await runReconciliationStage("publish_page", () =>
+    publishOpportunity(
+      env,
+      config,
+      context.message,
+      context.classification,
+      context.automationKey
+    )
+  );
+  await runReconciliationStage("persist_page_mapping", () =>
+    upsertOpportunity(
       env.DB,
       context.automationKey,
       context.message.id,
       context.classification,
-      context.page.id,
-      null,
-      "manual"
-    );
-  }
-  const published = await publishOpportunity(
-    env,
-    config,
-    context.message,
-    context.classification,
-    context.automationKey
+      published.pageId,
+      published.managedMarkdown,
+      published.bodyManagement
+    )
   );
-  await upsertOpportunity(
-    env.DB,
-    context.automationKey,
-    context.message.id,
-    context.classification,
-    published.pageId,
-    published.managedMarkdown,
-    published.bodyManagement
-  );
-  await saveClassification(env.DB, context.message.id, context.classification, "notion", context.classification.primaryUrl);
-  await markNotionReviewGroupReconciled(env.DB, group.map((candidate) => candidate.message.id));
+  await runReconciliationStage("finalize_review_group", async () => {
+    await saveClassification(env.DB, context.message.id, context.classification, "notion", context.classification.primaryUrl);
+    await markNotionReviewGroupReconciled(env.DB, group.map((candidate) => candidate.message.id));
+  });
   return {
     messageId,
     selectedMessageId: context.message.id,
@@ -295,6 +322,17 @@ export async function reconcileNotionReview(
     action,
     status: "notion"
   };
+}
+
+async function runReconciliationStage<T>(
+  stage: NotionReconciliationStage,
+  operation: () => Promise<T>
+): Promise<T> {
+  try {
+    return await operation();
+  } catch {
+    throw new NotionReconciliationStageError(stage);
+  }
 }
 
 async function findExistingPages(

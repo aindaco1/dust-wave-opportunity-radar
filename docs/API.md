@@ -164,7 +164,7 @@ The response includes the selected newest message ID, opaque page fingerprint, a
 | `400` | Invalid bounded JSON/body/page ID/import metadata |
 | `401` | Missing or incorrect bearer token |
 | `404` | Unknown public or admin route |
-| `502` | One or more integration inspections failed |
+| `502` | Integration inspection failed, or reconciliation failed with a content-free `stage` identifier |
 | `500` | Unhandled route failure; response omits internal details |
 
 External API adapters include their endpoint and status in bounded internal error messages, which appear in structured logs or relevant D1 error fields.
