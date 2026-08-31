@@ -5,6 +5,7 @@ import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
 import {
   inspectNotionReviewQueue,
   inspectNotionSchema,
+  NotionReconciliationStageError,
   reconcileNotionReview,
   trashNotionPage,
   type NotionReconciliationAction
@@ -112,6 +113,9 @@ const worker = {
             }
             if (detail.startsWith("Managed refresh is unsafe")) {
               return Response.json({ error: detail }, { status: 409 });
+            }
+            if (error instanceof NotionReconciliationStageError) {
+              return Response.json({ error: "Notion reconciliation failed", stage: error.stage }, { status: 502 });
             }
             throw error;
           }

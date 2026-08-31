@@ -4,6 +4,7 @@ import {
   inspectNotionReview,
   inspectNotionReviewQueue,
   inspectNotionSchema,
+  NotionReconciliationStageError,
   opportunityAutomationKey,
   publishOpportunity,
   reconcileNotionReview,
@@ -451,6 +452,31 @@ describe("Notion publishing", () => {
     }));
     await expect(reconcileNotionReview(env, config, "a".repeat(64), "refresh_managed"))
       .rejects.toThrow("substantive changes");
+  });
+
+  it("reports a content-free reconciliation stage when page publication fails", async () => {
+    const { env, config } = setup();
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    const automationKey = await seedNotionReview(env, pageId, "Original managed text");
+    vi.stubGlobal("fetch", vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.endsWith(`/data_sources/${config.notionDataSourceId}/query`)) {
+        return json({ results: [propertyPage(pageId, "Dust Wave Film Grant", { automationKey })], has_more: false });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "GET") {
+        return json({ markdown: "A person rewrote the page.", truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}`) && method === "PATCH") {
+        return json({ message: "synthetic failure detail" }, 400);
+      }
+      throw new Error(`Unexpected Notion request: ${method} ${url}`);
+    }));
+
+    const error = await reconcileNotionReview(env, config, "a".repeat(64), "preserve_manual").catch((caught) => caught);
+    expect(error).toBeInstanceOf(NotionReconciliationStageError);
+    expect(error).toMatchObject({ stage: "publish_page", message: "Notion reconciliation failed during publish_page" });
+    expect(error.message).not.toContain("synthetic failure detail");
   });
 
   it("rejects disabled publishing before making a request", async () => {
