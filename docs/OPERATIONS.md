@@ -59,6 +59,7 @@ See [Admin API](API.md) for response shapes and boundary errors.
 | `queued` | Waiting for the next batch | None |
 | `processing` | Claimed by a running batch | Inspect only if stale after a failed run |
 | `pending_notion` | Qualifying call retained while Notion is disabled/unavailable | Enable/fix Notion; next batch retries |
+| `notion_review` | Notion body was edited or returned truncated | Inspect and explicitly reconcile; automatic retries stop |
 | `notion` | Published or updated | None |
 | `digest` | Added to digest queue/sent | None |
 | `ignored` | Deterministically or semantically irrelevant | None |
@@ -70,7 +71,8 @@ See [Admin API](API.md) for response shapes and boundary errors.
 - A message failure does not abort other message processing or a non-empty digest.
 - Invalid full AI output receives a smaller recovery classification. If both AI passes fail, the message becomes a generic human-review digest item rather than disappearing.
 - Notion-disabled calls are retained as structured classifications; 24-hour raw-mail deletion does not lose the classification.
-- Notion API failures remain `pending_notion` rather than becoming terminal `failed` rows.
+- Retryable Notion API failures remain `pending_notion` rather than becoming terminal `failed` rows.
+- Managed-body edits and truncated Markdown become `notion_review`; they are counted separately and do not retry every batch.
 - Empty digests are not sent.
 - Missing Zoho folders, credentials, Notion access, or a valid Creative West response fail explicitly and leave source flags visible in `/health`.
 
@@ -86,7 +88,8 @@ See [Admin API](API.md) for response shapes and boundary errors.
 - Missed regular run: use `/admin/run`; source checkpoints overlap by one hour.
 - Duplicate source delivery: D1 unique source/external-ID keys make ingestion idempotent. Creative West content snapshots requeue changed listings without requeueing unchanged ones. Notion find-before-create combines automation key, Website variants, and conservative title equivalence.
 - Expired Zoho refresh token: install a new `ZOHO_REFRESH_TOKEN`, then manually run.
-- Notion outage: leave `NOTION_ENABLED=true`, correct access, then manually run; `pending_notion` drains. A page whose prior generated body was manually edited requires deliberate reconciliation rather than automatic overwrite.
+- Notion outage: leave `NOTION_ENABLED=true`, correct access, then manually run; `pending_notion` drains.
+- Notion body conflict: run **Inspect Notion review queue**, then reconcile one opaque message ID with `refresh_managed` only for formatting-equivalent content or `preserve_manual` for substantive edits.
 - HEY forwarding interruption: restore forwarding. For a gap longer than retained messages, rerun the HEY backfill Action with the required day count (maximum 31).
 - HEY Worker exception: reproduce with `test/email-runtime.test.ts`, fix and deploy, verify one synthetic inbound canary reaches R2 and D1, then backfill the historical gap. Do not backfill while live delivery still fails.
 
@@ -106,4 +109,5 @@ See [Admin API](API.md) for response shapes and boundary errors.
 - Routine `npm run deploy` does not reconcile the stable inbound Email Routing address. Use `npm run deploy:email-routing` only when an explicitly authorized operator intends to change that route and has reviewed Wrangler's plan.
 - Deployment does not itself start a manual batch; the hourly cron continues to select the next local slot.
 - Configuration/secrets and deploy/migrate/run/sync/trash operations are distinct production changes. Record which ones were performed in the handoff.
+- The manual batch Action waits for the matching D1 run, verifies every queued item is counted, and fails on retryable Notion or message failures. `notion_review` is a counted terminal outcome and does not make an otherwise complete batch fail.
 - Use [Troubleshooting](TROUBLESHOOTING.md) for symptom-driven recovery rather than repeatedly forcing batches.

@@ -25,9 +25,9 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
 | Ingestion adapters | `email-worker.test.ts`, `email-runtime.test.ts`, `zoho.test.ts`, `creative-west.test.ts` | HEY limits/cleanup, production-shaped Email Worker streams with local R2/D1, OAuth/account/folders, MIME/fallback, checkpoints, exact public-feed filters/window, and snapshot dedupe |
 | Persistence | `database.test.ts` | real migrations, uniqueness, state machine, stale claims, retention, runs |
-| Notion | `notion.test.ts` | schema, find-before-create, manual-page preference, safe body update, duplicate trash ownership |
+| Notion | `notion.test.ts` | schema, find-before-create, manual-page preference, safe body update, explicit body ownership, guarded reconciliation, duplicate trash ownership |
 | Rendering/delivery | `digest.test.ts` | copy, escaping, category order, compaction, binding request |
-| Entrypoints/orchestration | `index.test.ts`, `workflow.test.ts` | auth/routes, scheduling, empty suppression, durable batch path, bounded message-preparation concurrency |
+| Entrypoints/orchestration | `index.test.ts`, `workflow.test.ts` | auth/routes, scheduling, empty suppression, content-free durable step outputs, complete outcome accounting, bounded message-preparation concurrency |
 
 ## D1 test adapter
 

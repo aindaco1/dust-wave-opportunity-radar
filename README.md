@@ -4,6 +4,8 @@ Dust Wave Opportunity Radar is a Cloudflare-hosted source triage service for cre
 
 Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 
+Notion body conflicts are held in a counted review queue. Formatting-equivalent managed text can be refreshed; substantive edits can make the page body permanently manual while automation continues managing its properties.
+
 ## Production behavior
 
 - Schedule: 07:00 and 19:00 in `America/Denver`; an hourly cron selects those local slots across daylight-saving changes.

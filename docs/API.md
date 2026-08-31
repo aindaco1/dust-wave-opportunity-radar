@@ -41,7 +41,7 @@ curl --fail-with-body -X POST "$WORKER_URL/admin/run" \
 
 ## `GET /admin/runs`
 
-Returns the 25 most recently started D1 run records.
+Returns the 25 most recently started D1 run records. Outcome fields include `notion_count`, `pending_notion_count`, `notion_review_count`, `digest_count`, `ignored_count`, and `failed_count`; their sum should equal `queued_count` for a completed run.
 
 ```bash
 curl --fail-with-body "$WORKER_URL/admin/runs" \
@@ -123,6 +123,34 @@ curl --fail-with-body -X POST "$WORKER_URL/admin/notion/trash" \
 ```
 
 Use the equivalent manually dispatched GitHub Action when an audited operator path is preferable.
+
+## `GET /admin/notion/review`
+
+Returns bounded, content-free comparison metadata for messages awaiting a Notion body-ownership decision.
+
+```json
+{
+  "items": [{
+    "messageId": "64-character opaque ID",
+    "reason": "managed_content_changed",
+    "comparison": "manual_changes",
+    "currentLength": 1200,
+    "previousLength": 1100,
+    "nextLength": 1250
+  }]
+}
+```
+
+## `POST /admin/notion/reconcile`
+
+Reconciles exactly one `notion_review` item. `refresh_managed` is rejected with `409` unless the current body is exact or formatting-equivalent to the stored managed body. `preserve_manual` does not write page Markdown.
+
+```json
+{
+  "messageId": "64-character opaque ID",
+  "action": "preserve_manual"
+}
+```
 
 ## Errors
 

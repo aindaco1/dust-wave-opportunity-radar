@@ -8,19 +8,7 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Validate Notion and Zoho access
-        env:
-          WORKER_URL: ${{ vars.WORKER_URL }}
-          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-        run: |
-          response="$(curl --silent --show-error --request GET \
-            --header "Authorization: Bearer $ADMIN_TOKEN" \
-            --write-out $'\n%{http_code}' \
-            "$WORKER_URL/admin/integrations")"
-          body="${response%$'\n'*}"
-          status="${response##*$'\n'}"
-          printf '%s\n' "$body" | jq .
-          test "$status" = "200"
+    uses: ./.github/workflows/admin-request.yml
+    with:
+      operation: integrations
+    secrets: inherit

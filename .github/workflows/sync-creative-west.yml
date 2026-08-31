@@ -1,4 +1,4 @@
-name: Sync Zoho source only
+name: Sync Creative West source only
 
 on:
   workflow_dispatch:
@@ -10,5 +10,5 @@ jobs:
   sync:
     uses: ./.github/workflows/admin-request.yml
     with:
-      operation: sync-zoho
+      operation: sync-creative-west
     secrets: inherit

@@ -1,4 +1,4 @@
-name: Sync Zoho source only
+name: Inspect Notion review queue
 
 on:
   workflow_dispatch:
@@ -7,8 +7,8 @@ permissions:
   contents: read
 
 jobs:
-  sync:
+  inspect:
     uses: ./.github/workflows/admin-request.yml
     with:
-      operation: sync-zoho
+      operation: inspect-notion-review
     secrets: inherit
