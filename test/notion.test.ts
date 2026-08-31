@@ -479,6 +479,38 @@ describe("Notion publishing", () => {
     expect(error.message).not.toContain("synthetic failure detail");
   });
 
+  it("finalizes the inspected canonical page without touching an unrelated duplicate", async () => {
+    const { env, config } = setup();
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    const duplicateId = "22222222-2222-2222-2222-222222222222";
+    const automationKey = await seedNotionReview(env, pageId, "Original managed text");
+    const fetchMock = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.endsWith(`/data_sources/${config.notionDataSourceId}/query`)) {
+        return json({ results: [
+          propertyPage(pageId, "Dust Wave Film Grant", { automationKey, created: "2026-01-01T00:00:00Z" }),
+          propertyPage(duplicateId, "Dust Wave Film Grant", { automationKey: "duplicate-key", created: "2026-02-01T00:00:00Z" })
+        ], has_more: false });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "GET") {
+        return json({ markdown: "A person rewrote the canonical page.", truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}`) && method === "PATCH") return json({ id: pageId });
+      if (url.endsWith(`/pages/${duplicateId}`)) throw new Error("Reconciliation must not touch a duplicate page");
+      throw new Error(`Unexpected Notion request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(reconcileNotionReview(env, config, "a".repeat(64), "preserve_manual")).resolves.toMatchObject({
+      selectedMessageId: "a".repeat(64),
+      reconciledCount: 1,
+      action: "preserve_manual",
+      status: "notion"
+    });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith(`/pages/${duplicateId}`))).toBe(false);
+  });
+
   it("rejects disabled publishing before making a request", async () => {
     const { env } = setup();
     const fetchMock = vi.fn();

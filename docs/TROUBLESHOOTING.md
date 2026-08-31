@@ -85,7 +85,7 @@ Capture the generalizable evidence pattern without private data, add a classific
 
 ## Notion
 
-If reconciliation returns `502`, use its content-free `stage` value to isolate whether the failure occurred during managed-body update, ownership persistence, page publication, mapping persistence, or review-group finalization. Re-inspect before retrying because an earlier stage may already have completed safely.
+If reconciliation returns `502`, use its content-free `stage` value to isolate whether the failure occurred during managed-body update, ownership persistence, canonical-page property publication, or review-group finalization. Re-inspect before retrying because an earlier stage may already have completed safely.
 
 ### `pending_notion`
 

@@ -69,7 +69,6 @@ export type NotionReconciliationStage =
   | "update_managed_body"
   | "persist_body_ownership"
   | "publish_page"
-  | "persist_page_mapping"
   | "finalize_review_group";
 
 export class NotionReconciliationStageError extends Error {
@@ -185,10 +184,7 @@ export async function publishOpportunity(
     };
   }
 
-  await notionJson<NotionPage>(env.NOTION_TOKEN, `/pages/${existing.id}`, {
-    method: "PATCH",
-    body: JSON.stringify({ properties })
-  });
+  await updateNotionPageProperties(env, existing.id, properties);
   const storedBody = await loadStoredBodyState(env.DB, existing.id);
   if (storedBody.bodyManagement === "managed") {
     await updateManagedContent(env, existing.id, managedMarkdown, storedBody.managedMarkdown);
@@ -290,24 +286,11 @@ export async function reconcileNotionReview(
       )
     );
   }
-  const published = await runReconciliationStage("publish_page", () =>
-    publishOpportunity(
+  await runReconciliationStage("publish_page", () =>
+    updateNotionPageProperties(
       env,
-      config,
-      context.message,
-      context.classification,
-      context.automationKey
-    )
-  );
-  await runReconciliationStage("persist_page_mapping", () =>
-    upsertOpportunity(
-      env.DB,
-      context.automationKey,
-      context.message.id,
-      context.classification,
-      published.pageId,
-      published.managedMarkdown,
-      published.bodyManagement
+      context.page.id,
+      buildProperties(context.message, context.classification, context.automationKey, new Date().toISOString())
     )
   );
   await runReconciliationStage("finalize_review_group", async () => {
@@ -684,6 +667,17 @@ function buildProperties(
     "Last Checked": { date: { start: checkedAt } }
   };
   return properties;
+}
+
+async function updateNotionPageProperties(
+  env: Env,
+  pageId: string,
+  properties: Record<string, unknown>
+): Promise<void> {
+  await notionJson<NotionPage>(env.NOTION_TOKEN, `/pages/${pageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ properties })
+  });
 }
 
 function notionSourceName(source: MessageRecord["source"]): string {
