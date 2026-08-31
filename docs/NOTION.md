@@ -76,12 +76,14 @@ After a successful write, the new generated Markdown, body-ownership mode, and p
 
 ## Review and reconciliation
 
-`GET /admin/notion/review` returns privacy-safe comparison metadata for every `notion_review` item: opaque message ID, reason, comparison class, and content lengths. It never returns page Markdown, titles, URLs, or classification text.
+`GET /admin/notion/review` returns privacy-safe comparison metadata for every `notion_review` item: opaque message ID and page fingerprint, same-page group size, newest-message flag, reason, comparison class, and content lengths. It never returns a raw page ID, page Markdown, title, URL, or classification text.
 
 `POST /admin/notion/reconcile` accepts one exact message ID and one action:
 
 - `refresh_managed` is accepted only for exact or formatting-equivalent managed content;
 - `preserve_manual` leaves the current Notion body untouched and records manual ownership.
+
+The message ID selects its resolved page group, not an independent write. Reconciliation applies only the newest received message in that group, marks the same-page review messages terminal together, and therefore cannot let an older message overwrite a newer page state.
 
 The corresponding manual GitHub workflows use the same authenticated routes. Reconciliation never uses a force-overwrite action.
 

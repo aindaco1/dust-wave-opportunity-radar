@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ensureNotionSchema,
   inspectNotionReview,
+  inspectNotionReviewQueue,
   inspectNotionSchema,
   opportunityAutomationKey,
   publishOpportunity,
@@ -252,8 +253,10 @@ describe("Notion publishing", () => {
       messageId: "a".repeat(64),
       comparison: "manual_changes"
     });
-    await expect(reconcileNotionReview(env, config, "a".repeat(64), "preserve_manual")).resolves.toEqual({
+    await expect(reconcileNotionReview(env, config, "a".repeat(64), "preserve_manual")).resolves.toMatchObject({
       messageId: "a".repeat(64),
+      selectedMessageId: "a".repeat(64),
+      reconciledCount: 1,
       action: "preserve_manual",
       status: "notion"
     });
@@ -345,6 +348,90 @@ describe("Notion publishing", () => {
       type: "update_content",
       update_content: { content_updates: [{ old_str: previousMarkdown }] }
     });
+  });
+
+  it("reconciles one page group once using its newest review message", async () => {
+    const { env, config, testDb } = setup();
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    const previousMarkdown = "Line one<br>Line two";
+    const firstClassification = classification({ bodyMarkdown: "Older managed body." });
+    const latestClassification = classification({ title: "Newest opportunity title", bodyMarkdown: "Newest managed body." });
+    const automationKey = await seedNotionReview(env, pageId, previousMarkdown, firstClassification);
+    const latestMessageId = "b".repeat(64);
+    await upsertMessage(env.DB, {
+      id: latestMessageId,
+      source: "zoho",
+      externalId: "review-external-2",
+      mailbox: "Inbox",
+      subject: "Newer synthetic review item",
+      receivedAt: "2026-08-06T12:00:00.000Z",
+      rawR2Key: "",
+      rawSize: 0
+    });
+    await saveClassification(env.DB, latestMessageId, latestClassification, "pending_notion", latestClassification.primaryUrl);
+    await upsertOpportunity(
+      env.DB,
+      automationKey,
+      latestMessageId,
+      latestClassification,
+      pageId,
+      previousMarkdown
+    );
+    await markNotionReviewRequired(env.DB, latestMessageId, "managed_content_changed");
+    let markdown = "Line one\nLine two";
+    const propertyUpdates: Record<string, unknown>[] = [];
+    const fetchMock = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.endsWith(`/data_sources/${config.notionDataSourceId}/query`)) {
+        return json({ results: [propertyPage(pageId, "Dust Wave Film Grant", { automationKey })], has_more: false });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "GET") {
+        return json({ markdown, truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "PATCH") {
+        const input = JSON.parse(String(init?.body)) as { replace_content?: { new_str?: string } };
+        markdown = input.replace_content?.new_str ?? markdown;
+        return json({ markdown, truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}`) && method === "PATCH") {
+        propertyUpdates.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return json({ id: pageId });
+      }
+      throw new Error(`Unexpected Notion request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const inspection = await inspectNotionReviewQueue(env, config);
+    expect(inspection).toHaveLength(2);
+    expect(new Set(inspection.map((item) => item.pageKey)).size).toBe(1);
+    expect(inspection.find((item) => item.messageId === "a".repeat(64))).toMatchObject({
+      groupSize: 2,
+      isLatest: false
+    });
+    expect(inspection.find((item) => item.messageId === latestMessageId)).toMatchObject({
+      groupSize: 2,
+      isLatest: true
+    });
+
+    await expect(reconcileNotionReview(env, config, "a".repeat(64), "refresh_managed")).resolves.toMatchObject({
+      messageId: "a".repeat(64),
+      selectedMessageId: latestMessageId,
+      reconciledCount: 2,
+      action: "refresh_managed",
+      status: "notion"
+    });
+    expect(markdown).toContain("Newest managed body.");
+    expect(markdown).not.toContain("Older managed body.");
+    expect(propertyUpdates.at(-1)).toMatchObject({
+      properties: { Name: { title: [{ text: { content: "Newest opportunity title" } }] } }
+    });
+    expect(testDb.sqlite.prepare(
+      "SELECT id, status FROM messages WHERE id IN (?, ?) ORDER BY id"
+    ).all("a".repeat(64), latestMessageId)).toEqual([
+      { id: "a".repeat(64), status: "notion" },
+      { id: latestMessageId, status: "notion" }
+    ]);
   });
 
   it("rejects a managed refresh when substantive edits are present", async () => {

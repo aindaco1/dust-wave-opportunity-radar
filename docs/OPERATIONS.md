@@ -89,7 +89,7 @@ See [Admin API](API.md) for response shapes and boundary errors.
 - Duplicate source delivery: D1 unique source/external-ID keys make ingestion idempotent. Creative West content snapshots requeue changed listings without requeueing unchanged ones. Notion find-before-create combines automation key, Website variants, and conservative title equivalence.
 - Expired Zoho refresh token: install a new `ZOHO_REFRESH_TOKEN`, then manually run.
 - Notion outage: leave `NOTION_ENABLED=true`, correct access, then manually run; `pending_notion` drains.
-- Notion body conflict: run **Inspect Notion review queue**, then reconcile one opaque message ID with `refresh_managed` only for formatting-equivalent content or `preserve_manual` for substantive edits.
+- Notion body conflict: run **Inspect Notion review queue**, group entries by opaque page fingerprint, and dispatch once per actual page. Use `refresh_managed` only when the group's newest entry is exact or formatting-equivalent; use `preserve_manual` for substantive edits. The service selects the newest message and closes the same-page group together.
 - HEY forwarding interruption: restore forwarding. For a gap longer than retained messages, rerun the HEY backfill Action with the required day count (maximum 31).
 - HEY Worker exception: reproduce with `test/email-runtime.test.ts`, fix and deploy, verify one synthetic inbound canary reaches R2 and D1, then backfill the historical gap. Do not backfill while live delivery still fails.
 

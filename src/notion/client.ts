@@ -1,7 +1,7 @@
 import type { RuntimeConfig } from "../config";
 import { classificationSchema, type Classification, type MessageRecord } from "../types";
 import { canonicalizeUrl } from "../email/parse";
-import { saveClassification, upsertOpportunity } from "../storage/database";
+import { markNotionReviewGroupReconciled, saveClassification, upsertOpportunity } from "../storage/database";
 import { sha256Hex } from "../util/crypto";
 import { readBoundedText } from "../util/http";
 
@@ -54,6 +54,9 @@ export type NotionReviewComparison =
 
 export interface NotionReviewInspection {
   messageId: string;
+  pageKey: string;
+  groupSize: number;
+  isLatest: boolean;
   reason: NotionReviewReason;
   comparison: NotionReviewComparison;
   currentLength: number;
@@ -199,11 +202,13 @@ export async function inspectNotionReviewQueue(
   config: RuntimeConfig
 ): Promise<NotionReviewInspection[]> {
   requireNotionToken(env);
-  const rows = await env.DB
-    .prepare("SELECT id FROM messages WHERE status = 'notion_review' ORDER BY updated_at ASC LIMIT 100")
-    .all<{ id: string }>();
+  const contexts = await loadNotionReviewContexts(env, config);
   const inspections: NotionReviewInspection[] = [];
-  for (const row of rows.results) inspections.push(await inspectNotionReview(env, config, row.id));
+  for (const context of contexts) {
+    const group = contexts.filter((candidate) => candidate.page.id === context.page.id);
+    const latest = latestNotionReviewContext(group);
+    inspections.push(await publicNotionReviewInspection(context, group.length, latest.message.id === context.message.id));
+  }
   return inspections;
 }
 
@@ -213,7 +218,7 @@ export async function inspectNotionReview(
   messageId: string
 ): Promise<NotionReviewInspection> {
   const context = await loadNotionReviewContext(env, config, messageId);
-  return publicNotionReviewInspection(context);
+  return publicNotionReviewInspection(context, 1, true);
 }
 
 export async function reconcileNotionReview(
@@ -221,9 +226,20 @@ export async function reconcileNotionReview(
   config: RuntimeConfig,
   messageId: string,
   action: NotionReconciliationAction
-): Promise<{ messageId: string; action: NotionReconciliationAction; status: "notion" }> {
-  const context = await loadNotionReviewContext(env, config, messageId);
-  const inspection = publicNotionReviewInspection(context);
+): Promise<{
+  messageId: string;
+  selectedMessageId: string;
+  pageKey: string;
+  reconciledCount: number;
+  action: NotionReconciliationAction;
+  status: "notion";
+}> {
+  const contexts = await loadNotionReviewContexts(env, config);
+  const requested = contexts.find((context) => context.message.id === messageId);
+  if (!requested) throw new Error("Notion review item was not found");
+  const group = contexts.filter((context) => context.page.id === requested.page.id);
+  const context = latestNotionReviewContext(group);
+  const inspection = await publicNotionReviewInspection(context, group.length, true);
   if (action === "refresh_managed") {
     if (!["already_current", "stored_exact", "formatting_equivalent"].includes(inspection.comparison)) {
       throw new Error("Managed refresh is unsafe because the current Notion body contains substantive changes");
@@ -270,7 +286,15 @@ export async function reconcileNotionReview(
     published.bodyManagement
   );
   await saveClassification(env.DB, context.message.id, context.classification, "notion", context.classification.primaryUrl);
-  return { messageId, action, status: "notion" };
+  await markNotionReviewGroupReconciled(env.DB, group.map((candidate) => candidate.message.id));
+  return {
+    messageId,
+    selectedMessageId: context.message.id,
+    pageKey: inspection.pageKey,
+    reconciledCount: group.length,
+    action,
+    status: "notion"
+  };
 }
 
 async function findExistingPages(
@@ -489,7 +513,7 @@ async function loadStoredBodyState(
 }
 
 interface NotionReviewContext {
-  message: Pick<MessageRecord, "id" | "source">;
+  message: Pick<MessageRecord, "id" | "source" | "received_at">;
   classification: Classification;
   automationKey: string;
   page: NotionPage;
@@ -497,6 +521,15 @@ interface NotionReviewContext {
   current: NotionMarkdownResponse;
   previousMarkdown: string | null;
   nextMarkdown: string;
+}
+
+async function loadNotionReviewContexts(env: Env, config: RuntimeConfig): Promise<NotionReviewContext[]> {
+  const rows = await env.DB
+    .prepare("SELECT id FROM messages WHERE status = 'notion_review' ORDER BY updated_at ASC LIMIT 100")
+    .all<{ id: string }>();
+  const contexts: NotionReviewContext[] = [];
+  for (const row of rows.results) contexts.push(await loadNotionReviewContext(env, config, row.id));
+  return contexts;
 }
 
 async function loadNotionReviewContext(
@@ -507,9 +540,9 @@ async function loadNotionReviewContext(
   requireNotionToken(env);
   if (!/^[a-f0-9]{64}$/i.test(messageId)) throw new Error("Invalid messageId");
   const message = await env.DB
-    .prepare("SELECT id, source, status, classification_json, last_error FROM messages WHERE id = ? LIMIT 1")
+    .prepare("SELECT id, source, received_at, status, classification_json, last_error FROM messages WHERE id = ? LIMIT 1")
     .bind(messageId)
-    .first<Pick<MessageRecord, "id" | "source" | "status" | "classification_json" | "last_error">>();
+    .first<Pick<MessageRecord, "id" | "source" | "received_at" | "status" | "classification_json" | "last_error">>();
   if (!message || message.status !== "notion_review" || !message.classification_json) {
     throw new Error("Notion review item was not found");
   }
@@ -523,7 +556,7 @@ async function loadNotionReviewContext(
     ? "truncated_markdown"
     : "managed_content_changed";
   return {
-    message: { id: message.id, source: message.source },
+    message: { id: message.id, source: message.source, received_at: message.received_at },
     classification,
     automationKey,
     page: match.canonical,
@@ -534,7 +567,20 @@ async function loadNotionReviewContext(
   };
 }
 
-function publicNotionReviewInspection(context: NotionReviewContext): NotionReviewInspection {
+function latestNotionReviewContext(contexts: NotionReviewContext[]): NotionReviewContext {
+  const latest = [...contexts].sort((left, right) =>
+    right.message.received_at.localeCompare(left.message.received_at)
+    || right.message.id.localeCompare(left.message.id)
+  )[0];
+  if (!latest) throw new Error("Notion review item was not found");
+  return latest;
+}
+
+async function publicNotionReviewInspection(
+  context: NotionReviewContext,
+  groupSize: number,
+  isLatest: boolean
+): Promise<NotionReviewInspection> {
   let comparison: NotionReviewComparison;
   if (context.current.truncated) comparison = "truncated";
   else if (context.current.markdown.includes(context.nextMarkdown)) comparison = "already_current";
@@ -545,6 +591,9 @@ function publicNotionReviewInspection(context: NotionReviewContext): NotionRevie
   } else comparison = "manual_changes";
   return {
     messageId: context.message.id,
+    pageKey: (await sha256Hex(context.page.id)).slice(0, 16),
+    groupSize,
+    isLatest,
     reason: context.reason,
     comparison,
     currentLength: context.current.markdown.length,
