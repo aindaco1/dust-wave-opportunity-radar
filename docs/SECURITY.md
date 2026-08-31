@@ -19,6 +19,8 @@ Email bodies, Creative West API fields, attachments, linked pages, sender/provid
 - Email Sending is allowlisted to one sender and one recipient.
 - The GitHub deployment token is restricted to one Cloudflare account and only `Workers Scripts: Edit` plus `D1: Edit`. Routine deployment omits Email Routing reconciliation; route changes require a separate interactive operator action.
 - R2 source content is purged after 24 hours.
+- Workflow step outputs are restricted to opaque IDs, statuses, counts, and booleans; source records and classifications remain in their documented D1/R2 stores.
+- GitHub Actions use SHA-pinned external actions, read-only default tokens, a protected production environment, and a required CI check on `main`.
 
 ## Known boundary
 

@@ -8,14 +8,7 @@ permissions:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Start batch
-        env:
-          WORKER_URL: ${{ vars.WORKER_URL }}
-          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-        run: |
-          curl --fail-with-body --silent --show-error --request POST \
-            --header "Authorization: Bearer $ADMIN_TOKEN" \
-            "$WORKER_URL/admin/run" | jq .
+    uses: ./.github/workflows/admin-request.yml
+    with:
+      operation: run-batch
+    secrets: inherit

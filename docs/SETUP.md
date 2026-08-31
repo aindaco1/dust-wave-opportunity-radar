@@ -98,7 +98,7 @@ See [Notion integration](NOTION.md) before modifying properties or duplicate/ent
 
 ## 7. GitHub deployment credentials
 
-The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a user API token restricted to the intended Cloudflare account with exactly `Workers Scripts: Edit` and `D1: Edit`. Routine CI deliberately omits Email Routing reconciliation; do not add user-profile, membership, cross-account, zone, R2, or Email Routing access to this token. Also set repository variable `WORKER_URL` and repository secret `ADMIN_TOKEN` for the manual operations workflows. Keep production deployment manual until every enabled source has completed a test batch.
+The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a user API token restricted to the intended Cloudflare account with exactly `Workers Scripts: Edit` and `D1: Edit`. Routine CI deliberately omits Email Routing reconciliation; do not add user-profile, membership, cross-account, zone, R2, or Email Routing access to this token. Also set repository variable `WORKER_URL` and repository secret `ADMIN_TOKEN` for the manual operations workflows. Protect `main`, require `CI / check`, require full action SHA pins, and restrict the `production` environment to protected branches. Keep production deployment manual until every enabled source has completed a test batch.
 
 ## 8. Activation verification
 
@@ -106,7 +106,7 @@ The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` 
 2. Run **Check source integrations**; Notion, Zoho, and Creative West must be `ok`.
 3. Confirm one forwarded HEY test message produces `hey_email_ingested` and a D1 `queued` row.
 4. Run **Sync Zoho source only**; verify the four folders and bounded counts without classification.
-5. Run the Creative West source-only sync; verify the local date through +31-day bounds and bounded counts without classification.
+5. Run **Sync Creative West source only**; verify the local date through +31-day bounds and bounded counts without classification.
 6. Start one manual batch.
 7. Review `/admin/runs`, the first five Notion changes, and any non-empty digest.
 8. Confirm no visible automation markers/history were added to Notion bodies and no duplicate page was created for an existing equivalent opportunity.

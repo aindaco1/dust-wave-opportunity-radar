@@ -81,10 +81,11 @@ sequenceDiagram
 - Zoho checkpoints overlap by one hour to tolerate ordering and boundary delays; the source/external unique key removes repeats.
 - Notion is queried before every create. URL variants, exact/fuzzy title evidence, title years, automation keys, and D1 ownership are used conservatively.
 - Digest items are keyed by message ID and marked sent only after the email binding succeeds.
+- Durable Workflow step outputs contain only opaque message IDs, statuses, counts, and booleans. Complete message records and classifications are reloaded from D1 inside each step rather than copied into Workflow execution metadata.
 
 ## Failure isolation
 
-Each message is processed independently inside the batch. MIME preparation, enrichment, and AI classification run as separately durable steps with a maximum concurrency of four, which stays below the Workers runtime's connection ceiling and far below the Workers AI text-generation rate limit. Notion reconciliation remains serialized after preparation so two equivalent calls cannot race through find-before-create. Parsing/classification failures become a failed message or a human-review recovery item; they do not prevent other messages from completing. Notion failures become `pending_notion` so the structured result can retry without reparsing expired raw MIME. A failure outside per-message work marks the run failed and lets the Workflow retry according to its step policy.
+Each message is processed independently inside the batch. MIME preparation, enrichment, and AI classification run as separately durable steps with a maximum concurrency of four, which stays below the Workers runtime's connection ceiling and far below the Workers AI text-generation rate limit. Notion reconciliation remains serialized after preparation so two equivalent calls cannot race through find-before-create. Parsing/classification failures become a failed message or a human-review recovery item; they do not prevent other messages from completing. Retryable Notion failures become `pending_notion` so the structured result can retry without reparsing expired raw MIME. Managed-body conflicts become `notion_review`, stop retrying, and require a guarded ownership decision. A failure outside per-message work marks the run failed and lets the Workflow retry according to its step policy.
 
 ## Code map
 

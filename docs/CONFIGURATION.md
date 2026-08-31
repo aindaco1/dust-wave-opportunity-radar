@@ -66,6 +66,8 @@ Install with `npx wrangler secret put NAME`. Use a random admin token with at le
 | Variable | `CLOUDFLARE_ACCOUNT_ID` | Wrangler deployment target |
 | Variable | `WORKER_URL` | Manual admin workflow target |
 
+GitHub Actions reads Node from `.nvmrc`, installs through one local composite action, and routes authenticated operator requests through one reusable workflow. The separate dispatch workflows remain the user-visible authorization boundaries. The `production` environment accepts only protected branches, and repository settings require the pinned `CI / check` result before `main` changes.
+
 ## Supported Zoho data centers
 
 `us`, `eu`, `in`, `au`, `jp`, `ca`, `sa`, and `uk` are mapped to explicit account/mail hosts. Any other value fails before OAuth traffic.

@@ -2,7 +2,13 @@ import { loadRuntimeConfig } from "./config";
 import { ingestForwardedHeyEmail, ingestImportedHeyEmail, type ImportedHeyEmail } from "./ingest/email-worker";
 import { inspectCreativeWestConnection, syncCreativeWest } from "./ingest/creative-west";
 import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
-import { inspectNotionSchema, trashNotionPage } from "./notion/client";
+import {
+  inspectNotionReviewQueue,
+  inspectNotionSchema,
+  reconcileNotionReview,
+  trashNotionPage,
+  type NotionReconciliationAction
+} from "./notion/client";
 import { readBoundedJson } from "./util/http";
 import { timingSafeEqualText } from "./util/crypto";
 import { localBatchSlot, shouldStartBatch } from "./util/dates";
@@ -67,6 +73,10 @@ const worker = {
           const ok = notion.ok && zoho.ok && creativeWest.ok;
           return Response.json({ ok, notion, zoho, creativeWest }, { status: ok ? 200 : 502 });
         }
+        if (request.method === "GET" && url.pathname === "/admin/notion/review") {
+          const config = loadRuntimeConfig(env);
+          return Response.json({ items: await inspectNotionReviewQueue(env, config) });
+        }
         if (request.method === "POST" && url.pathname === "/admin/sync/zoho") {
           const config = loadRuntimeConfig(env);
           return Response.json(await syncZoho(env, config));
@@ -84,6 +94,26 @@ const worker = {
           } catch (error) {
             const detail = error instanceof Error ? error.message : "Invalid request";
             return Response.json({ error: detail }, { status: 400 });
+          }
+        }
+        if (request.method === "POST" && url.pathname === "/admin/notion/reconcile") {
+          const input = await readBoundedJson<{ messageId?: string; action?: NotionReconciliationAction }>(request, 2_000);
+          if (!input.messageId) return Response.json({ error: "messageId is required" }, { status: 400 });
+          if (input.action !== "refresh_managed" && input.action !== "preserve_manual") {
+            return Response.json({ error: "action must be refresh_managed or preserve_manual" }, { status: 400 });
+          }
+          try {
+            const config = loadRuntimeConfig(env);
+            return Response.json(await reconcileNotionReview(env, config, input.messageId, input.action));
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : "Notion reconciliation failed";
+            if (detail === "Notion review item was not found") {
+              return Response.json({ error: detail }, { status: 404 });
+            }
+            if (detail.startsWith("Managed refresh is unsafe")) {
+              return Response.json({ error: detail }, { status: 409 });
+            }
+            throw error;
           }
         }
         if (request.method === "POST" && url.pathname === "/admin/import/hey") {

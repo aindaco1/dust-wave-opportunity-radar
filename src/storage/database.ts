@@ -149,6 +149,19 @@ export async function markPendingNotionError(db: D1Database, id: string, error: 
     .run();
 }
 
+export async function markNotionReviewRequired(
+  db: D1Database,
+  id: string,
+  reason: "managed_content_changed" | "truncated_markdown"
+): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE messages SET status = 'notion_review', last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+    )
+    .bind(reason, id)
+    .run();
+}
+
 export async function upsertDigestItem(
   db: D1Database,
   message: MessageRecord,
@@ -187,7 +200,8 @@ export async function upsertOpportunity(
   messageId: string,
   classification: Classification,
   notionPageId: string,
-  managedMarkdown: string
+  managedMarkdown: string | null,
+  bodyManagement: "managed" | "manual" = "managed"
 ): Promise<void> {
   const now = new Date().toISOString();
   await db.batch([
@@ -195,8 +209,8 @@ export async function upsertOpportunity(
     db.prepare(
       `INSERT INTO opportunities(
          automation_key, canonical_url, title, organization, notion_page_id,
-         latest_message_id, first_seen_at, last_seen_at, last_published_at, managed_markdown
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         latest_message_id, first_seen_at, last_seen_at, last_published_at, managed_markdown, body_management
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(automation_key) DO UPDATE SET
          canonical_url = excluded.canonical_url,
          title = excluded.title,
@@ -205,7 +219,8 @@ export async function upsertOpportunity(
          latest_message_id = excluded.latest_message_id,
          last_seen_at = excluded.last_seen_at,
          last_published_at = excluded.last_published_at,
-         managed_markdown = excluded.managed_markdown`
+         managed_markdown = excluded.managed_markdown,
+         body_management = excluded.body_management`
     )
     .bind(
       automationKey,
@@ -217,7 +232,8 @@ export async function upsertOpportunity(
       now,
       now,
       now,
-      managedMarkdown
+      managedMarkdown,
+      bodyManagement
     )
   ]);
 }
@@ -263,12 +279,23 @@ export async function completeRun(
         status = 'completed',
         queued_count = ?,
         notion_count = ?,
+        pending_notion_count = ?,
+        notion_review_count = ?,
         digest_count = ?,
         ignored_count = ?,
         failed_count = ?
        WHERE id = ?`
     )
-    .bind(queuedCount, count("notion"), count("digest"), count("ignored"), count("failed"), id)
+    .bind(
+      queuedCount,
+      count("notion"),
+      count("pending_notion"),
+      count("notion_review"),
+      count("digest"),
+      count("ignored"),
+      count("failed"),
+      id
+    )
     .run();
 }
 

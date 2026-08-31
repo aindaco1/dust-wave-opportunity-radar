@@ -1,6 +1,8 @@
 import type { RuntimeConfig } from "../config";
-import type { Classification, MessageRecord } from "../types";
+import { classificationSchema, type Classification, type MessageRecord } from "../types";
 import { canonicalizeUrl } from "../email/parse";
+import { saveClassification, upsertOpportunity } from "../storage/database";
+import { sha256Hex } from "../util/crypto";
 import { readBoundedText } from "../util/http";
 
 const NOTION_API = "https://api.notion.com/v1";
@@ -36,8 +38,41 @@ export interface NotionPublishResult {
   pageId: string;
   url?: string;
   created: boolean;
-  managedMarkdown: string;
+  managedMarkdown: string | null;
+  bodyManagement: "managed" | "manual";
   trashedDuplicatePageIds: string[];
+}
+
+export type NotionReviewReason = "managed_content_changed" | "truncated_markdown";
+export type NotionReviewComparison =
+  | "already_current"
+  | "stored_exact"
+  | "formatting_equivalent"
+  | "manual_changes"
+  | "missing_baseline"
+  | "truncated";
+
+export interface NotionReviewInspection {
+  messageId: string;
+  reason: NotionReviewReason;
+  comparison: NotionReviewComparison;
+  currentLength: number;
+  previousLength: number;
+  nextLength: number;
+}
+
+export type NotionReconciliationAction = "refresh_managed" | "preserve_manual";
+
+export class NotionReviewRequiredError extends Error {
+  constructor(
+    readonly reason: NotionReviewReason,
+    readonly pageId: string
+  ) {
+    super(reason === "truncated_markdown"
+      ? `Cannot safely update truncated Notion page ${pageId}`
+      : `Cannot safely update Notion page ${pageId} because its managed opportunity text was edited`);
+    this.name = "NotionReviewRequiredError";
+  }
 }
 
 export interface NotionSchemaInspection {
@@ -129,6 +164,7 @@ export async function publishOpportunity(
       url: created.url,
       created: true,
       managedMarkdown,
+      bodyManagement: "managed",
       trashedDuplicatePageIds: []
     };
   }
@@ -137,15 +173,104 @@ export async function publishOpportunity(
     method: "PATCH",
     body: JSON.stringify({ properties })
   });
-  await updateManagedContent(env, existing.id, managedMarkdown);
+  const storedBody = await loadStoredBodyState(env.DB, existing.id);
+  if (storedBody.bodyManagement === "managed") {
+    await updateManagedContent(env, existing.id, managedMarkdown, storedBody.managedMarkdown);
+  }
   const trashedDuplicatePageIds = await trashAutomationOwnedDuplicates(env, match?.duplicates ?? []);
   return {
     pageId: existing.id,
     url: existing.url,
     created: false,
-    managedMarkdown,
+    managedMarkdown: storedBody.bodyManagement === "managed" ? managedMarkdown : null,
+    bodyManagement: storedBody.bodyManagement,
     trashedDuplicatePageIds
   };
+}
+
+export async function opportunityAutomationKey(classification: Classification): Promise<string> {
+  return sha256Hex(
+    classification.primaryUrl ?? `${classification.organization ?? ""}|${classification.title.toLowerCase()}`
+  );
+}
+
+export async function inspectNotionReviewQueue(
+  env: Env,
+  config: RuntimeConfig
+): Promise<NotionReviewInspection[]> {
+  requireNotionToken(env);
+  const rows = await env.DB
+    .prepare("SELECT id FROM messages WHERE status = 'notion_review' ORDER BY updated_at ASC LIMIT 100")
+    .all<{ id: string }>();
+  const inspections: NotionReviewInspection[] = [];
+  for (const row of rows.results) inspections.push(await inspectNotionReview(env, config, row.id));
+  return inspections;
+}
+
+export async function inspectNotionReview(
+  env: Env,
+  config: RuntimeConfig,
+  messageId: string
+): Promise<NotionReviewInspection> {
+  const context = await loadNotionReviewContext(env, config, messageId);
+  return publicNotionReviewInspection(context);
+}
+
+export async function reconcileNotionReview(
+  env: Env,
+  config: RuntimeConfig,
+  messageId: string,
+  action: NotionReconciliationAction
+): Promise<{ messageId: string; action: NotionReconciliationAction; status: "notion" }> {
+  const context = await loadNotionReviewContext(env, config, messageId);
+  const inspection = publicNotionReviewInspection(context);
+  if (action === "refresh_managed") {
+    if (!["already_current", "stored_exact", "formatting_equivalent"].includes(inspection.comparison)) {
+      throw new Error("Managed refresh is unsafe because the current Notion body contains substantive changes");
+    }
+    if (inspection.comparison === "stored_exact") {
+      await updateManagedContent(env, context.page.id, context.nextMarkdown, context.previousMarkdown);
+    } else if (inspection.comparison === "formatting_equivalent") {
+      await replaceNotionMarkdown(env, context.page.id, context.nextMarkdown);
+    }
+    await upsertOpportunity(
+      env.DB,
+      context.automationKey,
+      context.message.id,
+      context.classification,
+      context.page.id,
+      context.nextMarkdown,
+      "managed"
+    );
+  } else {
+    await upsertOpportunity(
+      env.DB,
+      context.automationKey,
+      context.message.id,
+      context.classification,
+      context.page.id,
+      null,
+      "manual"
+    );
+  }
+  const published = await publishOpportunity(
+    env,
+    config,
+    context.message,
+    context.classification,
+    context.automationKey
+  );
+  await upsertOpportunity(
+    env.DB,
+    context.automationKey,
+    context.message.id,
+    context.classification,
+    published.pageId,
+    published.managedMarkdown,
+    published.bodyManagement
+  );
+  await saveClassification(env.DB, context.message.id, context.classification, "notion", context.classification.primaryUrl);
+  return { messageId, action, status: "notion" };
 }
 
 async function findExistingPages(
@@ -307,24 +432,25 @@ export function notionWebsiteVariants(value: string | null): string[] {
 async function updateManagedContent(
   env: Env,
   pageId: string,
-  next: string
+  next: string,
+  previous: string | null
 ): Promise<void> {
   const current = await notionJson<NotionMarkdownResponse>(env.NOTION_TOKEN, `/pages/${pageId}/markdown`);
   if (current.truncated) {
-    throw new Error(`Cannot safely update truncated Notion page ${pageId}`);
+    throw new NotionReviewRequiredError("truncated_markdown", pageId);
   }
   const legacy = extractLegacyManagedBlock(current.markdown);
-  const previous = legacy ?? await loadStoredManagedMarkdown(env.DB, pageId);
+  const managed = legacy ?? previous;
   if (current.markdown.includes(next)) return;
-  if (previous) {
-    if (!current.markdown.includes(previous)) {
-      throw new Error(`Cannot safely update Notion page ${pageId} because its managed opportunity text was edited`);
+  if (managed) {
+    if (!current.markdown.includes(managed)) {
+      throw new NotionReviewRequiredError("managed_content_changed", pageId);
     }
     await notionJson(env.NOTION_TOKEN, `/pages/${pageId}/markdown`, {
       method: "PATCH",
       body: JSON.stringify({
         type: "update_content",
-        update_content: { content_updates: [{ old_str: previous, new_str: next }] }
+        update_content: { content_updates: [{ old_str: managed, new_str: next }] }
       })
     });
     return;
@@ -348,12 +474,102 @@ async function updateManagedContent(
   });
 }
 
-async function loadStoredManagedMarkdown(db: D1Database, pageId: string): Promise<string | null> {
+async function loadStoredBodyState(
+  db: D1Database,
+  pageId: string
+): Promise<{ managedMarkdown: string | null; bodyManagement: "managed" | "manual" }> {
   const row = await db
-    .prepare("SELECT managed_markdown FROM opportunities WHERE notion_page_id = ? AND managed_markdown IS NOT NULL LIMIT 1")
+    .prepare("SELECT managed_markdown, body_management FROM opportunities WHERE notion_page_id = ? LIMIT 1")
     .bind(pageId)
-    .first<{ managed_markdown: string }>();
-  return row?.managed_markdown ?? null;
+    .first<{ managed_markdown: string | null; body_management: "managed" | "manual" }>();
+  return {
+    managedMarkdown: row?.managed_markdown ?? null,
+    bodyManagement: row?.body_management ?? "managed"
+  };
+}
+
+interface NotionReviewContext {
+  message: Pick<MessageRecord, "id" | "source">;
+  classification: Classification;
+  automationKey: string;
+  page: NotionPage;
+  reason: NotionReviewReason;
+  current: NotionMarkdownResponse;
+  previousMarkdown: string | null;
+  nextMarkdown: string;
+}
+
+async function loadNotionReviewContext(
+  env: Env,
+  config: RuntimeConfig,
+  messageId: string
+): Promise<NotionReviewContext> {
+  requireNotionToken(env);
+  if (!/^[a-f0-9]{64}$/i.test(messageId)) throw new Error("Invalid messageId");
+  const message = await env.DB
+    .prepare("SELECT id, source, status, classification_json, last_error FROM messages WHERE id = ? LIMIT 1")
+    .bind(messageId)
+    .first<Pick<MessageRecord, "id" | "source" | "status" | "classification_json" | "last_error">>();
+  if (!message || message.status !== "notion_review" || !message.classification_json) {
+    throw new Error("Notion review item was not found");
+  }
+  const classification = classificationSchema.parse(JSON.parse(message.classification_json));
+  const automationKey = await opportunityAutomationKey(classification);
+  const match = await findExistingPages(env, config.notionDataSourceId, automationKey, classification);
+  if (!match) throw new Error("No matching Notion page was found for the review item");
+  const current = await notionJson<NotionMarkdownResponse>(env.NOTION_TOKEN, `/pages/${match.canonical.id}/markdown`);
+  const storedBody = await loadStoredBodyState(env.DB, match.canonical.id);
+  const reason = message.last_error === "truncated_markdown" || message.last_error?.includes("truncated Notion page")
+    ? "truncated_markdown"
+    : "managed_content_changed";
+  return {
+    message: { id: message.id, source: message.source },
+    classification,
+    automationKey,
+    page: match.canonical,
+    reason,
+    current,
+    previousMarkdown: storedBody.managedMarkdown,
+    nextMarkdown: buildOpportunityMarkdown(classification)
+  };
+}
+
+function publicNotionReviewInspection(context: NotionReviewContext): NotionReviewInspection {
+  let comparison: NotionReviewComparison;
+  if (context.current.truncated) comparison = "truncated";
+  else if (context.current.markdown.includes(context.nextMarkdown)) comparison = "already_current";
+  else if (!context.previousMarkdown) comparison = "missing_baseline";
+  else if (context.current.markdown.includes(context.previousMarkdown)) comparison = "stored_exact";
+  else if (normalizeMarkdownForComparison(context.current.markdown) === normalizeMarkdownForComparison(context.previousMarkdown)) {
+    comparison = "formatting_equivalent";
+  } else comparison = "manual_changes";
+  return {
+    messageId: context.message.id,
+    reason: context.reason,
+    comparison,
+    currentLength: context.current.markdown.length,
+    previousLength: context.previousMarkdown?.length ?? 0,
+    nextLength: context.nextMarkdown.length
+  };
+}
+
+function normalizeMarkdownForComparison(markdown: string): string {
+  return markdown
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n+/g, "\n")
+    .trim();
+}
+
+async function replaceNotionMarkdown(env: Env, pageId: string, markdown: string): Promise<void> {
+  await notionJson(env.NOTION_TOKEN, `/pages/${pageId}/markdown`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      type: "replace_content",
+      replace_content: { new_str: markdown }
+    })
+  });
 }
 
 function buildProperties(

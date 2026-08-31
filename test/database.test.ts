@@ -12,6 +12,7 @@ import {
   listUnsentDigestItems,
   markDigestItemsSent,
   markMessageFailed,
+  markNotionReviewRequired,
   markPendingNotionError,
   saveClassification,
   saveParsedKey,
@@ -21,7 +22,7 @@ import {
   upsertOpportunity
 } from "../src/storage/database";
 import { classification, messageRecord } from "./support/fixtures";
-import { createTestDatabase, type TestDatabase } from "./support/d1";
+import { applyTestMigrations, createTestDatabase, testMigrationFiles, type TestDatabase } from "./support/d1";
 
 const open: TestDatabase[] = [];
 
@@ -54,10 +55,30 @@ async function seedMessage(db: D1Database, overrides: Partial<Parameters<typeof 
 describe("D1 migrations", () => {
   it("applies every migration and seeds safe feature flags", () => {
     const { sqlite } = database();
-    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'schema_version'").get()).toEqual({ value: "4" });
+    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'schema_version'").get()).toEqual({ value: "5" });
     expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'notion_publish_enabled'").get()).toEqual({ value: "false" });
     expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'creative_west_sync_enabled'").get()).toEqual({ value: "false" });
     expect(sqlite.prepare("PRAGMA table_info(opportunities)").all()).toContainEqual(expect.objectContaining({ name: "managed_markdown" }));
+    expect(sqlite.prepare("PRAGMA table_info(opportunities)").all()).toContainEqual(expect.objectContaining({ name: "body_management" }));
+    expect(sqlite.prepare("PRAGMA table_info(runs)").all()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "pending_notion_count" }),
+      expect.objectContaining({ name: "notion_review_count" })
+    ]));
+  });
+
+  it("migrates permanent Notion body conflicts out of the retry queue", () => {
+    const testDb = createTestDatabase({ migrate: false });
+    open.push(testDb);
+    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(0, -1));
+    testDb.sqlite.exec(`
+      INSERT INTO messages(id, source, external_id, mailbox, received_at, raw_r2_key, status, last_error)
+      VALUES ('message-1', 'zoho', 'external-1', 'Inbox', '2026-08-05T00:00:00Z', '', 'pending_notion',
+        'Cannot safely update Notion page 11111111-1111-1111-1111-111111111111 because its managed opportunity text was edited');
+    `);
+    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(-1));
+    expect(testDb.sqlite.prepare("SELECT status FROM messages WHERE id = 'message-1'").get())
+      .toEqual({ status: "notion_review" });
+    expect(testDb.sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   });
 
   it("accepts Creative West messages while retaining foreign-key enforcement", async () => {
@@ -99,9 +120,15 @@ describe("message queue persistence", () => {
     await seedMessage(db);
     await seedMessage(db, { id: "message-2", externalId: "external-2", receivedAt: "2026-08-05T13:00:00.000Z" });
     sqlite.prepare("UPDATE messages SET status = 'pending_notion' WHERE id = 'message-2'").run();
+    await seedMessage(db, { id: "message-3", externalId: "external-3", receivedAt: "2026-08-05T14:00:00.000Z" });
+    await markNotionReviewRequired(db, "message-3", "managed_content_changed");
 
     expect((await listQueuedMessages(db, false)).map((row) => row.id)).toEqual(["message-1"]);
     expect((await listQueuedMessages(db, true)).map((row) => row.id)).toEqual(["message-1", "message-2"]);
+    expect(await getMessage(db, "message-3")).toMatchObject({
+      status: "notion_review",
+      last_error: "managed_content_changed"
+    });
   });
 
   it("reclaims stale processing work but not a fresh claim", async () => {
@@ -167,10 +194,21 @@ describe("run, checkpoint, and retention state", () => {
       { messageId: "1", status: "notion" },
       { messageId: "2", status: "digest" },
       { messageId: "3", status: "ignored" },
-      { messageId: "4", status: "failed" }
-    ], 4);
-    expect(sqlite.prepare("SELECT status, queued_count, notion_count, digest_count, ignored_count, failed_count FROM runs").get()).toEqual({
-      status: "completed", queued_count: 4, notion_count: 1, digest_count: 1, ignored_count: 1, failed_count: 1
+      { messageId: "4", status: "failed" },
+      { messageId: "5", status: "pending_notion" },
+      { messageId: "6", status: "notion_review" }
+    ], 6);
+    expect(sqlite.prepare(
+      "SELECT status, queued_count, notion_count, pending_notion_count, notion_review_count, digest_count, ignored_count, failed_count FROM runs"
+    ).get()).toEqual({
+      status: "completed",
+      queued_count: 6,
+      notion_count: 1,
+      pending_notion_count: 1,
+      notion_review_count: 1,
+      digest_count: 1,
+      ignored_count: 1,
+      failed_count: 1
     });
   });
 

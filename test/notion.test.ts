@@ -1,10 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ensureNotionSchema,
+  inspectNotionReview,
   inspectNotionSchema,
+  opportunityAutomationKey,
   publishOpportunity,
+  reconcileNotionReview,
   trashNotionPage
 } from "../src/notion/client";
+import {
+  markNotionReviewRequired,
+  saveClassification,
+  upsertMessage,
+  upsertOpportunity
+} from "../src/storage/database";
 import { classification, env as baseEnv, messageRecord, runtimeConfig } from "./support/fixtures";
 import { createTestDatabase, type TestDatabase } from "./support/d1";
 
@@ -41,6 +50,36 @@ function propertyPage(
       "Automation Key": { rich_text: options.automationKey ? [{ plain_text: options.automationKey }] : [] }
     }
   };
+}
+
+async function seedNotionReview(
+  env: Env,
+  pageId: string,
+  previousMarkdown: string,
+  classificationValue = classification()
+): Promise<string> {
+  await upsertMessage(env.DB, {
+    id: "a".repeat(64),
+    source: "zoho",
+    externalId: "review-external-1",
+    mailbox: "Inbox",
+    subject: "Synthetic review item",
+    receivedAt: "2026-08-05T12:00:00.000Z",
+    rawR2Key: "",
+    rawSize: 0
+  });
+  await saveClassification(env.DB, "a".repeat(64), classificationValue, "pending_notion", classificationValue.primaryUrl);
+  const automationKey = await opportunityAutomationKey(classificationValue);
+  await upsertOpportunity(
+    env.DB,
+    automationKey,
+    "a".repeat(64),
+    classificationValue,
+    pageId,
+    previousMarkdown
+  );
+  await markNotionReviewRequired(env.DB, "a".repeat(64), "managed_content_changed");
+  return automationKey;
 }
 
 describe("Notion schema management", () => {
@@ -188,6 +227,143 @@ describe("Notion publishing", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(publishOpportunity(env, config, messageRecord(), classification(), "key"))
       .rejects.toThrow("managed opportunity text was edited");
+  });
+
+  it("preserves a substantively edited body as manual and keeps future body writes disabled", async () => {
+    const { env, config, testDb } = setup();
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    const automationKey = await seedNotionReview(env, pageId, "Original managed text");
+    const markdown = "A person rewrote this opportunity with useful notes.";
+    const fetchMock = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.endsWith(`/data_sources/${config.notionDataSourceId}/query`)) {
+        return json({ results: [propertyPage(pageId, "Dust Wave Film Grant", { automationKey })], has_more: false });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "GET") {
+        return json({ markdown, truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}`) && method === "PATCH") return json({ id: pageId });
+      throw new Error(`Unexpected Notion request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(inspectNotionReview(env, config, "a".repeat(64))).resolves.toMatchObject({
+      messageId: "a".repeat(64),
+      comparison: "manual_changes"
+    });
+    await expect(reconcileNotionReview(env, config, "a".repeat(64), "preserve_manual")).resolves.toEqual({
+      messageId: "a".repeat(64),
+      action: "preserve_manual",
+      status: "notion"
+    });
+    expect(testDb.sqlite.prepare("SELECT status FROM messages WHERE id = ?").get("a".repeat(64)))
+      .toEqual({ status: "notion" });
+    expect(testDb.sqlite.prepare(
+      "SELECT managed_markdown, body_management FROM opportunities WHERE notion_page_id = ?"
+    ).get(pageId)).toEqual({ managed_markdown: null, body_management: "manual" });
+    expect(fetchMock.mock.calls.filter(([url, init]) =>
+      String(url).endsWith(`/pages/${pageId}/markdown`) && (init as RequestInit | undefined)?.method === "PATCH"
+    )).toHaveLength(0);
+  });
+
+  it("refreshes only formatting-equivalent managed content", async () => {
+    const { env, config, testDb } = setup();
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    const automationKey = await seedNotionReview(env, pageId, "Line one<br>Line two");
+    let markdown = "Line one\nLine two";
+    const fetchMock = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.endsWith(`/data_sources/${config.notionDataSourceId}/query`)) {
+        return json({ results: [propertyPage(pageId, "Dust Wave Film Grant", { automationKey })], has_more: false });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "GET") {
+        return json({ markdown, truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "PATCH") {
+        const input = JSON.parse(String(init?.body)) as { replace_content?: { new_str?: string } };
+        markdown = input.replace_content?.new_str ?? markdown;
+        return json({ markdown, truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}`) && method === "PATCH") return json({ id: pageId });
+      throw new Error(`Unexpected Notion request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(inspectNotionReview(env, config, "a".repeat(64))).resolves.toMatchObject({
+      comparison: "formatting_equivalent"
+    });
+    await reconcileNotionReview(env, config, "a".repeat(64), "refresh_managed");
+    expect(testDb.sqlite.prepare(
+      "SELECT body_management FROM opportunities WHERE notion_page_id = ?"
+    ).get(pageId)).toEqual({ body_management: "managed" });
+    expect(fetchMock.mock.calls.filter(([url, init]) =>
+      String(url).endsWith(`/pages/${pageId}/markdown`) && (init as RequestInit | undefined)?.method === "PATCH"
+    )).toHaveLength(1);
+  });
+
+  it("refreshes an exact managed block without replacing surrounding manual notes", async () => {
+    const { env, config } = setup();
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    const previousMarkdown = "Original managed text";
+    const automationKey = await seedNotionReview(env, pageId, previousMarkdown);
+    let markdown = `Manual introduction.\n\n${previousMarkdown}\n\nManual follow-up.`;
+    const fetchMock = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.endsWith(`/data_sources/${config.notionDataSourceId}/query`)) {
+        return json({ results: [propertyPage(pageId, "Dust Wave Film Grant", { automationKey })], has_more: false });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "GET") {
+        return json({ markdown, truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "PATCH") {
+        const input = JSON.parse(String(init?.body)) as {
+          update_content?: { content_updates?: Array<{ old_str: string; new_str: string }> };
+        };
+        const update = input.update_content?.content_updates?.[0];
+        if (update) markdown = markdown.replace(update.old_str, update.new_str);
+        return json({ markdown, truncated: false, unknown_block_ids: [] });
+      }
+      if (url.endsWith(`/pages/${pageId}`) && method === "PATCH") return json({ id: pageId });
+      throw new Error(`Unexpected Notion request: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(inspectNotionReview(env, config, "a".repeat(64))).resolves.toMatchObject({
+      comparison: "stored_exact"
+    });
+    await reconcileNotionReview(env, config, "a".repeat(64), "refresh_managed");
+    expect(markdown).toMatch(/^Manual introduction\./);
+    expect(markdown).toContain("## Key dates and application");
+    expect(markdown).toMatch(/Manual follow-up\.$/);
+    const markdownPatch = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).endsWith(`/pages/${pageId}/markdown`) && (init as RequestInit | undefined)?.method === "PATCH"
+    );
+    expect(JSON.parse(String((markdownPatch?.[1] as RequestInit).body))).toMatchObject({
+      type: "update_content",
+      update_content: { content_updates: [{ old_str: previousMarkdown }] }
+    });
+  });
+
+  it("rejects a managed refresh when substantive edits are present", async () => {
+    const { env, config } = setup();
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    const automationKey = await seedNotionReview(env, pageId, "Original managed text");
+    vi.stubGlobal("fetch", vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.endsWith(`/data_sources/${config.notionDataSourceId}/query`)) {
+        return json({ results: [propertyPage(pageId, "Dust Wave Film Grant", { automationKey })], has_more: false });
+      }
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "GET") {
+        return json({ markdown: "A person added substantive notes.", truncated: false, unknown_block_ids: [] });
+      }
+      throw new Error(`Unexpected Notion request: ${method} ${url}`);
+    }));
+    await expect(reconcileNotionReview(env, config, "a".repeat(64), "refresh_managed"))
+      .rejects.toThrow("substantive changes");
   });
 
   it("rejects disabled publishing before making a request", async () => {

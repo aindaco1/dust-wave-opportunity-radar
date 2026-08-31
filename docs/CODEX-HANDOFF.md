@@ -49,6 +49,8 @@ Production secrets are not in this repository. A clean local test run does not n
 - Prefer manual Notion pages; trash only automation-owned duplicates.
 - Keep Notion bodies free of visible automation markers/history.
 - Store prior generated Markdown in D1 and fail if it appears manually edited.
+- Keep Workflow execution metadata content-free; use D1 as the classification/state owner.
+- Count retryable Notion and manual-review outcomes separately; never hide them inside a completed run.
 - Demote uncertain/no-official-URL calls to human review.
 - Recovery classification never auto-publishes.
 - Reject geographically only when all three target states are explicitly excluded.

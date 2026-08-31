@@ -1,0 +1,28 @@
+name: Reconcile one Notion review item
+
+on:
+  workflow_dispatch:
+    inputs:
+      message_id:
+        description: Exact 64-character message ID to reconcile
+        required: true
+        type: string
+      action:
+        description: Preserve the page body as manual, or refresh formatting-equivalent managed text
+        required: true
+        type: choice
+        options:
+          - preserve_manual
+          - refresh_managed
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    uses: ./.github/workflows/admin-request.yml
+    with:
+      operation: reconcile-notion
+      message_id: ${{ inputs.message_id }}
+      reconciliation_action: ${{ inputs.action }}
+    secrets: inherit

@@ -1,6 +1,6 @@
 # Data model
 
-D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current schema version is `4`.
+D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current schema version is `5`.
 
 ## Tables
 
@@ -10,7 +10,7 @@ One row per source item, unique on `(source, external_id)`. Sources are `hey`, `
 
 ### `opportunities`
 
-Maps a stable automation key to a Notion page, latest source item, canonical URL, title/organization, observation/publish timestamps, and the last `managed_markdown`. The managed Markdown is not a visible marker; it is the exact prior generated body text used to replace only automation-owned content safely.
+Maps a stable automation key to a Notion page, latest source item, canonical URL, title/organization, observation/publish timestamps, the last `managed_markdown`, and `body_management`. The managed Markdown is not a visible marker; it is the exact prior generated body text used to replace only automation-owned content safely. `body_management='manual'` means automation may update properties but never the page body.
 
 `notion_page_id` is unique in practice during upsert. When a new automation key resolves to the same Notion page, the old mapping is deleted in the same D1 batch.
 
@@ -20,7 +20,7 @@ One rolling row per message. It stores category, title, summary, public URL, dea
 
 ### `runs`
 
-One row per Workflow instance ID with scheduled/start/completion time, status, five outcome counts, and bounded failure detail. Duplicate IDs are ignored.
+One row per Workflow instance ID with scheduled/start/completion time, status, seven outcome counts, and bounded failure detail. `pending_notion_count` records retryable Notion failures; `notion_review_count` records permanent body-safety conflicts requiring an explicit operator decision. Duplicate IDs are ignored.
 
 ### `source_checkpoints`
 
@@ -40,17 +40,19 @@ stateDiagram-v2
   processing --> processing: reclaim after 15 min stale
   processing --> pending_notion: valid qualifying call
   pending_notion --> processing: Notion enabled retry
+  processing --> notion_review: body ownership conflict
+  notion_review --> notion: explicit safe reconciliation
   processing --> notion: Notion create/update succeeds
   processing --> digest: digest item persisted
   processing --> ignored: no action required
   processing --> failed: parsing/storage/unhandled failure
-  processing --> pending_notion: Notion publish fails
+  processing --> pending_notion: retryable Notion publish failure
   notion --> [*]
   digest --> [*]
   ignored --> [*]
 ```
 
-`attempts` increments on every claim. Queue selection includes `queued` and `failed` rows with retained raw MIME and fewer than four attempts, stale `processing` rows, and `pending_notion` only while Notion publishing is enabled.
+`attempts` increments on every claim. Queue selection includes `queued` and `failed` rows with retained raw MIME and fewer than four attempts, stale `processing` rows, and `pending_notion` only while Notion publishing is enabled. `notion_review` is not retried automatically; reconciliation either refreshes formatting-equivalent managed text or preserves the existing page body as manually owned.
 
 ## Content retention
 

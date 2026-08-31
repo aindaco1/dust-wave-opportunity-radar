@@ -95,11 +95,11 @@ Compare title year, canonical Website, Automation Key, and D1 ownership. Add pos
 
 ### Managed opportunity text was edited
 
-The adapter found D1’s prior generated Markdown but not that exact text in the page. It refuses to overwrite possible manual edits. Review the page, decide which content is canonical, and make a deliberate migration/reconciliation change. Do not clear the safety check just to unblock the batch.
+The adapter found D1’s prior generated Markdown but not that exact text in the page. It moves the message to `notion_review` and refuses to overwrite possible manual edits. Use **Inspect Notion review queue**. Choose `refresh_managed` only when the report says the content is exact or formatting-equivalent; otherwise use `preserve_manual`, which leaves the body untouched and limits future automation to properties.
 
 ### Truncated Notion Markdown
 
-The API did not return the complete page, so replacement is unsafe. Shorten/archive the page manually or change the update design with tests; do not proceed with partial text.
+The API did not return the complete page, so replacement is unsafe and the item moves to `notion_review`. Preserve the body as manual or shorten/archive it deliberately; never proceed with partial replacement.
 
 ### Need to remove a bad automated page
 

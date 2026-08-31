@@ -1,0 +1,122 @@
+name: Reusable production admin request
+
+on:
+  workflow_call:
+    inputs:
+      operation:
+        required: true
+        type: string
+      page_id:
+        required: false
+        type: string
+      message_id:
+        required: false
+        type: string
+      reconciliation_action:
+        required: false
+        type: string
+    secrets:
+      ADMIN_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      WORKER_URL: ${{ vars.WORKER_URL }}
+      ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+      OPERATION: ${{ inputs.operation }}
+      PAGE_ID: ${{ inputs.page_id }}
+      MESSAGE_ID: ${{ inputs.message_id }}
+      RECONCILIATION_ACTION: ${{ inputs.reconciliation_action }}
+    steps:
+      - name: Run bounded admin operation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          admin_request() {
+            local method="$1"
+            local path="$2"
+            local payload="${3:-}"
+            local args=(
+              --fail-with-body
+              --silent
+              --show-error
+              --request "$method"
+              --header "Authorization: Bearer $ADMIN_TOKEN"
+            )
+            if [[ -n "$payload" ]]; then
+              args+=(--header "Content-Type: application/json" --data-binary "$payload")
+            fi
+            curl "${args[@]}" "${WORKER_URL%/}${path}"
+          }
+
+          case "$OPERATION" in
+            integrations)
+              admin_request GET /admin/integrations | jq .
+              ;;
+            sync-zoho)
+              admin_request POST /admin/sync/zoho | jq .
+              ;;
+            sync-creative-west)
+              admin_request POST /admin/sync/creative-west | jq .
+              ;;
+            trash-notion)
+              [[ "$PAGE_ID" =~ ^[0-9a-fA-F-]{32,36}$ ]]
+              admin_request POST /admin/notion/trash "$(jq -nc --arg pageId "$PAGE_ID" '{pageId: $pageId}')" | jq .
+              ;;
+            inspect-notion-review)
+              admin_request GET /admin/notion/review | jq .
+              ;;
+            reconcile-notion)
+              [[ "$MESSAGE_ID" =~ ^[0-9a-fA-F]{64}$ ]]
+              [[ "$RECONCILIATION_ACTION" == "refresh_managed" || "$RECONCILIATION_ACTION" == "preserve_manual" ]]
+              payload="$(jq -nc \
+                --arg messageId "$MESSAGE_ID" \
+                --arg action "$RECONCILIATION_ACTION" \
+                '{messageId: $messageId, action: $action}')"
+              admin_request POST /admin/notion/reconcile "$payload" | jq .
+              ;;
+            run-batch)
+              accepted="$(admin_request POST /admin/run)"
+              instance_id="$(jq -er '.instanceId' <<<"$accepted")"
+              jq '{accepted, instanceId}' <<<"$accepted"
+              deadline=$((SECONDS + 600))
+              while (( SECONDS < deadline )); do
+                runs="$(admin_request GET /admin/runs)"
+                record="$(jq -cer --arg id "$instance_id" '.runs[] | select(.id == $id)' <<<"$runs" 2>/dev/null || true)"
+                if [[ -n "$record" ]]; then
+                  status="$(jq -r '.status' <<<"$record")"
+                  if [[ "$status" == "completed" ]]; then
+                    jq '{
+                      id, status, queued_count, notion_count, pending_notion_count,
+                      notion_review_count, digest_count, ignored_count, failed_count
+                    }' <<<"$record"
+                    queued="$(jq -r '.queued_count' <<<"$record")"
+                    accounted="$(jq -r '[
+                      .notion_count, .pending_notion_count, .notion_review_count,
+                      .digest_count, .ignored_count, .failed_count
+                    ] | add' <<<"$record")"
+                    [[ "$queued" -eq "$accounted" ]]
+                    [[ "$(jq -r '.pending_notion_count' <<<"$record")" -eq 0 ]]
+                    [[ "$(jq -r '.failed_count' <<<"$record")" -eq 0 ]]
+                    exit 0
+                  fi
+                  [[ "$status" != "failed" ]] || exit 1
+                fi
+                sleep 5
+              done
+              echo "Timed out waiting for batch $instance_id" >&2
+              exit 1
+              ;;
+            *)
+              echo "Unsupported operation: $OPERATION" >&2
+              exit 2
+              ;;
+          esac

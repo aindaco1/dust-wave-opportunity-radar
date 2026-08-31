@@ -7,6 +7,7 @@ export const messageStatusSchema = z.enum([
   "queued",
   "processing",
   "pending_notion",
+  "notion_review",
   "notion",
   "digest",
   "ignored",
@@ -126,14 +127,14 @@ export interface BatchParams {
 export interface ProcessResult {
   messageId: string;
   status: MessageStatus;
-  title?: string;
-  error?: string;
 }
 
 export interface BatchSummary {
   runId: string;
   queued: number;
   notion: number;
+  pendingNotion: number;
+  notionReview: number;
   digest: number;
   ignored: number;
   failed: number;

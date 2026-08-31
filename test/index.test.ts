@@ -90,6 +90,24 @@ describe("Worker HTTP routes", () => {
     expect(await body(response)).toMatchObject({ fetched: 0, ingested: 0, skipped: true });
   });
 
+  it("lists the Notion review queue without returning page content", async () => {
+    const { env } = setup();
+    const response = await worker.fetch(admin("/admin/notion/review"), env);
+    expect(response.status).toBe(200);
+    expect(await body(response)).toEqual({ items: [] });
+  });
+
+  it("validates the explicit Notion reconciliation action", async () => {
+    const { env } = setup();
+    const response = await worker.fetch(admin("/admin/notion/reconcile", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messageId: "a".repeat(64), action: "overwrite" })
+    }), env);
+    expect(response.status).toBe(400);
+    expect(await body(response)).toEqual({ error: "action must be refresh_managed or preserve_manual" });
+  });
+
   it("validates trash and HEY import bodies at the HTTP boundary", async () => {
     const { env } = setup();
     const trash = await worker.fetch(admin("/admin/notion/trash", {

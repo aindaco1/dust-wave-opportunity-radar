@@ -24,6 +24,12 @@ Workers AI extracts semantics into a strict schema. Code—not the model—enfor
 
 URL/key matches are strongest, but opportunity emails often change title wording. Token/year comparison handles known submission/application variants. Manual pages win canonical selection and only proven automation-owned duplicates are trashed. The prior generated body is stored invisibly in D1 so useful page text can remain free of automation housekeeping while manual edits remain protected.
 
+When a person edits generated body text, the conflict becomes an explicit `notion_review` item. Formatting-only differences may be refreshed; substantive edits can switch the page body to permanent manual ownership while automation continues managing structured properties.
+
+## Content-free durable orchestration
+
+Cloudflare persists Workflow step return values as execution metadata. Steps therefore return only opaque IDs, statuses, counts, and booleans. D1 remains the owner of message records and classifications, and each durable step reloads the state it needs.
+
 ## Real SQLite semantics in fast tests
 
 The persistence suite applies production migrations to Node’s SQLite engine behind a minimal D1-shaped adapter. This catches constraints, `ON CONFLICT`, transactions, and date-query behavior without remote state. It does not emulate Cloudflare durability; Workflow orchestration tests and `wrangler deploy --dry-run` cover the adjacent boundaries.

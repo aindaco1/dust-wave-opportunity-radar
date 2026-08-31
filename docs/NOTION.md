@@ -70,7 +70,20 @@ For an existing page, the adapter reads its Markdown and follows this order:
 6. If D1 says a prior generated body exists but it cannot be found, fail safely because a person may have edited it.
 7. If Notion reports truncated Markdown, fail rather than risk an incomplete replacement.
 
-After a successful write, the new generated Markdown and page mapping are stored in D1.
+Body conflicts move the message to `notion_review`, which is a terminal human-review state rather than an every-batch retry. An operator may refresh only formatting-equivalent content or preserve the current page body as manually owned. Manual ownership keeps property updates active while permanently disabling automated body replacement for that page.
+
+After a successful write, the new generated Markdown, body-ownership mode, and page mapping are stored in D1.
+
+## Review and reconciliation
+
+`GET /admin/notion/review` returns privacy-safe comparison metadata for every `notion_review` item: opaque message ID, reason, comparison class, and content lengths. It never returns page Markdown, titles, URLs, or classification text.
+
+`POST /admin/notion/reconcile` accepts one exact message ID and one action:
+
+- `refresh_managed` is accepted only for exact or formatting-equivalent managed content;
+- `preserve_manual` leaves the current Notion body untouched and records manual ownership.
+
+The corresponding manual GitHub workflows use the same authenticated routes. Reconciliation never uses a force-overwrite action.
 
 ## Operational checks
 

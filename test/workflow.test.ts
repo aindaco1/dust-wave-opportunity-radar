@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import { OpportunityBatchWorkflow } from "../src/workflow/batch";
-import { createRun, getMessage, upsertMessage } from "../src/storage/database";
+import { createRun, getMessage, saveClassification, upsertMessage, upsertOpportunity } from "../src/storage/database";
+import { opportunityAutomationKey } from "../src/notion/client";
 import type { BatchParams } from "../src/types";
 import { classification, env as baseEnv } from "./support/fixtures";
 import { createTestDatabase, type TestDatabase } from "./support/d1";
@@ -48,15 +49,18 @@ function setup() {
     NOTION_ENABLED: "false"
   });
   const names: string[] = [];
+  const outputs: Array<{ name: string; value: unknown }> = [];
   const step = {
     async do<T>(name: string, optionsOrCallback: unknown, maybeCallback?: () => Promise<T>): Promise<T> {
       names.push(name);
       const callback = (typeof optionsOrCallback === "function" ? optionsOrCallback : maybeCallback) as () => Promise<T>;
-      return callback();
+      const value = await callback();
+      outputs.push({ name, value });
+      return value;
     }
   } as WorkflowStep;
   const workflow = new OpportunityBatchWorkflow({} as ExecutionContext, env);
-  return { testDb, bucket, email, ai, env, names, objects, step, workflow };
+  return { testDb, bucket, email, ai, env, names, outputs, objects, step, workflow };
 }
 
 function event(id = "run-1", overrides: Partial<BatchParams> = {}): WorkflowEvent<BatchParams> {
@@ -82,6 +86,8 @@ describe("batch workflow orchestration", () => {
       runId: "run-1",
       queued: 0,
       notion: 0,
+      pendingNotion: 0,
+      notionReview: 0,
       digest: 0,
       ignored: 0,
       failed: 0,
@@ -91,7 +97,7 @@ describe("batch workflow orchestration", () => {
       "create batch run",
       "sync Zoho folders",
       "sync Creative West opportunities",
-      "load queued messages",
+      "load queued message ids",
       "send non-empty digest",
       "purge expired source payloads",
       "complete batch run"
@@ -125,7 +131,7 @@ describe("batch workflow orchestration", () => {
   });
 
   it("processes a queued MIME message into a non-empty digest end to end", async () => {
-    const { workflow, step, env, ai, email, objects } = setup();
+    const { workflow, step, env, ai, email, outputs, objects } = setup();
     const rawKey = "raw/hey/2026-08-05/message-1.eml";
     const mime = [
       "Message-ID: <message-1@example.org>",
@@ -158,6 +164,8 @@ describe("batch workflow orchestration", () => {
       runId: "run-1",
       queued: 1,
       notion: 0,
+      pendingNotion: 0,
+      notionReview: 0,
       digest: 1,
       ignored: 0,
       failed: 0,
@@ -167,6 +175,10 @@ describe("batch workflow orchestration", () => {
     expect(objects.has("parsed/hey/message-1.json")).toBe(true);
     expect(email.send).toHaveBeenCalledOnce();
     expect(email.send.mock.calls[0]?.[0]).toMatchObject({ to: "alonso@hey.com", subject: expect.stringContaining("Dust Wave Opportunity Radar") });
+    const durableOutput = JSON.stringify(outputs);
+    expect(durableOutput).not.toContain("Independent Film Workshop");
+    expect(durableOutput).not.toContain("A film grant for independent artists");
+    expect(outputs.find((output) => output.name === "load queued message ids")?.value).toEqual(["message-1"]);
   });
 
   it("prepares messages with bounded concurrency", async () => {
@@ -312,5 +324,68 @@ describe("batch workflow orchestration", () => {
     const lastPreparation = Math.max(...names.map((name, index) => name.startsWith("prepare ") ? index : -1));
     const firstPublish = names.findIndex((name) => name.startsWith("publish "));
     expect(firstPublish).toBeGreaterThan(lastPreparation);
+  });
+
+  it("moves a managed-body conflict to counted human review without durable content output", async () => {
+    const { workflow, step, env, outputs, testDb } = setup();
+    env.NOTION_ENABLED = "true";
+    const messageId = "b".repeat(64);
+    await upsertMessage(env.DB, {
+      id: messageId,
+      source: "zoho",
+      externalId: "review-external",
+      mailbox: "Inbox",
+      subject: "Synthetic opportunity",
+      receivedAt: "2026-08-05T12:00:00.000Z",
+      rawR2Key: "",
+      rawSize: 0
+    });
+    const classified = classification();
+    await saveClassification(env.DB, messageId, classified, "pending_notion", classified.primaryUrl);
+    const automationKey = await opportunityAutomationKey(classified);
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    await upsertOpportunity(env.DB, automationKey, messageId, classified, pageId, "Original managed body");
+    vi.stubGlobal("fetch", vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      const method = init?.method ?? "GET";
+      if (url.endsWith(`/data_sources/${env.NOTION_DATA_SOURCE_ID}`) && method === "GET") {
+        return json({ id: env.NOTION_DATA_SOURCE_ID, properties: {
+          "Automation Key": { type: "rich_text" }, Source: { type: "select" }, "Last Checked": { type: "date" }
+        } });
+      }
+      if (url.endsWith(`/data_sources/${env.NOTION_DATA_SOURCE_ID}/query`) && method === "POST") {
+        return json({ results: [{
+          id: pageId,
+          created_time: "2026-01-01T00:00:00.000Z",
+          properties: {
+            Name: { title: [{ plain_text: classified.title }] },
+            Website: { rich_text: [{ plain_text: classified.primaryUrl }] },
+            "Automation Key": { rich_text: [{ plain_text: automationKey }] }
+          }
+        }], has_more: false });
+      }
+      if (url.endsWith(`/pages/${pageId}`) && method === "PATCH") return json({ id: pageId });
+      if (url.endsWith(`/pages/${pageId}/markdown`) && method === "GET") {
+        return json({ markdown: "A person changed this body.", truncated: false, unknown_block_ids: [] });
+      }
+      throw new Error(`Unexpected request: ${method} ${url}`);
+    }));
+
+    await expect(workflow.run(event(), step)).resolves.toMatchObject({
+      queued: 1,
+      notion: 0,
+      pendingNotion: 0,
+      notionReview: 1,
+      failed: 0
+    });
+    expect(await getMessage(env.DB, messageId)).toMatchObject({
+      status: "notion_review",
+      last_error: "managed_content_changed"
+    });
+    expect(testDb.sqlite.prepare(
+      "SELECT queued_count, pending_notion_count, notion_review_count FROM runs WHERE id = 'run-1'"
+    ).get()).toEqual({ queued_count: 1, pending_notion_count: 0, notion_review_count: 1 });
+    expect(JSON.stringify(outputs)).not.toContain(classified.title);
+    expect(JSON.stringify(outputs)).not.toContain(classified.bodyMarkdown);
   });
 });

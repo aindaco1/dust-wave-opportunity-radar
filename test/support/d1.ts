@@ -75,25 +75,32 @@ export interface TestDatabase {
   close(): void;
 }
 
+export const testMigrationFiles = [
+  "0001_initial.sql",
+  "0002_seed_config.sql",
+  "0003_track_managed_notion_markdown.sql",
+  "0004_add_creative_west_source.sql",
+  "0005_track_notion_review.sql"
+] as const;
+
+export function applyTestMigrations(sqlite: DatabaseSync, migrations: readonly string[] = testMigrationFiles): void {
+  for (const migration of migrations) {
+    sqlite.exec("BEGIN");
+    try {
+      sqlite.exec(readFileSync(join(process.cwd(), "migrations", migration), "utf8"));
+      sqlite.exec("COMMIT");
+    } catch (error) {
+      sqlite.exec("ROLLBACK");
+      throw error;
+    }
+  }
+}
+
 export function createTestDatabase(options: { migrate?: boolean } = {}): TestDatabase {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys = ON");
   if (options.migrate !== false) {
-    for (const migration of [
-      "0001_initial.sql",
-      "0002_seed_config.sql",
-      "0003_track_managed_notion_markdown.sql",
-      "0004_add_creative_west_source.sql"
-    ]) {
-      sqlite.exec("BEGIN");
-      try {
-        sqlite.exec(readFileSync(join(process.cwd(), "migrations", migration), "utf8"));
-        sqlite.exec("COMMIT");
-      } catch (error) {
-        sqlite.exec("ROLLBACK");
-        throw error;
-      }
-    }
+    applyTestMigrations(sqlite);
   }
 
   const db = {
