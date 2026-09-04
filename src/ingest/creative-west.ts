@@ -1,6 +1,6 @@
 import type { RuntimeConfig } from "../config";
 import { htmlToText } from "../email/parse";
-import { getMessage, upsertMessage } from "../storage/database";
+import { ingestPublicSnapshot } from "./public-snapshot";
 import { sha256Hex } from "../util/crypto";
 import { localBatchSlot } from "../util/dates";
 import { readBoundedJson } from "../util/http";
@@ -224,40 +224,20 @@ async function ingestCreativeWestOpportunity(env: Env, value: unknown, runAt: Da
   const opportunity = parseOpportunity(value);
   const snapshotHash = await sha256Hex(JSON.stringify(opportunity));
   const externalId = `${opportunity.source}:${opportunity.id}:${snapshotHash}`;
-  const id = await sha256Hex(`creative_west:${externalId}`);
-  const existing = await getMessage(env.DB, id);
-  if (existing && !(existing.status === "failed" && existing.raw_r2_key === "")) return false;
-
   const receivedAt = runAt.toISOString();
-  const raw = new TextEncoder().encode(buildOpportunityMime(opportunity, receivedAt));
-  const rawR2Key = `raw/creative-west/${receivedAt.slice(0, 10)}/${id}.eml`;
-  await env.MAIL_BUCKET.put(rawR2Key, raw, {
-    httpMetadata: { contentType: "message/rfc822" },
-    customMetadata: {
-      source: "creative_west",
-      externalId,
-      receivedAt,
-      opportunityId: opportunity.id
-    }
+  const result = await ingestPublicSnapshot(env, {
+    source: "creative_west",
+    externalId,
+    namespace: "creative-west",
+    mailbox: "New Mexico · Artist/Organization",
+    subject: opportunity.name,
+    senderName: cleanOptionalText(opportunity.providerName, 300),
+    senderEmail: cleanOptionalText(opportunity.providerEmail, 320),
+    receivedAt,
+    mime: () => buildOpportunityMime(opportunity, receivedAt),
+    customMetadata: { opportunityId: opportunity.id }
   });
-  try {
-    await upsertMessage(env.DB, {
-      id,
-      source: "creative_west",
-      externalId,
-      mailbox: "New Mexico · Artist/Organization",
-      subject: opportunity.name,
-      senderName: cleanOptionalText(opportunity.providerName, 300),
-      senderEmail: cleanOptionalText(opportunity.providerEmail, 320),
-      receivedAt,
-      rawR2Key,
-      rawSize: raw.byteLength
-    });
-  } catch (error) {
-    await env.MAIL_BUCKET.delete(rawR2Key).catch(() => undefined);
-    throw error;
-  }
-  return true;
+  return result.ingested;
 }
 
 function parseOpportunity(value: unknown): CreativeWestOpportunity {
