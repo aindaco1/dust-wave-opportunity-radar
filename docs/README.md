@@ -26,6 +26,7 @@ Choose the shortest path for the task at hand.
 
 ## Change the project
 
+- [Colossal integration plan](COLOSSAL-INTEGRATION-PLAN.md) — proposed monthly roundup ingestion through the shared pipeline; not implemented or enabled.
 - [Contributing](../CONTRIBUTING.md) — implementation, test, migration, and review workflow.
 - [AGENTS.md](../AGENTS.md) — Codex-specific invariants and production boundaries.
 - [Notices](../NOTICE.md) — attribution for adapted material.
