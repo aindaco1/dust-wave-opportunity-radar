@@ -34,6 +34,10 @@ npm run check
 
 Remote migration and deployment are separate, explicitly authorized production actions.
 
+## Toolchain updates
+
+Keep Vitest and `@vitest/coverage-v8` on the same locked version; Dependabot groups these updates. When updating Wrangler, review the new locked `workerd` version and replace its exact version entry in `allowScripts` without broadening the installer allowlist. Run `npm ci`, regenerate runtime types with `npm run cf-typegen`, and run `npm run check`. The generated-type check and local email-runtime test must pass with the updated runtime.
+
 ## Pull-request checklist
 
 - [ ] Behavior is covered by tests and documented.
