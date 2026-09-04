@@ -22,6 +22,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 |---|---|---|
 | Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, recovery, tags/URLs, model pin, invalid config |
 | Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
+| Shared public sources | `public-source-helpers.test.ts` | Snapshot identity, terminal preservation, expired-failure recovery, partial-write cleanup, bounded MIME and conditional RSS fetch |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
 | Toolchain | `toolchain.test.ts` | Exact locked workerd installer allowance and matching Vitest/coverage versions |
 | Ingestion adapters | `email-worker.test.ts`, `email-runtime.test.ts`, `zoho.test.ts`, `creative-west.test.ts` | HEY limits/cleanup, production-shaped Email Worker streams with local R2/D1, OAuth/account/folders, MIME/fallback, checkpoints, exact public-feed filters/window, and snapshot dedupe |

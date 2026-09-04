@@ -92,6 +92,7 @@ Each message is processed independently inside the batch. MIME preparation, enri
 - Entrypoints and admin routing: `src/index.ts`
 - Durable orchestration: `src/workflow/batch.ts`
 - Ingestion: `src/ingest/email-worker.ts`, `src/ingest/zoho.ts`, `src/ingest/creative-west.ts`
+- Shared public-source persistence and bounded transport: `src/ingest/public-snapshot.ts`, `src/ingest/public-fetch.ts`
 - Parsing and web evidence: `src/email/parse.ts`, `src/ingest/web-enrichment.ts`
 - AI and deterministic policy: `src/ai/classify.ts`
 - Notion reconciliation: `src/notion/client.ts`
