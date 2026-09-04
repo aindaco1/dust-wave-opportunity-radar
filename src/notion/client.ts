@@ -125,7 +125,8 @@ export async function ensureNotionSchema(env: Env, config: RuntimeConfig): Promi
           { name: "HEY", color: "blue" },
           { name: "Zoho", color: "green" },
           { name: "Creative West", color: "orange" },
-          { name: "Colossal", color: "purple" }
+          { name: "Colossal", color: "purple" },
+          { name: "Hyperallergic", color: "pink" }
         ]
       }
     };
@@ -685,6 +686,7 @@ function notionSourceName(source: MessageRecord["source"]): string {
   if (source === "hey") return "HEY";
   if (source === "zoho") return "Zoho";
   if (source === "colossal") return "Colossal";
+  if (source === "hyperallergic") return "Hyperallergic";
   return "Creative West";
 }
 

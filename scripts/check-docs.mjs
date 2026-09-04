@@ -14,6 +14,7 @@ const required = [
   "docs/CONFIGURATION.md",
   "docs/DATA-MODEL.md",
   "docs/DECISIONS.md",
+  "docs/HYPERALLERGIC.md",
   "docs/NOTION.md",
   "docs/OPERATIONS.md",
   "docs/SECURITY.md",

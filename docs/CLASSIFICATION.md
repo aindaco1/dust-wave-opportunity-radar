@@ -19,7 +19,7 @@ A rolling call can publish without a due date and should use the `Rolling` tag. 
 
 The batch supplies its Mountain calendar date as classification evidence. After the confidence check, a call whose final `dueDate` is before that date is ignored; date-only deadlines remain eligible on the deadline day, and rolling calls can omit a date. This shared check applies to every source.
 
-Colossal candidates also carry trusted discovery metadata outside their MIME. Primary URLs must be evidenced organizer/application links or safe redirect destinations. The discovery domain, unknown URLs, shared landing pages that do not distinguish programs, and unresolved groups cannot auto-publish. These cases use the existing Possible Opportunities digest; Notion reconciliation is unchanged. See [Colossal](COLOSSAL.md).
+Colossal and Hyperallergic candidates also carry trusted discovery metadata outside their MIME. Primary URLs must be evidenced organizer/application links or safe redirect destinations. Known shorteners cannot serve as official primary URLs; their destination must be established by safe enrichment. Link labels never establish destinations. The discovery domain, unknown URLs, shared landing pages that do not distinguish programs, and unresolved groups cannot auto-publish. These cases use the existing Possible Opportunities digest; Notion reconciliation is unchanged. See [Colossal](COLOSSAL.md) and [Hyperallergic](HYPERALLERGIC.md).
 
 ### Send to the human-review digest
 

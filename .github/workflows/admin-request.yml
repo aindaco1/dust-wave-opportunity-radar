@@ -70,6 +70,9 @@ jobs:
             sync-colossal)
               admin_request POST /admin/sync/colossal | jq .
               ;;
+            sync-hyperallergic)
+              admin_request POST /admin/sync/hyperallergic | jq .
+              ;;
             trash-notion)
               [[ "$PAGE_ID" =~ ^[0-9a-fA-F-]{32,36}$ ]]
               admin_request POST /admin/notion/trash "$(jq -nc --arg pageId "$PAGE_ID" '{pageId: $pageId}')" | jq .

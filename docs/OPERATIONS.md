@@ -20,6 +20,8 @@ Each batch:
 
 Colossal is enabled in the reviewed configuration and runs before the shared queue is loaded. It discovers monthly roundups, queues individual snapshots, and reports resumable partial work. The [Colossal runbook](COLOSSAL.md) defines its counters, source-only workflow, and production acceptance steps.
 
+Hyperallergic uses the same pipeline for monthly Opportunities roundups and is enabled in the reviewed configuration. Migration 0007 must precede deployment. The [Hyperallergic runbook](HYPERALLERGIC.md) defines initial scope, source-only verification, and rollout. No local verification imports production entries.
+
 ## Health and manual run
 
 ```bash
@@ -46,7 +48,7 @@ curl -X POST https://WORKER_URL/admin/notion/trash \
   --data '{"pageId":"NOTION_PAGE_ID"}'
 ```
 
-`/health` is public and exposes flags only, never credentials or source content. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only Notion schema, Zoho account/folder, Creative West filtered-query, and Colossal feed checks without returning message/listing content or tokens. The three `/admin/sync/*` routes ingest only their named source without starting classification or digest delivery. `/admin/notion/trash` is an authenticated recovery tool; it moves exactly one supplied page ID to Notion trash and can be reversed in Notion.
+`/health` is public and exposes flags only, never credentials or source content. All `/admin/*` routes require the bearer token. `/admin/integrations` performs read-only Notion schema, Zoho account/folder, Creative West filtered-query, and enabled Colossal/Hyperallergic feed checks without returning message/listing content or tokens. The four `/admin/sync/*` routes ingest only their named source without starting classification or digest delivery. The next normal batch can consume those entries. `/admin/notion/trash` is an authenticated recovery tool; it moves exactly one supplied page ID to Notion trash and can be reversed in Notion.
 
 Use Cloudflare Workers logs for structured events such as `hey_email_ingested`, `zoho_sync_completed`, `creative_west_sync_completed`, `classification_exhausted_sent_to_digest`, `notion_publish_deferred`, `message_processing_failed`, and `digest_sent`. A `hey_email_ingest_failed` event includes a privacy-safe `phase` (`r2_upload` or `d1_upsert`), the internal hashed message ID, and the declared raw size; it never includes sender, subject, Message-ID, or MIME content. Creative West logs contain only counts, the requested date bounds, and page/item indexes for failures—never listing descriptions. Use `/admin/runs` for authoritative completed/failed run counts.
 

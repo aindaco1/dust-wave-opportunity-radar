@@ -14,6 +14,7 @@ export interface RuntimeConfig {
   zohoEnabled: boolean;
   creativeWestEnabled: boolean;
   colossalEnabled: boolean;
+  hyperallergicEnabled: boolean;
   zohoAccountEmail: string;
   zohoDatacenter: string;
   zohoFolders: string[];
@@ -37,6 +38,7 @@ export function loadRuntimeConfig(env: Env): RuntimeConfig {
     zohoEnabled: String(env.ZOHO_ENABLED) === "true",
     creativeWestEnabled: String(env.CREATIVE_WEST_ENABLED) === "true",
     colossalEnabled: String(env.COLOSSAL_ENABLED) === "true",
+    hyperallergicEnabled: String(env.HYPERALLERGIC_ENABLED) === "true",
     zohoAccountEmail: env.ZOHO_ACCOUNT_EMAIL.toLowerCase(),
     zohoDatacenter: env.ZOHO_DATACENTER.toLowerCase(),
     zohoFolders: parseCsv(env.ZOHO_FOLDERS),
@@ -50,6 +52,7 @@ export function sourceLabel(source: MessageSource, mailbox: string): string {
   if (source === "hey") return `HEY · ${mailbox}`;
   if (source === "zoho") return `Zoho · ${mailbox}`;
   if (source === "colossal") return `Colossal · ${mailbox}`;
+  if (source === "hyperallergic") return `Hyperallergic · ${mailbox}`;
   return `Creative West · ${mailbox}`;
 }
 

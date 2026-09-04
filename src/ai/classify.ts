@@ -173,7 +173,8 @@ export function buildManualReviewClassification(message: ParsedMessage, error: u
   const errorMessage = (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 500);
   const sourceDescription = message.source === "creative_west"
     ? "Creative West listing"
-    : `${message.source.toUpperCase()} email`;
+    : message.source === "hyperallergic" ? "Hyperallergic listing"
+    : message.source === "colossal" ? "Colossal listing" : `${message.source.toUpperCase()} email`;
   return classificationSchema.parse({
     decision: "digest",
     confidence: 0,
@@ -306,8 +307,10 @@ export function enforceClassificationPolicy(
     }
     const discoveryHost = new URL(discovery.sourceUrl).hostname.replace(/^www\./, "");
     const primaryHost = canonicalPrimary ? new URL(canonicalPrimary).hostname : "";
+    // A shortener is a discovery pointer, never the official program itself.
+    const redirector = /^(?:www\.)?(?:bit\.ly|bitly\.com|tinyurl\.com|t\.co|lnkd\.in|s\.si\.edu)$/.test(primaryHost);
     if (discovery.requiresReview || !canonicalPrimary || !urls.has(canonicalPrimary)
-      || ambiguous.has(canonicalPrimary) || primaryHost === discoveryHost || primaryHost.endsWith(`.${discoveryHost}`)) {
+      || redirector || ambiguous.has(canonicalPrimary) || primaryHost === discoveryHost || primaryHost.endsWith(`.${discoveryHost}`)) {
       return {
         ...value, decision: "digest", primaryUrl: canonicalPrimary,
         applicationUrl: canonicalApplication, digestCategory: "Possible Opportunities",

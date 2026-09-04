@@ -9,6 +9,17 @@ const context: DiscoveryContext = {
 const call = () => classification({ primaryUrl: "https://example.org/apply/film" });
 
 describe("shared discovery evidence policy", () => {
+  it("requires Hyperallergic short links to resolve to evidenced official destinations", () => {
+    const discovery: DiscoveryContext = { sourceUrl: "https://hyperallergic.com/opportunities-in-september-2026/",
+      officialUrls: ["https://bit.ly/synthetic"], ambiguousUrls: [], requiresReview: false };
+    const page = { requestedUrl: discovery.officialUrls[0]!, finalUrl: "https://example.org/apply/film", text: "Official call" };
+    expect(enforceClassificationPolicy(classification({ primaryUrl: discovery.officialUrls[0] }), 0.82, discovery).decision).toBe("digest");
+    expect(enforceClassificationPolicy(call(), 0.82, discovery).decision).toBe("digest");
+    expect(enforceClassificationPolicy(call(), 0.82, discovery, [page]).decision).toBe("notion");
+    expect(enforceClassificationPolicy(classification({ primaryUrl: discovery.sourceUrl }), 0.82, discovery, [page]).decision).toBe("digest");
+    expect(enforceClassificationPolicy(call(), 0.82, { ...discovery, requiresReview: true }, [page]).decision).toBe("digest");
+    expect(enforceClassificationPolicy(call(), 0.82, { ...discovery, ambiguousUrls: discovery.officialUrls }, [page]).decision).toBe("digest");
+  });
   it("allows a distinct evidenced official call, including a safe redirect destination", () => {
     expect(enforceClassificationPolicy(call(), 0.82, context).decision).toBe("notion");
     expect(enforceClassificationPolicy(classification({ primaryUrl: "https://apply.example.org/film" }), 0.82, context,

@@ -1,5 +1,9 @@
 # Design decisions
 
+## Hyperallergic shares the public-roundup pipeline
+
+The initial Hyperallergic scope is monthly Opportunities roundups, matching the requested example. Standalone sponsored announcements are excluded. Publisher-specific layout/URL parsers share Colossal's bounded transport, month discovery, resumable progress, snapshot identity, and existing batch/Notion/digest machinery. This keeps one recovery and policy path instead of a second scraper service. Unresolved short links cannot qualify as official primary URLs. The reviewed configuration enables the source for the explicitly authorized rollout; migration 0007 must precede deployment. See [Hyperallergic](HYPERALLERGIC.md).
+
 ## Cloudflare is the execution boundary
 
 Workers, Workflows, D1, R2, Workers AI, Email Routing, and Email Sending keep ingestion, state, scheduling, inference, and delivery off a personal machine. The tradeoff is provider-specific bindings and the need for a small Node test shim; dry-run bundling and Cloudflare-generated types guard that boundary.

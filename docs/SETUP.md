@@ -104,6 +104,10 @@ The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` 
 
 Colossal is enabled in the reviewed configuration with `COLOSSAL_ENABLED=true` and needs no new secret or binding. Apply migration 0006 before deploying this code. Verify the deployed flag through `/health`; live inspection/import and scheduled acceptance are separate steps. Follow the [Colossal runbook](COLOSSAL.md#deployment-and-acceptance).
 
+## Hyperallergic optional source
+
+`HYPERALLERGIC_ENABLED=true` enables monthly Hyperallergic roundups in the reviewed configuration. No new secret or binding is needed. Apply migration 0007 locally and pass the quality gate before authorized remote migration/deployment. Verify the deployed flag, feed access, and **Sync Hyperallergic source only** counts, then separately verify scheduled outcomes. Follow the [Hyperallergic runbook](HYPERALLERGIC.md#operations-and-rollout). Standalone announcements are outside the initial scope.
+
 ## 8. Activation verification
 
 1. Call public `/health`; verify timezone, batch hours, and reviewed feature flags.

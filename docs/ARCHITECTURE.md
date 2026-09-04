@@ -2,7 +2,7 @@
 
 ## Context
 
-Dust Wave Opportunity Radar converts two private mail sources and public Creative West and optional Colossal feeds into one controlled creative-opportunity workflow. Cloudflare hosts every persistent and scheduled component. GitHub provides CI and explicitly dispatched operational workflows; it is not in the steady-state message path.
+Dust Wave Opportunity Radar converts two private mail sources, public Creative West listings, and optional Colossal and Hyperallergic roundups into one controlled creative-opportunity workflow. Cloudflare hosts every persistent and scheduled component. GitHub provides CI and explicitly dispatched operational workflows; it is not in the steady-state message path.
 
 ## Components
 
@@ -12,6 +12,7 @@ Dust Wave Opportunity Radar converts two private mail sources and public Creativ
 | Cloudflare Workflow | Orchestrate retries and named durable steps for each 12-hour batch | Workflow execution metadata |
 | Creative West GraphQL API | Return open New Mexico artist/organization listings in the batch's 31-day deadline window | Source system owns listings |
 | Colossal category RSS/HTML | Discover monthly roundups and extract individual candidates | Source owns articles; D1 retains progress metadata |
+| Hyperallergic Opportunities RSS/HTML | Discover monthly roundups and extract individual candidates | Source owns articles; D1 retains progress metadata |
 | D1 | Queue state, source/snapshot dedupe, classifications, Notion identity mapping, digest state, checkpoints, and run history | Structured metadata; no attachment binaries |
 | R2 | Raw RFC 822 MIME (including synthetic MIME for public listings) and parsed JSON needed for processing/retry | Source and attachment-derived content for 24 hours |
 | Workers AI | Produce a strict opportunity classification, then a smaller recovery result if needed | Provider-governed inference telemetry |
@@ -30,6 +31,7 @@ sequenceDiagram
   participant Zoho
   participant CW as Creative West
   participant Colossal
+  participant Hyperallergic
   participant D1
   participant R2
   participant AI as Workers AI
@@ -49,6 +51,11 @@ sequenceDiagram
   Flow->>D1: upsert versioned listing snapshot
   opt Colossal enabled
     Flow->>Colossal: current/previous roundup month and early next month
+    Flow->>R2: store new/changed entry MIME
+    Flow->>D1: persist snapshots and article progress
+  end
+  opt Hyperallergic enabled
+    Flow->>Hyperallergic: current/previous roundup month and early next month
     Flow->>R2: store new/changed entry MIME
     Flow->>D1: persist snapshots and article progress
   end
@@ -82,7 +89,7 @@ sequenceDiagram
 
 - A source item is unique on `(source, external_id)`. Re-import updates metadata without resetting a successful terminal state.
 - Creative West snapshot IDs include a digest of the returned listing fields. An unchanged listing is skipped; a substantive update is queued as a new snapshot and later resolves to the same Notion entity by official URL.
-- Colossal reuses public snapshot persistence, with HTTP validators and resumable article metadata in D1. Pending work and expired queued/failed payload restoration survive month rollover and HTTP 304. See [Colossal](COLOSSAL.md).
+- Colossal and Hyperallergic share roundup orchestration and public snapshot persistence, with HTTP validators and resumable article metadata in D1. Pending work and expired queued/failed payload restoration survive month rollover and HTTP 304. Publisher-specific parsers retain source fidelity. See [Colossal](COLOSSAL.md) and [Hyperallergic](HYPERALLERGIC.md).
 - Workflow instance IDs use the local date/hour slot, so duplicate cron delivery does not create duplicate scheduled batches.
 - A D1 run ID is inserted with `INSERT OR IGNORE`; non-forced duplicate runs return a no-op summary.
 - A message claim increments `attempts`. Failed work and processing claims stale for 15 minutes are eligible until four attempts.
@@ -99,7 +106,8 @@ Each message is processed independently inside the batch. MIME preparation, enri
 
 - Entrypoints and admin routing: `src/index.ts`
 - Durable orchestration: `src/workflow/batch.ts`
-- Ingestion: `src/ingest/email-worker.ts`, `src/ingest/zoho.ts`, `src/ingest/creative-west.ts`, `src/ingest/colossal.ts`
+- Ingestion: `src/ingest/email-worker.ts`, `src/ingest/zoho.ts`, `src/ingest/creative-west.ts`, `src/ingest/colossal.ts`, `src/ingest/hyperallergic.ts`
+- Shared roundup lifecycle and parsing primitives: `src/ingest/roundup-source.ts`, `src/ingest/roundup-parser.ts`
 - Shared public-source persistence and bounded transport: `src/ingest/public-snapshot.ts`, `src/ingest/public-fetch.ts`
 - Parsing and web evidence: `src/email/parse.ts`, `src/ingest/web-enrichment.ts`
 - AI and deterministic policy: `src/ai/classify.ts`

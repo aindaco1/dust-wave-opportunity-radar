@@ -17,10 +17,10 @@ describe("runtime configuration", () => {
   });
 
   it("enables feature flags only for the literal true value", () => {
-    expect(loadRuntimeConfig(env({ NOTION_ENABLED: "true", ZOHO_ENABLED: "true", CREATIVE_WEST_ENABLED: "true", COLOSSAL_ENABLED: "true" })))
-      .toMatchObject({ notionEnabled: true, zohoEnabled: true, creativeWestEnabled: true, colossalEnabled: true });
-    expect(loadRuntimeConfig(env({ NOTION_ENABLED: "TRUE", ZOHO_ENABLED: "1", CREATIVE_WEST_ENABLED: "TRUE", COLOSSAL_ENABLED: "1" })))
-      .toMatchObject({ notionEnabled: false, zohoEnabled: false, creativeWestEnabled: false, colossalEnabled: false });
+    expect(loadRuntimeConfig(env({ NOTION_ENABLED: "true", ZOHO_ENABLED: "true", CREATIVE_WEST_ENABLED: "true", COLOSSAL_ENABLED: "true", HYPERALLERGIC_ENABLED: "true" })))
+      .toMatchObject({ notionEnabled: true, zohoEnabled: true, creativeWestEnabled: true, colossalEnabled: true, hyperallergicEnabled: true });
+    expect(loadRuntimeConfig(env({ NOTION_ENABLED: "TRUE", ZOHO_ENABLED: "1", CREATIVE_WEST_ENABLED: "TRUE", COLOSSAL_ENABLED: "1", HYPERALLERGIC_ENABLED: "1" })))
+      .toMatchObject({ notionEnabled: false, zohoEnabled: false, creativeWestEnabled: false, colossalEnabled: false, hyperallergicEnabled: false });
   });
 
   it.each([
@@ -43,5 +43,6 @@ describe("source labels", () => {
     expect(sourceLabel("zoho", "Dust Wave")).toBe("Zoho · Dust Wave");
     expect(sourceLabel("creative_west", "New Mexico")).toBe("Creative West · New Mexico");
     expect(sourceLabel("colossal", "Opportunities")).toBe("Colossal · Opportunities");
+    expect(sourceLabel("hyperallergic", "Opportunities")).toBe("Hyperallergic · Opportunities");
   });
 });
