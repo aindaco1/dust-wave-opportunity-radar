@@ -1,6 +1,6 @@
 # Colossal opportunities
 
-The Colossal adapter is implemented behind `COLOSSAL_ENABLED=false`. It has not been activated in production. It runs only in the existing Cloudflare batch, at 07:00 and 19:00 `America/Denver`, when enabled.
+The reviewed production configuration enables the Colossal adapter with `COLOSSAL_ENABLED=true`. Verify the deployed setting through `/health`. Scheduled processing runs in the existing Cloudflare batch, at 07:00 and 19:00 `America/Denver`.
 
 ## Discovery and scope
 
@@ -49,6 +49,6 @@ Check `failed`, `deferred`, and `missingMonths` when diagnosing an import. A par
 
 No new secret or Cloudflare binding is needed. Migration `0006_add_colossal_source.sql` is required before deploying this code, even with the source disabled, because shared message persistence uses the new context column.
 
-Production actions require explicit authorization under [AGENTS.md](../AGENTS.md): remote migration, deployment, source-only import, and any manual batch are separate actions. The intended sequence is to apply migration 0006, deploy with the source disabled, enable it through reviewed configuration/deployment, inspect access, and run a source-only import. Verify both requested roundup months, then verify a second sync queues no unchanged entries. Finally check scheduled Notion/digest/ignore outcomes, cross-source matching, and manual-content preservation.
+Production actions require explicit authorization under [AGENTS.md](../AGENTS.md): remote migration, deployment, source-only import, and any manual batch are separate actions. After authorization, use the manual deployment workflow to apply migration 0006 before deploying the reviewed configuration, inspect access, and run a source-only import. Verify both requested roundup months, then verify a second sync queues no unchanged entries. Finally check scheduled Notion/digest/ignore outcomes, cross-source matching, and manual-content preservation. Source-only validation does not start a manual publishing batch.
 
 Local regression tests use invented RSS, HTML, and organizer responses. See [Testing](TESTING.md). Public parser smoke checks inspect only counts; they are not evidence of a successful live D1 import or Notion publication.

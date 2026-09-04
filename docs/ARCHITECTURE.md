@@ -11,7 +11,7 @@ Dust Wave Opportunity Radar converts two private mail sources and public Creativ
 | Worker HTTP/email/scheduled handlers | Receive forwarded HEY MIME, expose admin routes, and translate hourly ticks into local batch slots | None |
 | Cloudflare Workflow | Orchestrate retries and named durable steps for each 12-hour batch | Workflow execution metadata |
 | Creative West GraphQL API | Return open New Mexico artist/organization listings in the batch's 31-day deadline window | Source system owns listings |
-| Colossal category RSS/HTML (disabled by default) | Discover monthly roundups and extract individual candidates | Source owns articles; D1 retains progress metadata |
+| Colossal category RSS/HTML | Discover monthly roundups and extract individual candidates | Source owns articles; D1 retains progress metadata |
 | D1 | Queue state, source/snapshot dedupe, classifications, Notion identity mapping, digest state, checkpoints, and run history | Structured metadata; no attachment binaries |
 | R2 | Raw RFC 822 MIME (including synthetic MIME for public listings) and parsed JSON needed for processing/retry | Source and attachment-derived content for 24 hours |
 | Workers AI | Produce a strict opportunity classification, then a smaller recovery result if needed | Provider-governed inference telemetry |

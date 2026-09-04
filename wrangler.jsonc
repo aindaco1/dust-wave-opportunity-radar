@@ -54,7 +54,7 @@
     "NOTION_DATA_SOURCE_ID": "248a67e1-4d47-48f8-bc84-a9602ca91b78",
     "ZOHO_ENABLED": "true",
     "CREATIVE_WEST_ENABLED": "true",
-    "COLOSSAL_ENABLED": "false",
+    "COLOSSAL_ENABLED": "true",
     "ZOHO_ACCOUNT_EMAIL": "alonso@dustwave.xyz",
     "ZOHO_DATACENTER": "us",
     "ZOHO_FOLDERS": "Inbox,Dust Wave,Newsletter,Notification",

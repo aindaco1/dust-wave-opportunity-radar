@@ -26,7 +26,7 @@ Choose the shortest path for the task at hand.
 
 ## Change the project
 
-- [Colossal source](COLOSSAL.md) — implemented discovery, policy, recovery, and activation contract; disabled by default.
+- [Colossal source](COLOSSAL.md) — discovery, policy, recovery, and deployment acceptance; enabled in the reviewed configuration.
 - [Colossal integration plan](COLOSSAL-INTEGRATION-PLAN.md) — original agreed scope and implementation sequence.
 - [Contributing](../CONTRIBUTING.md) — implementation, test, migration, and review workflow.
 - [AGENTS.md](../AGENTS.md) — Codex-specific invariants and production boundaries.

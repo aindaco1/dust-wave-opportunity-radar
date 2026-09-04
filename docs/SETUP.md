@@ -102,7 +102,7 @@ The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` 
 
 ## Colossal optional source
 
-Colossal is implemented with `COLOSSAL_ENABLED=false` and needs no new secret or binding. Apply migration 0006 before deploying this code. Enablement, live inspection/import, and scheduled acceptance are separate production steps; follow the [Colossal runbook](COLOSSAL.md#deployment-and-acceptance).
+Colossal is enabled in the reviewed configuration with `COLOSSAL_ENABLED=true` and needs no new secret or binding. Apply migration 0006 before deploying this code. Verify the deployed flag through `/health`; live inspection/import and scheduled acceptance are separate steps. Follow the [Colossal runbook](COLOSSAL.md#deployment-and-acceptance).
 
 ## 8. Activation verification
 

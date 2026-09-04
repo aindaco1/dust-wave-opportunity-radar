@@ -1,6 +1,6 @@
 # Dust Wave Opportunity Radar
 
-Dust Wave Opportunity Radar is a Cloudflare-hosted source triage service for creative-industry opportunities. It receives broad HEY forwarding, pulls selected Zoho folders, fetches a filtered Creative West opportunity feed, parses linked pages and PDF/DOCX attachments, classifies each item with Workers AI, and runs a 12-hour publishing batch. It also supports Colossal monthly opportunity roundups through the same pipeline; that source is implemented but disabled pending production activation.
+Dust Wave Opportunity Radar is a Cloudflare-hosted source triage service for creative-industry opportunities. It receives broad HEY forwarding, pulls selected Zoho folders, fetches a filtered Creative West opportunity feed, parses linked pages and PDF/DOCX attachments, classifies each item with Workers AI, and runs a 12-hour publishing batch. Colossal monthly opportunity roundups use the same pipeline and are enabled in the reviewed production configuration.
 
 Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 
@@ -12,7 +12,7 @@ Notion body conflicts are held in a counted review queue. Formatting-equivalent 
 - HEY: official forwarding of non-spam mail to Cloudflare Email Routing. `Sealjay/mcp-hey` is limited to the optional historical backfill.
 - Zoho: `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`, with a seven-day initial window and one-hour checkpoint overlap.
 - Creative West: open New Mexico opportunities for artists or organizations whose deadlines fall between the Mountain-time run date and 31 days later, sorted by newest open date.
-- Colossal (disabled): current/previous named roundup month, plus an early next-month post, split into individual candidates with persistent deduplication and retry state. See [Colossal](docs/COLOSSAL.md).
+- Colossal: current/previous named roundup month, plus an early next-month post, split into individual candidates with persistent deduplication and retry state. See [Colossal](docs/COLOSSAL.md).
 - Notion: automatic create/update at batch time, including conservative equivalent-title matching and cleanup of automation-owned duplicate pages.
 - Digest: sent to `alonso@hey.com` only when at least one item is waiting.
 - Retention: raw and parsed R2 objects are purged after 24 hours; D1 retains operational metadata and structured classification results.
