@@ -42,6 +42,10 @@ Then read:
 
 Production secrets are not in this repository. A clean local test run does not need them.
 
+## Implemented, pending production activation
+
+Colossal monthly roundups are implemented behind `COLOSSAL_ENABLED=false`; migration 0006 must precede deployment of this code. No live Colossal import or acceptance has been performed. See [Colossal](COLOSSAL.md) for the current/previous-month scope, shared processing, recovery, and activation sequence.
+
 ## Behavior that must not regress
 
 - Check existing Notion records before creating a page.

@@ -42,7 +42,8 @@ describe("Worker HTTP routes", () => {
       batchHours: [7, 19],
       notionEnabled: true,
       zohoEnabled: true,
-      creativeWestEnabled: true
+      creativeWestEnabled: true,
+      colossalEnabled: false
     });
   });
 
@@ -88,6 +89,14 @@ describe("Worker HTTP routes", () => {
     const response = await worker.fetch(admin("/admin/sync/creative-west", { method: "POST" }), env);
     expect(response.status).toBe(200);
     expect(await body(response)).toMatchObject({ fetched: 0, ingested: 0, skipped: true });
+  });
+
+  it("exposes Colossal source-only sync with authorization and the disabled flag", async () => {
+    const { env } = setup();
+    expect((await worker.fetch(new Request("https://radar.example/admin/sync/colossal", { method: "POST" }), env)).status).toBe(401);
+    const response = await worker.fetch(admin("/admin/sync/colossal", { method: "POST" }), env);
+    expect(response.status).toBe(200);
+    expect(await body(response)).toMatchObject({ ingested: 0, skipped: true });
   });
 
   it("lists the Notion review queue without returning page content", async () => {

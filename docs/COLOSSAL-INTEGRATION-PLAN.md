@@ -1,6 +1,6 @@
 # Colossal opportunities integration plan
 
-Status: proposed implementation; no Colossal ingestion or production changes have been made. Scope confirmed September 4, 2026: initially import the **current and previous roundup month**, then discover new and updated roundups through the existing Cloudflare batches.
+Status: implemented locally with regression coverage; production activation remains pending. The current behavior and rollout contract are in [Colossal](COLOSSAL.md). Scope confirmed September 4, 2026: initially import the **current and previous roundup month**, then discover new and updated roundups through the existing Cloudflare batches.
 
 ## Source findings
 

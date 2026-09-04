@@ -67,6 +67,9 @@ jobs:
             sync-creative-west)
               admin_request POST /admin/sync/creative-west | jq .
               ;;
+            sync-colossal)
+              admin_request POST /admin/sync/colossal | jq .
+              ;;
             trash-notion)
               [[ "$PAGE_ID" =~ ^[0-9a-fA-F-]{32,36}$ ]]
               admin_request POST /admin/notion/trash "$(jq -nc --arg pageId "$PAGE_ID" '{pageId: $pageId}')" | jq .

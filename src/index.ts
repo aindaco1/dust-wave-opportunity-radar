@@ -1,5 +1,6 @@
 import { loadRuntimeConfig } from "./config";
 import { ingestForwardedHeyEmail, ingestImportedHeyEmail, type ImportedHeyEmail } from "./ingest/email-worker";
+import { inspectColossalConnection, syncColossal } from "./ingest/colossal";
 import { inspectCreativeWestConnection, syncCreativeWest } from "./ingest/creative-west";
 import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
 import {
@@ -48,7 +49,8 @@ const worker = {
           batchHours: [...config.batchHours],
           notionEnabled: config.notionEnabled,
           zohoEnabled: config.zohoEnabled,
-          creativeWestEnabled: config.creativeWestEnabled
+          creativeWestEnabled: config.creativeWestEnabled,
+          colossalEnabled: config.colossalEnabled
         });
       }
 
@@ -71,8 +73,9 @@ const worker = {
           const notion = await inspectIntegration(() => inspectNotionSchema(env, config));
           const zoho = await inspectIntegration(() => inspectZohoConnection(env, config));
           const creativeWest = await inspectIntegration(() => inspectCreativeWestConnection(config, new Date()));
-          const ok = notion.ok && zoho.ok && creativeWest.ok;
-          return Response.json({ ok, notion, zoho, creativeWest }, { status: ok ? 200 : 502 });
+          const colossal = await inspectIntegration(() => inspectColossalConnection(config, new Date()));
+          const ok = notion.ok && zoho.ok && creativeWest.ok && colossal.ok;
+          return Response.json({ ok, notion, zoho, creativeWest, colossal }, { status: ok ? 200 : 502 });
         }
         if (request.method === "GET" && url.pathname === "/admin/notion/review") {
           const config = loadRuntimeConfig(env);
@@ -85,6 +88,10 @@ const worker = {
         if (request.method === "POST" && url.pathname === "/admin/sync/creative-west") {
           const config = loadRuntimeConfig(env);
           return Response.json(await syncCreativeWest(env, config, new Date()));
+        }
+        if (request.method === "POST" && url.pathname === "/admin/sync/colossal") {
+          const config = loadRuntimeConfig(env);
+          return Response.json(await syncColossal(env, config, new Date()));
         }
         if (request.method === "POST" && url.pathname === "/admin/notion/trash") {
           try {

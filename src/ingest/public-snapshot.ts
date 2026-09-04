@@ -14,7 +14,7 @@ export async function ingestPublicSnapshot(
 ): Promise<{ id: string; ingested: boolean }> {
   const id = await sha256Hex(`${snapshot.source}:${snapshot.externalId}`);
   const existing = await getMessage(env.DB, id);
-  if (existing && !(existing.status === "failed" && existing.raw_r2_key === "")) {
+  if (existing && !(["queued", "failed"].includes(existing.status) && existing.raw_r2_key === "")) {
     return { id, ingested: false };
   }
 

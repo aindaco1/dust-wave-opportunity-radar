@@ -100,6 +100,10 @@ See [Notion integration](NOTION.md) before modifying properties or duplicate/ent
 
 The manual deployment workflow expects repository secret `CLOUDFLARE_API_TOKEN` and repository variable `CLOUDFLARE_ACCOUNT_ID`. Create a user API token restricted to the intended Cloudflare account with exactly `Workers Scripts: Edit` and `D1: Edit`. Routine CI deliberately omits Email Routing reconciliation; do not add user-profile, membership, cross-account, zone, R2, or Email Routing access to this token. Also set repository variable `WORKER_URL` and repository secret `ADMIN_TOKEN` for the manual operations workflows. Protect `main`, require `CI / check`, require full action SHA pins, and restrict the `production` environment to protected branches. Keep production deployment manual until every enabled source has completed a test batch.
 
+## Colossal optional source
+
+Colossal is implemented with `COLOSSAL_ENABLED=false` and needs no new secret or binding. Apply migration 0006 before deploying this code. Enablement, live inspection/import, and scheduled acceptance are separate production steps; follow the [Colossal runbook](COLOSSAL.md#deployment-and-acceptance).
+
 ## 8. Activation verification
 
 1. Call public `/health`; verify timezone, batch hours, and reviewed feature flags.

@@ -1,3 +1,5 @@
+import { COLOSSAL_FEED } from "../src/ingest/colossal-parser";
+import { articleHtml, entryHtml, responseAt, rss, augustUrl, septemberUrl } from "./support/colossal";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import { OpportunityBatchWorkflow } from "../src/workflow/batch";
@@ -15,7 +17,7 @@ afterEach(() => {
   while (open.length) open.pop()?.close();
 });
 
-function setup() {
+function setup(overrides: Record<string, unknown> = {}) {
   const testDb = createTestDatabase();
   open.push(testDb);
   const objects = new Map<string, Uint8Array>();
@@ -46,7 +48,8 @@ function setup() {
     AI: ai,
     ZOHO_ENABLED: "false",
     CREATIVE_WEST_ENABLED: "false",
-    NOTION_ENABLED: "false"
+    NOTION_ENABLED: "false",
+    ...overrides
   });
   const names: string[] = [];
   const outputs: Array<{ name: string; value: unknown }> = [];
@@ -97,6 +100,7 @@ describe("batch workflow orchestration", () => {
       "create batch run",
       "sync Zoho folders",
       "sync Creative West opportunities",
+      "sync Colossal opportunities",
       "load queued message ids",
       "send non-empty digest",
       "purge expired source payloads",
@@ -387,5 +391,55 @@ describe("batch workflow orchestration", () => {
     ).get()).toEqual({ queued_count: 1, pending_notion_count: 0, notion_review_count: 1 });
     expect(JSON.stringify(outputs)).not.toContain(classified.title);
     expect(JSON.stringify(outputs)).not.toContain(classified.bodyMarkdown);
+  });
+});
+
+
+describe("Colossal through the shared batch", () => {
+  it("splits and deduplicates roundups, publishes only qualified calls, and suppresses an empty second digest", async () => {
+    const { workflow, step, ai, email, env, outputs, testDb } = setup({ COLOSSAL_ENABLED: "true", NOTION_ENABLED: "true" });
+    const titles = ["Qualified Film Grant", "Possible Call", "Creative Job", "Closed Film Grant"];
+    const html = articleHtml(titles.map((title, index) => entryHtml(title, `https://example.org/apply/${index}`)).join(""));
+    ai.run.mockImplementation(async (_model: string, input: { messages: Array<{ content: string }> }) => {
+      const evidence = input.messages[1]!.content;
+      const title = evidence.match(/^Subject: (.+)$/m)?.[1]!;
+      const index = titles.indexOf(title);
+      return { response: JSON.stringify(classification({
+        title, primaryUrl: index === 1 ? septemberUrl : `https://example.org/apply/${index}`,
+        applicationUrl: `https://example.org/apply/${index}`,
+        decision: index === 2 ? "digest" : "notion", digestCategory: index === 2 ? "Jobs & Commissions" : null,
+        dueDate: index === 3 ? "2026-09-01" : "2026-09-30"
+      })) };
+    });
+    const creates: unknown[] = [];
+    const fetch = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue); const method = init?.method ?? "GET";
+      if (url === COLOSSAL_FEED) return responseAt(url, rss([
+        { title: "August 2026 Opportunities", url: augustUrl, html },
+        { title: "September 2026 Opportunities", url: septemberUrl, html }
+      ]), 200, "application/rss+xml");
+      if (url.startsWith("https://example.org/")) return responseAt(url, "<p>Official application details for the fictional program.</p>");
+      if (url.endsWith(`/data_sources/${env.NOTION_DATA_SOURCE_ID}`) && method === "GET") return json({ id: env.NOTION_DATA_SOURCE_ID, properties: {
+        "Automation Key": { type: "rich_text" }, Source: { type: "select" }, "Last Checked": { type: "date" }
+      } });
+      if (url.endsWith("/query")) return json({ results: [], has_more: false });
+      if (url.endsWith("/pages") && method === "POST") {
+        creates.push(JSON.parse(String(init?.body)));
+        return json({ id: "00000000-0000-0000-0000-000000000099", url: "https://notion.so/fictional" });
+      }
+      throw new Error("Unexpected synthetic request");
+    });
+    vi.stubGlobal("fetch", fetch);
+    expect(await workflow.run(event("colossal-1", { scheduledFor: "2026-09-04T13:00:00Z" }), step))
+      .toMatchObject({ queued: 4, notion: 1, digest: 2, ignored: 1, failed: 0, digestSent: true });
+    expect(creates).toEqual([expect.objectContaining({ properties: expect.objectContaining({ Source: { select: { name: "Colossal" } } }) })]);
+    expect(ai.run).toHaveBeenCalledTimes(4);
+    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(outputs)).not.toContain("Qualified Film Grant");
+    expect(JSON.stringify(outputs)).not.toContain("example.org");
+    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS n FROM messages WHERE source = 'colossal'").get()).toEqual({ n: 4 });
+    expect(await workflow.run(event("colossal-2", { scheduledFor: "2026-09-05T01:00:00Z" }), step))
+      .toMatchObject({ queued: 0, digestSent: false });
+    expect(email.send).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,6 +3,7 @@ import { buildManualReviewClassification, classifyMessage } from "../ai/classify
 import { loadRuntimeConfig } from "../config";
 import { renderOpportunityDigest, sendOpportunityDigest } from "../email/digest";
 import { parseStoredMessage } from "../email/parse";
+import { syncColossal } from "../ingest/colossal";
 import { syncCreativeWest } from "../ingest/creative-west";
 import { syncZoho } from "../ingest/zoho";
 import { enrichCandidateUrls } from "../ingest/web-enrichment";
@@ -39,7 +40,7 @@ import {
   type MessageRecord,
   type ProcessResult
 } from "../types";
-import { subtractHours } from "../util/dates";
+import { localBatchSlot, subtractHours } from "../util/dates";
 import { logError, logInfo } from "../util/log";
 const MESSAGE_PREPARATION_CONCURRENCY = 4;
 
@@ -81,6 +82,12 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
         async () => syncCreativeWest(this.env, config, new Date(event.payload.scheduledFor))
       );
 
+      await step.do(
+        "sync Colossal opportunities",
+        { retries: { limit: 3, delay: "10 seconds", backoff: "exponential" }, timeout: "10 minutes" },
+        async () => syncColossal(this.env, config, new Date(event.payload.scheduledFor))
+      );
+
       if (config.notionEnabled) {
         await step.do(
           "ensure Notion schema",
@@ -100,7 +107,7 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
             step.do(
               `prepare ${messageId.slice(0, 24)}`,
               { retries: { limit: 2, delay: "10 seconds", backoff: "exponential" }, timeout: "5 minutes" },
-              async () => this.prepareMessage(messageId, config)
+              async () => this.prepareMessage(messageId, config, localBatchSlot(new Date(event.payload.scheduledFor), config.timezone).dateLabel)
             )
           )
         );
@@ -163,7 +170,8 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
 
   private async prepareMessage(
     messageId: string,
-    config: ReturnType<typeof loadRuntimeConfig>
+    config: ReturnType<typeof loadRuntimeConfig>,
+    asOfDate: string
   ): Promise<PreparedMessageResult> {
     const message = await getMessage(this.env.DB, messageId);
     if (!message) return { kind: "complete", result: null };
@@ -177,6 +185,7 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
       }
 
       const parsed = await parseStoredMessage(this.env.MAIL_BUCKET, message, config.attachmentMaxBytes);
+      parsed.asOfDate = asOfDate;
       const parsedKey = `parsed/${message.source}/${message.id}.json`;
       await this.env.MAIL_BUCKET.put(parsedKey, JSON.stringify(parsed), {
         httpMetadata: { contentType: "application/json; charset=utf-8" },
@@ -184,7 +193,7 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
       });
       await saveParsedKey(this.env.DB, message.id, parsedKey);
 
-      const pages = await enrichCandidateUrls(parsed.urls);
+      const pages = await enrichCandidateUrls(parsed.discoveryContext?.officialUrls ?? parsed.urls);
       let classification: Classification;
       try {
         classification = await classifyMessage(this.env.AI, config, parsed, pages);

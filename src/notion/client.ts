@@ -124,7 +124,8 @@ export async function ensureNotionSchema(env: Env, config: RuntimeConfig): Promi
         options: [
           { name: "HEY", color: "blue" },
           { name: "Zoho", color: "green" },
-          { name: "Creative West", color: "orange" }
+          { name: "Creative West", color: "orange" },
+          { name: "Colossal", color: "purple" }
         ]
       }
     };
@@ -683,6 +684,7 @@ async function updateNotionPageProperties(
 function notionSourceName(source: MessageRecord["source"]): string {
   if (source === "hey") return "HEY";
   if (source === "zoho") return "Zoho";
+  if (source === "colossal") return "Colossal";
   return "Creative West";
 }
 

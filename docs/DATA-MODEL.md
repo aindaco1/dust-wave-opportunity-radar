@@ -1,12 +1,18 @@
 # Data model
 
-D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current schema version is `5`.
+D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current schema version is `6`.
 
 ## Tables
 
 ### `messages`
 
-One row per source item, unique on `(source, external_id)`. Sources are `hey`, `zoho`, and `creative_west`. It stores source/mailbox metadata, R2 keys, classification JSON, canonical URL, retry state, and bounded error detail. Creative West external IDs combine the upstream source/ID with a content digest, so unchanged snapshots deduplicate while substantive listing updates are reprocessed. `raw_r2_key` becomes an empty string after retention cleanup; `parsed_r2_key` becomes `NULL`.
+One row per source item, unique on `(source, external_id)`. Sources are `hey`, `zoho`, `creative_west`, and `colossal`. It stores source/mailbox metadata, R2 keys, classification JSON, canonical URL, retry state, and bounded error detail. Creative West external IDs combine the upstream source/ID with a content digest, so unchanged snapshots deduplicate while substantive listing updates are reprocessed. `raw_r2_key` becomes an empty string after retention cleanup; `parsed_r2_key` becomes `NULL`.
+
+`discovery_context_json` stores validated discovery URL, organizer/application URLs, ambiguous shared URLs, and a grouped-program review flag for public roundup candidates. It is separate from untrusted MIME and loaded into the shared policy.
+
+### `source_documents`, `source_document_messages`, and `source_http_cache`
+
+These tables persist Colossal article month/URL/publication metadata, HTTP validators, a content hash, next-entry cursor, pending/retry state, checked time, and links to message snapshots. They hold no article/feed bodies. Pending documents and documents linked to expired queued/failed snapshots remain eligible beyond the normal month window. Feed validators advance only after discovered work is durable. See [Colossal](COLOSSAL.md).
 
 ### `opportunities`
 
@@ -65,7 +71,7 @@ stateDiagram-v2
 | Notion identity and managed Markdown | D1 `opportunities` | Required for future reconciliation |
 | Source cursors and run counts | D1 | Operational history |
 
-The cleanup batch lists both expired R2 keys, deletes in groups of at most 500, then clears only their references. A failed row with an expired empty raw key is requeued with attempts reset if that source item is imported again.
+The cleanup batch lists both expired R2 keys, deletes in groups of at most 500, then clears only their references. A failed row with an expired empty raw key is requeued with attempts reset if that source item is imported again. Public-source snapshot ingestion also restores expired queued payloads without resetting successful terminal messages.
 
 ## Migration procedure
 

@@ -26,7 +26,8 @@ Choose the shortest path for the task at hand.
 
 ## Change the project
 
-- [Colossal integration plan](COLOSSAL-INTEGRATION-PLAN.md) — proposed monthly roundup ingestion through the shared pipeline; not implemented or enabled.
+- [Colossal source](COLOSSAL.md) — implemented discovery, policy, recovery, and activation contract; disabled by default.
+- [Colossal integration plan](COLOSSAL-INTEGRATION-PLAN.md) — original agreed scope and implementation sequence.
 - [Contributing](../CONTRIBUTING.md) — implementation, test, migration, and review workflow.
 - [AGENTS.md](../AGENTS.md) — Codex-specific invariants and production boundaries.
 - [Notices](../NOTICE.md) — attribution for adapted material.
