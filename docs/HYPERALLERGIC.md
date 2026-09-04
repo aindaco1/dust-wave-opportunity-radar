@@ -46,3 +46,20 @@ After authorized deployment, verify the flag and feed access, authorize a source
 Synthetic tests cover both observed heading families, multiple listings per paragraph, shortener evidence, grouped/shared URLs, unsafe links, migration preservation, repeated imports, changed deadlines, cached recovery, partial work, authenticated source-only routing, shared batch outcomes, and manual Notion ownership. Public parser smoke checks found 14 September and eight August entries on September 4, 2026; these counts prove parsing only, not live D1 ingestion or publication.
 
 Local verification passed on September 4, 2026: `npm run check` completed all 240 tests in 24 files, enforced coverage floors, generated-type/type checks, documentation checks, and a dry production-bundle build. All seven migrations applied successfully to an isolated local Wrangler database. September RSS and full-page entries were identical; the live-feed snapshot had zero invalid monthly items after supporting the April URL variant. No remote migration, deployment, live import, Notion write, or digest send was performed.
+
+## Production acceptance — September 4, 2026
+
+After explicit authorization, [PR 34](https://github.com/aindaco1/dust-wave-opportunity-radar/pull/34) merged the enabled source as `2422ec98938055898d948616fa58f82f47cea239`. [Production deployment](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33866513638) passed all 240 tests, applied migration 0007 at 11:11:34 UTC, and deployed Worker version `ac013efd-4190-42c3-a702-3b9ca2fe30df` at 100% traffic. Live health confirmed the flag and unchanged 07:00/19:00 America/Denver schedule. Remote schema-version and migration-table checks confirmed version 7. Existing table counts, managed-body counts, and Colossal discovery-context coverage were preserved; the foreign-key check remained clean.
+
+[Live integration inspection](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33866862363) passed for all integrations. Hyperallergic returned two matching roundups, zero invalid items, and `skipped: false`.
+
+| Source-only verification | Discovered | Extracted | Ingested | Cached | Failed | Deferred | Missing months |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| [First import](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33866937586) | 2 | 22 | 22 | 0 | 0 | 0 | 0 |
+| [Repeat](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33867018660) | 0 | 0 | 0 | 2 | 0 | 0 | 0 |
+
+D1 independently held 22 unique queued snapshots: eight August entries and 14 September entries. All had raw-payload metadata and discovery context; neither document had pending work or an error code. The first sync's incremental `unresolved` counter was four. After shared-URL checks also marked earlier entries, five persisted snapshots carried review flags; this is the final queue safety state, not five new digest items.
+
+At acceptance, all 22 classifications were still empty. Run, Notion-mapping, and digest-item counts were unchanged. No manual batch, Notion edit, or digest send was triggered. Scheduled classification/publication remains a separate acceptance claim. No HEY importer prototype, secret change, or Email Routing change was included.
+
+Deployment dependency installation reported one moderate advisory in the unchanged lockfile. Follow-up online advisory requests timed out and GitHub reported no open Dependabot alerts; this release does not claim that warning was resolved or that a fresh security audit passed.
