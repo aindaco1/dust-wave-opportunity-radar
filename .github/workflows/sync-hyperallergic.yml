@@ -1,0 +1,14 @@
+name: Sync Hyperallergic source only
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    uses: ./.github/workflows/admin-request.yml
+    with:
+      operation: sync-hyperallergic
+    secrets: inherit

@@ -2,6 +2,8 @@
 
 Dust Wave Opportunity Radar is a Cloudflare-hosted source triage service for creative-industry opportunities. It receives broad HEY forwarding, pulls selected Zoho folders, fetches a filtered Creative West opportunity feed, parses linked pages and PDF/DOCX attachments, classifies each item with Workers AI, and runs a 12-hour publishing batch. Colossal monthly opportunity roundups use the same pipeline and are enabled in the reviewed production configuration.
 
+Hyperallergic monthly Opportunities roundups also use the shared pipeline and are enabled in the reviewed configuration. Migration 0007 must precede deployment. See [Hyperallergic](docs/HYPERALLERGIC.md) for scope, rollout, and live acceptance evidence.
+
 Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 
 Notion body conflicts are held in a counted review queue. Formatting-equivalent managed text can be refreshed; substantive edits can make the page body permanently manual while automation continues managing its properties.
@@ -24,6 +26,7 @@ flowchart LR
   HEY["HEY forwarding"] --> Email["Cloudflare Email Routing"]
   Zoho["Zoho Mail API"] --> Workflow["12-hour Workflow"]
   CreativeWest["Creative West API"] --> Workflow
+  Roundups["Enabled Colossal / Hyperallergic roundups"] --> Workflow
   Email --> R2["R2 source MIME"]
   R2 --> Workflow
   Workflow --> Parse["MIME + PDF/DOCX parsing"]
@@ -66,7 +69,7 @@ For a fresh Codex task, open this repository as the project folder and start wit
 
 | Path | Responsibility |
 |---|---|
-| `src/ingest` | HEY ingestion, Zoho/Creative West/Colossal synchronization, and safe web enrichment |
+| `src/ingest` | HEY ingestion, Zoho/Creative West synchronization, shared Colossal/Hyperallergic roundups, and safe web enrichment |
 | `src/email` | MIME/PDF/DOCX parsing and digest rendering/sending |
 | `src/ai` | Workers AI prompts, structured parsing, recovery, and deterministic policy |
 | `src/notion` | Schema checks, entity resolution, safe create/update, duplicate cleanup |

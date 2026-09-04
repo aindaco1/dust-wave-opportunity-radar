@@ -1,18 +1,18 @@
 # Data model
 
-D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current schema version is `6`.
+D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current local schema version is `7`. Remote application of migration 0007 remains a separately authorized operation.
 
 ## Tables
 
 ### `messages`
 
-One row per source item, unique on `(source, external_id)`. Sources are `hey`, `zoho`, `creative_west`, and `colossal`. It stores source/mailbox metadata, R2 keys, classification JSON, canonical URL, retry state, and bounded error detail. Creative West external IDs combine the upstream source/ID with a content digest, so unchanged snapshots deduplicate while substantive listing updates are reprocessed. `raw_r2_key` becomes an empty string after retention cleanup; `parsed_r2_key` becomes `NULL`.
+One row per source item, unique on `(source, external_id)`. Sources are `hey`, `zoho`, `creative_west`, `colossal`, and `hyperallergic`. It stores source/mailbox metadata, R2 keys, classification JSON, canonical URL, retry state, and bounded error detail. Creative West external IDs combine the upstream source/ID with a content digest, so unchanged snapshots deduplicate while substantive listing updates are reprocessed. `raw_r2_key` becomes an empty string after retention cleanup; `parsed_r2_key` becomes `NULL`.
 
 `discovery_context_json` stores validated discovery URL, organizer/application URLs, ambiguous shared URLs, and a grouped-program review flag for public roundup candidates. It is separate from untrusted MIME and loaded into the shared policy.
 
 ### `source_documents`, `source_document_messages`, and `source_http_cache`
 
-These tables persist Colossal article month/URL/publication metadata, HTTP validators, a content hash, next-entry cursor, pending/retry state, checked time, and links to message snapshots. They hold no article/feed bodies. Pending documents and documents linked to expired queued/failed snapshots remain eligible beyond the normal month window. Feed validators advance only after discovered work is durable. See [Colossal](COLOSSAL.md).
+These shared tables persist Colossal and Hyperallergic article month/URL/publication metadata, HTTP validators, a content hash, next-entry cursor, pending/retry state, checked time, and links to message snapshots. State is scoped by source. They hold no article/feed bodies. Pending documents and documents linked to expired queued/failed snapshots remain eligible beyond the normal month window. Feed validators advance only after discovered work is durable. See [Colossal](COLOSSAL.md) and [Hyperallergic](HYPERALLERGIC.md).
 
 ### `opportunities`
 

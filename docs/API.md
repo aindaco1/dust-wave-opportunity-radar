@@ -26,7 +26,7 @@ Public liveness/configuration summary. It does not verify credentials or return 
 }
 ```
 
-Health also includes the reviewed `colossalEnabled` feature flag.
+Health also includes the reviewed `colossalEnabled` and `hyperallergicEnabled` feature flags.
 
 ## `POST /admin/run`
 
@@ -52,7 +52,7 @@ curl --fail-with-body "$WORKER_URL/admin/runs" \
 
 ## `GET /admin/integrations`
 
-Performs live, read-only Notion, Zoho, Creative West, and optional Colossal access/schema/query checks. Returns `200` only when all checks succeed and `502` with per-integration error text otherwise. It does not return tokens or source content.
+Performs live, read-only Notion, Zoho, Creative West, and optional Colossal/Hyperallergic access/schema/query checks. Returns `200` only when all checks succeed and `502` with per-integration error text otherwise. It does not return tokens or source content. Disabled roundup sources return `skipped: true` without network access.
 
 ```json
 {
@@ -98,6 +98,12 @@ Pulls new or changed Creative West listings into R2/D1 without starting classifi
 ## `POST /admin/sync/colossal`
 
 Queues new/changed Colossal entries without starting publication or digest delivery. The exact-literal `COLOSSAL_ENABLED` switch must be enabled. Returns content-free counts/booleans: `discovered`, `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, `missingMonths`, and `skipped`. See [Colossal](COLOSSAL.md) for meanings and limits.
+
+## `POST /admin/sync/hyperallergic`
+
+Queues new/changed monthly Hyperallergic roundup entries without starting publication or digest delivery. `HYPERALLERGIC_ENABLED` must be the exact literal `true`, as in the reviewed configuration; absent or other values disable the source. Uses the same content-free counters as Colossal. Standalone announcements are excluded from this initial scope. See [Hyperallergic](HYPERALLERGIC.md) for limits and rollout instructions.
+
+Source-only imports can be consumed by the next normal batch; they are not an isolated production publishing sandbox.
 
 ## `POST /admin/import/hey`
 

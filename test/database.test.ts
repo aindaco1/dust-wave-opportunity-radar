@@ -55,7 +55,7 @@ async function seedMessage(db: D1Database, overrides: Partial<Parameters<typeof 
 describe("D1 migrations", () => {
   it("applies every migration and seeds safe feature flags", () => {
     const { sqlite } = database();
-    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'schema_version'").get()).toEqual({ value: "6" });
+    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'schema_version'").get()).toEqual({ value: "7" });
     expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'notion_publish_enabled'").get()).toEqual({ value: "false" });
     expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'creative_west_sync_enabled'").get()).toEqual({ value: "false" });
     expect(sqlite.prepare("PRAGMA table_info(opportunities)").all()).toContainEqual(expect.objectContaining({ name: "managed_markdown" }));
@@ -114,6 +114,38 @@ describe("Colossal migration", () => {
       sourceUrl: "https://example.org/roundup", officialUrls: ["https://example.org/apply"], ambiguousUrls: [], requiresReview: false
     } });
     expect((await getMessage(testDb.db, "message-1"))?.discovery_context_json).toContain("officialUrls");
+    expect(testDb.sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+  });
+});
+
+describe("Hyperallergic migration", () => {
+  it("preserves existing discovery context, source links, digest references, and manual ownership", async () => {
+    const testDb = createTestDatabase({ migrate: false }); open.push(testDb);
+    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(0, 6));
+    const context = JSON.stringify({ sourceUrl: "https://example.org/roundup", officialUrls: ["https://example.org/apply"], ambiguousUrls: [], requiresReview: false });
+    testDb.sqlite.prepare(`INSERT INTO messages(id, source, external_id, mailbox, received_at, raw_r2_key, status, discovery_context_json)
+      VALUES ('before', 'colossal', 'before', 'Opportunities', '2026-08-05', '', 'notion_review', ?)`).run(context);
+    testDb.sqlite.exec(`
+      INSERT INTO opportunities(automation_key, title, latest_message_id, first_seen_at, last_seen_at, body_management, managed_markdown)
+        VALUES ('before', 'Manual title', 'before', '2026-08-05', '2026-08-05', 'manual', 'Preserved manual notes');
+      INSERT INTO digest_items(message_id, category, title, summary, received_at)
+        VALUES ('before', 'Other Useful Finds', 'Manual title', 'Synthetic summary', '2026-08-05');
+      INSERT INTO source_documents(id, source, url, roundup_month, published_at, next_entry, pending)
+        VALUES ('doc', 'colossal', 'https://example.org/roundup', '2026-08', '', 17, 1);
+      INSERT INTO source_document_messages(document_id, message_id) VALUES ('doc', 'before');
+      INSERT INTO source_http_cache(source, etag) VALUES ('colossal', 'synthetic-validator');
+    `);
+    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(6));
+    expect(testDb.sqlite.prepare("SELECT status, discovery_context_json FROM messages WHERE id = 'before'").get())
+      .toEqual({ status: "notion_review", discovery_context_json: context });
+    expect(testDb.sqlite.prepare("SELECT body_management, managed_markdown FROM opportunities").get())
+      .toEqual({ body_management: "manual", managed_markdown: "Preserved manual notes" });
+    expect(testDb.sqlite.prepare("SELECT next_entry, pending FROM source_documents").get()).toEqual({ next_entry: 17, pending: 1 });
+    expect(testDb.sqlite.prepare("SELECT message_id FROM source_document_messages").get()).toEqual({ message_id: "before" });
+    expect(testDb.sqlite.prepare("SELECT message_id FROM digest_items").get()).toEqual({ message_id: "before" });
+    expect(testDb.sqlite.prepare("SELECT etag FROM source_http_cache").get()).toEqual({ etag: "synthetic-validator" });
+    await seedMessage(testDb.db, { source: "hyperallergic" });
+    expect(testDb.sqlite.prepare("SELECT source FROM messages WHERE id = 'message-1'").get()).toEqual({ source: "hyperallergic" });
     expect(testDb.sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   });
 });

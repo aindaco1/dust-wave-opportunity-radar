@@ -1,3 +1,5 @@
+import { HYPERALLERGIC_FEED } from "../src/ingest/hyperallergic-parser";
+import { articleHtml as hyperArticleHtml, entryHtml as hyperEntryHtml, augustUrl as hyperAugustUrl, septemberUrl as hyperSeptemberUrl } from "./support/hyperallergic";
 import { COLOSSAL_FEED } from "../src/ingest/colossal-parser";
 import { articleHtml, entryHtml, responseAt, rss, augustUrl, septemberUrl } from "./support/colossal";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -101,6 +103,7 @@ describe("batch workflow orchestration", () => {
       "sync Zoho folders",
       "sync Creative West opportunities",
       "sync Colossal opportunities",
+      "sync Hyperallergic opportunities",
       "load queued message ids",
       "send non-empty digest",
       "purge expired source payloads",
@@ -395,17 +398,24 @@ describe("batch workflow orchestration", () => {
 });
 
 
-describe("Colossal through the shared batch", () => {
+describe.each(["colossal", "hyperallergic"] as const)("%s through the shared batch", (source) => {
+  const hyper = source === "hyperallergic";
+  const label = hyper ? "Hyperallergic" : "Colossal";
+  const feedUrl = hyper ? HYPERALLERGIC_FEED : COLOSSAL_FEED;
+  const sourceAugustUrl = hyper ? hyperAugustUrl : augustUrl;
+  const sourceSeptemberUrl = hyper ? hyperSeptemberUrl : septemberUrl;
+  const renderArticle = hyper ? hyperArticleHtml : articleHtml;
+  const renderEntry = hyper ? hyperEntryHtml : entryHtml;
   it("splits and deduplicates roundups, publishes only qualified calls, and suppresses an empty second digest", async () => {
-    const { workflow, step, ai, email, env, outputs, testDb } = setup({ COLOSSAL_ENABLED: "true", NOTION_ENABLED: "true" });
+    const { workflow, step, ai, email, env, outputs, testDb } = setup({ [hyper ? "HYPERALLERGIC_ENABLED" : "COLOSSAL_ENABLED"]: "true", NOTION_ENABLED: "true" });
     const titles = ["Qualified Film Grant", "Possible Call", "Creative Job", "Closed Film Grant"];
-    const html = articleHtml(titles.map((title, index) => entryHtml(title, `https://example.org/apply/${index}`)).join(""));
+    const html = renderArticle(titles.map((title, index) => renderEntry(title, `https://example.org/apply/${index}`)).join(""));
     ai.run.mockImplementation(async (_model: string, input: { messages: Array<{ content: string }> }) => {
       const evidence = input.messages[1]!.content;
       const title = evidence.match(/^Subject: (.+)$/m)?.[1]!;
       const index = titles.indexOf(title);
       return { response: JSON.stringify(classification({
-        title, primaryUrl: index === 1 ? septemberUrl : `https://example.org/apply/${index}`,
+        title, primaryUrl: index === 1 ? sourceSeptemberUrl : `https://example.org/apply/${index}`,
         applicationUrl: `https://example.org/apply/${index}`,
         decision: index === 2 ? "digest" : "notion", digestCategory: index === 2 ? "Jobs & Commissions" : null,
         dueDate: index === 3 ? "2026-09-01" : "2026-09-30"
@@ -414,9 +424,9 @@ describe("Colossal through the shared batch", () => {
     const creates: unknown[] = [];
     const fetch = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
       const url = String(urlValue); const method = init?.method ?? "GET";
-      if (url === COLOSSAL_FEED) return responseAt(url, rss([
-        { title: "August 2026 Opportunities", url: augustUrl, html },
-        { title: "September 2026 Opportunities", url: septemberUrl, html }
+      if (url === feedUrl) return responseAt(url, rss([
+        { title: hyper ? "Opportunities in August 2026" : "August 2026 Opportunities", url: sourceAugustUrl, html },
+        { title: hyper ? "Opportunities in September 2026" : "September 2026 Opportunities", url: sourceSeptemberUrl, html }
       ]), 200, "application/rss+xml");
       if (url.startsWith("https://example.org/")) return responseAt(url, "<p>Official application details for the fictional program.</p>");
       if (url.endsWith(`/data_sources/${env.NOTION_DATA_SOURCE_ID}`) && method === "GET") return json({ id: env.NOTION_DATA_SOURCE_ID, properties: {
@@ -430,15 +440,15 @@ describe("Colossal through the shared batch", () => {
       throw new Error("Unexpected synthetic request");
     });
     vi.stubGlobal("fetch", fetch);
-    expect(await workflow.run(event("colossal-1", { scheduledFor: "2026-09-04T13:00:00Z" }), step))
+    expect(await workflow.run(event(`${source}-1`, { scheduledFor: "2026-09-04T13:00:00Z" }), step))
       .toMatchObject({ queued: 4, notion: 1, digest: 2, ignored: 1, failed: 0, digestSent: true });
-    expect(creates).toEqual([expect.objectContaining({ properties: expect.objectContaining({ Source: { select: { name: "Colossal" } } }) })]);
+    expect(creates).toEqual([expect.objectContaining({ properties: expect.objectContaining({ Source: { select: { name: label } } }) })]);
     expect(ai.run).toHaveBeenCalledTimes(4);
     expect(email.send).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(outputs)).not.toContain("Qualified Film Grant");
     expect(JSON.stringify(outputs)).not.toContain("example.org");
-    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS n FROM messages WHERE source = 'colossal'").get()).toEqual({ n: 4 });
-    expect(await workflow.run(event("colossal-2", { scheduledFor: "2026-09-05T01:00:00Z" }), step))
+    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS n FROM messages WHERE source = ?").get(source)).toEqual({ n: 4 });
+    expect(await workflow.run(event(`${source}-2`, { scheduledFor: "2026-09-05T01:00:00Z" }), step))
       .toMatchObject({ queued: 0, digestSent: false });
     expect(email.send).toHaveBeenCalledTimes(1);
   });

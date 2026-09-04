@@ -43,7 +43,8 @@ describe("Worker HTTP routes", () => {
       notionEnabled: true,
       zohoEnabled: true,
       creativeWestEnabled: true,
-      colossalEnabled: false
+      colossalEnabled: false,
+      hyperallergicEnabled: false
     });
   });
 

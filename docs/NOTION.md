@@ -20,12 +20,12 @@ At batch startup, the adapter adds only missing automation properties:
 | Property | Type | Meaning |
 |---|---|---|
 | `Automation Key` | rich text | Stable internal entity key |
-| `Source` | select | `HEY`, `Zoho`, `Creative West`, or `Colossal` |
+| `Source` | select | `HEY`, `Zoho`, `Creative West`, `Colossal`, or `Hyperallergic` |
 | `Last Checked` | date | Latest automated observation |
 
 Property-name matching is exact. Schema validation never deletes or changes an existing property.
 
-Colossal uses this same adapter. The shared discovery-evidence policy holds ambiguous landing-page/grouped-program candidates for review before this adapter is invoked; it does not weaken URL/title matching or manual-body protection.
+Colossal and Hyperallergic use this same adapter. The shared discovery-evidence policy holds ambiguous landing-page/grouped-program candidates for review before this adapter is invoked; it does not weaken URL/title matching or manual-body protection.
 
 ## Find before create
 

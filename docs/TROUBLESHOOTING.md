@@ -67,6 +67,10 @@ Use `/admin/integrations` to confirm the public GraphQL query is reachable, then
 
 Check `colossalEnabled` and the Colossal result in `/admin/integrations`. Source-only sync reports `failed`, `deferred`, and `missingMonths`; these are distinct from message outcomes in the batch run. Parser/HTTP failures remain pending, caps resume from stored cursors, and a 304 must not suppress expired payload recovery. Unknown layouts are failures, not empty success. Source safety metadata persistence failure stops the batch before publication. Use the [Colossal runbook](COLOSSAL.md); never log article HTML or entry text.
 
+## Hyperallergic
+
+Check `hyperallergicEnabled` first: it should be true after the reviewed rollout. A deliberately disabled source reports `skipped`, not a broken connection. When enabled, use the same month/failure/deferred diagnostics as Colossal. Monthly roundups are supported; standalone tagged announcements are not. Unresolved shorteners, grouped listings, and shared landing pages require human review. Unknown/empty layouts must not be accepted as successful imports. See the [Hyperallergic runbook](HYPERALLERGIC.md); never log article HTML or entry text.
+
 ## Classification
 
 ### Automatic classification could not produce a reliable structured result

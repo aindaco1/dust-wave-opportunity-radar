@@ -46,6 +46,10 @@ Production secrets are not in this repository. A clean local test run does not n
 
 Colossal monthly roundups are enabled in the reviewed configuration with `COLOSSAL_ENABLED=true`; migration 0006 must precede deployment of this code. Verify the deployed flag through `/health`, and distinguish source-only import from scheduled Notion/digest acceptance. See [Colossal](COLOSSAL.md) for the current/previous-month scope, shared processing, recovery, and deployment sequence.
 
+## Hyperallergic rollout
+
+Hyperallergic monthly roundups are enabled in the reviewed configuration with `HYPERALLERGIC_ENABLED=true`. Migration 0007 must precede deployment. Verify the deployed flag, source-only import, and scheduled outcomes separately. Colossal and Hyperallergic share `roundup-source.ts` and `roundup-parser.ts`; preserve Colossal snapshot identity and recovery behavior when changing those helpers. See [Hyperallergic](HYPERALLERGIC.md).
+
 ## Behavior that must not regress
 
 - Check existing Notion records before creating a page.
