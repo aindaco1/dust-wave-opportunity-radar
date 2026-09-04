@@ -1,6 +1,6 @@
 # Data model
 
-D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current local schema version is `7`. Remote application of migration 0007 remains a separately authorized operation.
+D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current schema version is `7`. Migration 0007 was applied to production on September 4, 2026; see [Hyperallergic acceptance](HYPERALLERGIC.md#production-acceptance--september-4-2026). Future remote migrations still require explicit authorization.
 
 ## Tables
 

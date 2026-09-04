@@ -50,6 +50,8 @@ Colossal monthly roundups are enabled in the reviewed configuration with `COLOSS
 
 Hyperallergic monthly roundups are enabled in the reviewed configuration with `HYPERALLERGIC_ENABLED=true`. Migration 0007 must precede deployment. Verify the deployed flag, source-only import, and scheduled outcomes separately. Colossal and Hyperallergic share `roundup-source.ts` and `roundup-parser.ts`; preserve Colossal snapshot identity and recovery behavior when changing those helpers. See [Hyperallergic](HYPERALLERGIC.md).
 
+The September 4 production rollout applied migration 0007 and enabled the source. Source-only acceptance queued 22 unique entries; a repeat imported zero. Scheduled classification/Notion/digest acceptance was not forced or claimed. See the runbook's [production acceptance record](HYPERALLERGIC.md#production-acceptance--september-4-2026).
+
 ## Behavior that must not regress
 
 - Check existing Notion records before creating a page.
