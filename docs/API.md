@@ -26,6 +26,8 @@ Public liveness/configuration summary. It does not verify credentials or return 
 }
 ```
 
+Health also includes the reviewed `colossalEnabled` feature flag.
+
 ## `POST /admin/run`
 
 Starts a forced manual Workflow instance and returns `202 Accepted`. Source synchronization, classification, Notion publishing, digest delivery, and cleanup execute asynchronously in that Workflow.
@@ -50,7 +52,7 @@ curl --fail-with-body "$WORKER_URL/admin/runs" \
 
 ## `GET /admin/integrations`
 
-Performs live, read-only Notion, Zoho, and Creative West access/schema/query checks. Returns `200` only when all checks succeed and `502` with per-integration error text otherwise. It does not return tokens or source content.
+Performs live, read-only Notion, Zoho, Creative West, and optional Colossal access/schema/query checks. Returns `200` only when all checks succeed and `502` with per-integration error text otherwise. It does not return tokens or source content.
 
 ```json
 {
@@ -92,6 +94,10 @@ Pulls new or changed Creative West listings into R2/D1 without starting classifi
   "skipped": false
 }
 ```
+
+## `POST /admin/sync/colossal`
+
+Queues new/changed Colossal entries without starting publication or digest delivery. The exact-literal `COLOSSAL_ENABLED` switch must be enabled. Returns content-free counts/booleans: `discovered`, `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, `missingMonths`, and `skipped`. See [Colossal](COLOSSAL.md) for meanings and limits.
 
 ## `POST /admin/import/hey`
 

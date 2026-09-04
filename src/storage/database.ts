@@ -1,4 +1,4 @@
-import type { Classification, MessageRecord, MessageSource, MessageStatus, ProcessResult } from "../types";
+import type { Classification, DiscoveryContext, MessageRecord, MessageSource, MessageStatus, ProcessResult } from "../types";
 
 export interface NewMessage {
   id: string;
@@ -11,6 +11,7 @@ export interface NewMessage {
   receivedAt: string;
   rawR2Key: string;
   rawSize: number;
+  discoveryContext?: DiscoveryContext;
 }
 
 export interface DigestItemRecord {
@@ -29,8 +30,8 @@ export async function upsertMessage(db: D1Database, message: NewMessage): Promis
     .prepare(
       `INSERT INTO messages(
         id, source, external_id, mailbox, subject, sender_name, sender_email,
-        received_at, raw_r2_key, raw_size, status, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', CURRENT_TIMESTAMP)
+        received_at, raw_r2_key, raw_size, discovery_context_json, status, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', CURRENT_TIMESTAMP)
       ON CONFLICT(source, external_id) DO UPDATE SET
         mailbox = excluded.mailbox,
         subject = excluded.subject,
@@ -39,6 +40,7 @@ export async function upsertMessage(db: D1Database, message: NewMessage): Promis
         received_at = excluded.received_at,
         raw_r2_key = excluded.raw_r2_key,
         raw_size = excluded.raw_size,
+        discovery_context_json = excluded.discovery_context_json,
         status = CASE
           WHEN messages.status = 'failed' AND messages.raw_r2_key = '' THEN 'queued'
           ELSE messages.status
@@ -63,7 +65,8 @@ export async function upsertMessage(db: D1Database, message: NewMessage): Promis
       message.senderEmail ?? null,
       message.receivedAt,
       message.rawR2Key,
-      message.rawSize
+      message.rawSize,
+      message.discoveryContext ? JSON.stringify(message.discoveryContext) : null
     )
     .run();
 }

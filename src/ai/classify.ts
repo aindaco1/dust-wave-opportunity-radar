@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { RuntimeConfig } from "../config";
 import { canonicalizeUrl } from "../email/parse";
 import type { EnrichedPage } from "../ingest/web-enrichment";
-import { classificationSchema, type Classification, type ParsedMessage } from "../types";
+import { classificationSchema, type Classification, type DiscoveryContext, type ParsedMessage } from "../types";
 
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_EVIDENCE_CHARACTERS = 60_000;
@@ -135,7 +135,7 @@ export async function classifyMessage(
       { tags: ["dustwave", "opportunity-classifier"] }
     );
     const parsed = parseClassificationResponse(response);
-    return enforceClassificationPolicy(parsed, config.aiConfidenceThreshold);
+    return enforceClassificationPolicy(parsed, config.aiConfidenceThreshold, message.discoveryContext, pages, message.asOfDate);
   } catch (error) {
     primaryError = error;
   }
@@ -268,7 +268,9 @@ function unwrapAiValue(value: unknown, depth = 0): unknown {
   return record;
 }
 
-export function enforceClassificationPolicy(value: Classification, confidenceThreshold: number): Classification {
+export function enforceClassificationPolicy(
+  value: Classification, confidenceThreshold: number, discovery?: DiscoveryContext, pages: EnrichedPage[] = [], asOfDate?: string
+): Classification {
   const explicitlyExcludesAll = TARGET_STATES.every((state) => value.explicitlyExcludedStates.includes(state));
   if (explicitlyExcludesAll && value.decision === "notion") {
     return {
@@ -289,6 +291,29 @@ export function enforceClassificationPolicy(value: Classification, confidenceThr
       digestCategory: "Possible Opportunities",
       rationale: `${value.rationale} Held for review because confidence or source URL did not meet the auto-publish threshold.`
     };
+  }
+  if (value.decision === "notion" && asOfDate && value.dueDate && value.dueDate < asOfDate) {
+    return { ...value, decision: "ignore", digestCategory: null,
+      rationale: `${value.rationale} The final submission deadline is before the batch date.` };
+  }
+  if (value.decision === "notion" && discovery) {
+    const urls = new Set(discovery.officialUrls.map(canonicalizeUrl).filter(Boolean));
+    const ambiguous = new Set(discovery.ambiguousUrls.map(canonicalizeUrl).filter(Boolean));
+    for (const page of pages) {
+      const requested = canonicalizeUrl(page.requestedUrl);
+      if (urls.has(requested)) urls.add(canonicalizeUrl(page.finalUrl));
+      if (ambiguous.has(requested)) ambiguous.add(canonicalizeUrl(page.finalUrl));
+    }
+    const discoveryHost = new URL(discovery.sourceUrl).hostname.replace(/^www\./, "");
+    const primaryHost = canonicalPrimary ? new URL(canonicalPrimary).hostname : "";
+    if (discovery.requiresReview || !canonicalPrimary || !urls.has(canonicalPrimary)
+      || ambiguous.has(canonicalPrimary) || primaryHost === discoveryHost || primaryHost.endsWith(`.${discoveryHost}`)) {
+      return {
+        ...value, decision: "digest", primaryUrl: canonicalPrimary,
+        applicationUrl: canonicalApplication, digestCategory: "Possible Opportunities",
+        rationale: `${value.rationale} Held for review because the discovery evidence does not establish a distinct official program URL.`
+      };
+    }
   }
   const normalizedTags = [...new Set(
     value.tags
@@ -316,6 +341,7 @@ DECISIONS:
 AUTO-PUBLISH STANDARD:
 - Use "notion" only when confidence is at least ${confidenceThreshold} and a primary official URL is present.
 - Quote short evidence snippets establishing the call, eligibility, and deadline/open window.
+- Evaluate whether applications remain open on the supplied batch date. Ignore confirmed closed calls; rolling calls can remain open without a due date. Prefer updated official deadlines over older discovery text.
 - Never invent dates, eligibility, organization, URLs, tags, or terms. Use null when unknown.
 - A rolling/open-ended opportunity may have dueDate null and should receive the Rolling tag.
 - The title should name the opportunity, not repeat the email subject mechanically.
@@ -377,6 +403,7 @@ export function buildEvidencePacket(message: ParsedMessage, pages: EnrichedPage[
 Source: ${message.source}
 Mailbox: ${message.mailbox}
 Received: ${message.receivedAt}
+Batch date: ${message.asOfDate ?? "(not supplied)"}
 From: ${message.senderName ?? ""} <${message.senderEmail ?? ""}>
 Subject: ${message.subject}
 Parser warnings: ${message.warnings.join("; ") || "(none)"}

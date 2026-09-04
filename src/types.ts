@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const sourceSchema = z.enum(["hey", "zoho", "creative_west"]);
+export const sourceSchema = z.enum(["hey", "zoho", "creative_west", "colossal"]);
 export type MessageSource = z.infer<typeof sourceSchema>;
 
 export const messageStatusSchema = z.enum([
@@ -14,6 +14,14 @@ export const messageStatusSchema = z.enum([
   "failed"
 ]);
 export type MessageStatus = z.infer<typeof messageStatusSchema>;
+
+export const discoveryContextSchema = z.object({
+  sourceUrl: z.string().url(),
+  officialUrls: z.array(z.string().url()).max(30),
+  ambiguousUrls: z.array(z.string().url()).max(30),
+  requiresReview: z.boolean()
+});
+export type DiscoveryContext = z.infer<typeof discoveryContextSchema>;
 
 export interface MessageRecord {
   id: string;
@@ -29,6 +37,7 @@ export interface MessageRecord {
   raw_size: number;
   status: MessageStatus;
   classification_json: string | null;
+  discovery_context_json?: string | null;
   canonical_url: string | null;
   attempts: number;
   last_error: string | null;
@@ -45,6 +54,8 @@ export interface ParsedAttachment {
 }
 
 export interface ParsedMessage {
+  asOfDate?: string;
+  discoveryContext?: DiscoveryContext;
   source: MessageSource;
   mailbox: string;
   externalId: string;

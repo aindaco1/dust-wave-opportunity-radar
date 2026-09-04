@@ -18,6 +18,8 @@ Each batch:
 10. deletes R2 payloads older than 24 hours; and
 11. records run counts and status.
 
+Colossal is an optional, disabled source step before the shared queue is loaded. When enabled it discovers monthly roundups, queues individual snapshots, and reports resumable partial work. The [Colossal runbook](COLOSSAL.md) defines its counters, source-only workflow, and production acceptance steps.
+
 ## Health and manual run
 
 ```bash

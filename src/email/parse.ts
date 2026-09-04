@@ -1,3 +1,4 @@
+import { discoveryContextSchema } from "../types";
 import { unzip } from "fflate";
 import PostalMime, { type Address, type Attachment } from "postal-mime";
 import { extractText, getDocumentProxy } from "unpdf";
@@ -36,6 +37,9 @@ export async function parseStoredMessage(
   const combinedForUrls = `${email.html ?? ""}\n${text}\n${attachments.map((item) => item.text ?? "").join("\n")}`;
   return {
     source: record.source,
+    discoveryContext: record.discovery_context_json
+      ? discoveryContextSchema.parse(JSON.parse(record.discovery_context_json))
+      : undefined,
     mailbox: record.mailbox,
     externalId: record.external_id,
     messageId: email.messageId,

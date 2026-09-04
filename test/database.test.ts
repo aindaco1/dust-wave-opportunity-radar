@@ -55,7 +55,7 @@ async function seedMessage(db: D1Database, overrides: Partial<Parameters<typeof 
 describe("D1 migrations", () => {
   it("applies every migration and seeds safe feature flags", () => {
     const { sqlite } = database();
-    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'schema_version'").get()).toEqual({ value: "5" });
+    expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'schema_version'").get()).toEqual({ value: "6" });
     expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'notion_publish_enabled'").get()).toEqual({ value: "false" });
     expect(sqlite.prepare("SELECT value FROM app_config WHERE key = 'creative_west_sync_enabled'").get()).toEqual({ value: "false" });
     expect(sqlite.prepare("PRAGMA table_info(opportunities)").all()).toContainEqual(expect.objectContaining({ name: "managed_markdown" }));
@@ -69,13 +69,13 @@ describe("D1 migrations", () => {
   it("migrates permanent Notion body conflicts out of the retry queue", () => {
     const testDb = createTestDatabase({ migrate: false });
     open.push(testDb);
-    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(0, -1));
+    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(0, 4));
     testDb.sqlite.exec(`
       INSERT INTO messages(id, source, external_id, mailbox, received_at, raw_r2_key, status, last_error)
       VALUES ('message-1', 'zoho', 'external-1', 'Inbox', '2026-08-05T00:00:00Z', '', 'pending_notion',
         'Cannot safely update Notion page 11111111-1111-1111-1111-111111111111 because its managed opportunity text was edited');
     `);
-    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(-1));
+    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(4));
     expect(testDb.sqlite.prepare("SELECT status FROM messages WHERE id = 'message-1'").get())
       .toEqual({ status: "notion_review" });
     expect(testDb.sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -92,6 +92,29 @@ describe("D1 migrations", () => {
     expect(sqlite.prepare("SELECT source FROM messages WHERE id = 'creative-west-message'").get())
       .toEqual({ source: "creative_west" });
     expect(sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+  });
+});
+
+describe("Colossal migration", () => {
+  it("preserves pre-existing message references and manual body ownership", async () => {
+    const testDb = createTestDatabase({ migrate: false }); open.push(testDb);
+    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(0, 5));
+    testDb.sqlite.exec(`
+      INSERT INTO messages(id, source, external_id, mailbox, received_at, raw_r2_key, status)
+        VALUES ('before', 'zoho', 'before', 'Inbox', '2026-08-05', '', 'notion_review');
+      INSERT INTO opportunities(automation_key, title, latest_message_id, first_seen_at, last_seen_at, body_management)
+        VALUES ('before', 'Manual title', 'before', '2026-08-05', '2026-08-05', 'manual');
+      INSERT INTO digest_items(message_id, category, title, summary, received_at)
+        VALUES ('before', 'Other Useful Finds', 'Manual title', 'Synthetic summary', '2026-08-05');
+    `);
+    applyTestMigrations(testDb.sqlite, testMigrationFiles.slice(5));
+    expect(testDb.sqlite.prepare("SELECT status FROM messages WHERE id = 'before'").get()).toEqual({ status: "notion_review" });
+    expect(testDb.sqlite.prepare("SELECT body_management FROM opportunities WHERE automation_key = 'before'").get()).toEqual({ body_management: "manual" });
+    await seedMessage(testDb.db, { source: "colossal", discoveryContext: {
+      sourceUrl: "https://example.org/roundup", officialUrls: ["https://example.org/apply"], ambiguousUrls: [], requiresReview: false
+    } });
+    expect((await getMessage(testDb.db, "message-1"))?.discovery_context_json).toContain("officialUrls");
+    expect(testDb.sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   });
 });
 

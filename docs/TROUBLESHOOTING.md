@@ -63,6 +63,10 @@ Inspect `sampleErrors` from `/admin/sync/zoho` and `zoho_message_ingest_failed` 
 
 Use `/admin/integrations` to confirm the public GraphQL query is reachable, then `/admin/sync/creative-west` to inspect only the requested `deadlineFrom`, `deadlineTo`, and counts. The window starts on the current `America/Denver` calendar date and ends 31 calendar days later. Expected filters are New Mexico, open status, artist or organization (including the portal's combined applicant values), and newest open date first. Do not log or paste listing descriptions while diagnosing. A malformed individual listing increments `failed`; an invalid page-level response fails the durable sync step so Workflow retry policy applies.
 
+## Colossal
+
+Check `colossalEnabled` and the Colossal result in `/admin/integrations`. Source-only sync reports `failed`, `deferred`, and `missingMonths`; these are distinct from message outcomes in the batch run. Parser/HTTP failures remain pending, caps resume from stored cursors, and a 304 must not suppress expired payload recovery. Unknown layouts are failures, not empty success. Source safety metadata persistence failure stops the batch before publication. Use the [Colossal runbook](COLOSSAL.md); never log article HTML or entry text.
+
 ## Classification
 
 ### Automatic classification could not produce a reliable structured result

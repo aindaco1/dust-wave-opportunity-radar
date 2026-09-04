@@ -172,7 +172,7 @@ describe("Notion publishing", () => {
     expect(JSON.parse(String(request.body)).properties.Source.select.name).toBe("Creative West");
   });
 
-  it("updates a manual canonical page and trashes only the automated duplicate", async () => {
+  it.each(["zoho", "colossal"] as const)("%s updates a manual canonical page and trashes only the automated duplicate", async (source) => {
     const { env, config } = setup();
     const manualId = "11111111-1111-1111-1111-111111111111";
     const automatedId = "22222222-2222-2222-2222-222222222222";
@@ -198,11 +198,13 @@ describe("Notion publishing", () => {
     const result = await publishOpportunity(
       env,
       config,
-      messageRecord(),
+      messageRecord({ source }),
       classification({ title: "2027 Taos Film Festival" }),
       "taos-film-festival"
     );
     expect(result).toMatchObject({ created: false, pageId: manualId, trashedDuplicatePageIds: [automatedId] });
+    const propertyPatch = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith(`/pages/${manualId}`) && init?.method === "PATCH");
+    expect(JSON.parse(String(propertyPatch?.[1]?.body)).properties.Source.select.name).toBe(source === "colossal" ? "Colossal" : "Zoho");
     const markdownPatch = fetchMock.mock.calls.find(([url, init]) =>
       String(url).endsWith(`/pages/${manualId}/markdown`) && (init as RequestInit | undefined)?.method === "PATCH"
     );
