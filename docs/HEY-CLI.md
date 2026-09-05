@@ -2,9 +2,9 @@
 
 ## Current decision
 
-The attachment omission is resolved in the tested v1.4.1 build with upstream [PR #346](https://github.com/basecamp/hey-cli/pull/346) applied. The ordinary installed v1.4.1 release still omits these files. The candidate was built and exercised in an isolated temporary checkout; it was not installed or deployed.
+The attachment omission is resolved in the tested v1.4.1 build with upstream [PR #346](https://github.com/basecamp/hey-cli/pull/346) applied. The ordinary installed v1.4.1 release still omits these files and has not been replaced. Local qualification used an isolated checkout; the hosted workflows build the same explicitly pinned candidate for each approved run.
 
-Official forwarding remains the ongoing production ingestion path. The pinned candidate now has a [manual historical-recovery adapter](../scripts/hey-cli-recovery.mjs) and [disposable GitHub workflow](../.github/workflows/hey-cli-recover.yml). This is limited to one explicitly selected existing failed record with an expired payload; it is not a broad backfill or mailbox watcher. The implementation and production acceptance are separate gates. Deduplication against forwarded Message-IDs and unattended renewable OAuth remain unverified.
+Official forwarding remains the ongoing production ingestion path. The pinned candidate's [manual historical-recovery adapter](../scripts/hey-cli-recovery.mjs) and [disposable GitHub workflow](../.github/workflows/hey-cli-recover.yml) are merged and passed the first source-only production recovery below. This is limited to one explicitly selected existing failed record with an expired payload; it is not a broad backfill or mailbox watcher. Deduplication against forwarded Message-IDs and unattended renewable OAuth remain unverified and outside this recovery scope.
 
 ## September 4, 2026 comparison
 
@@ -73,11 +73,13 @@ These are local simulations of headless behavior, not Linux/GitHub-hosted accept
 
 The local continuation's final `npm run check` passed: 275 tests in 26 files, coverage floors (89.35% statements, 78.12% branches, 93.93% functions, 91.90% lines), documentation, type checks, and the Worker dry bundle. `git diff --check` and Node syntax checks also passed. At that stage all changes were local; the later hosted run below used a dedicated verification branch.
 
-## Remaining acceptance
+## Boundaries for any future expansion
 
-1. Merge the reviewed adapter, then run its preview and the explicitly authorized single-record source-only recovery on GitHub. Verify the existing D1 identity, restored payload, no-write repeat, and temporary-secret cleanup before claiming production acceptance.
-2. Broader overlapping imports require original-message identity or another independently verified non-overlap boundary; matching by title/body is insufficient. They are deliberately outside this adapter.
-3. Keep CLI use supervised and one-off. An unattended renewable OAuth lifecycle and an unpatched maintained release are future work, not requirements for this bounded pinned recovery.
+The approved single-record recovery is accepted below; there is no outstanding deployment requirement for that scope.
+
+1. Broader overlapping imports require original-message identity or another independently verified non-overlap boundary; matching by title/body is insufficient. They are deliberately outside this adapter.
+2. Keep CLI use supervised and one-off. An unattended renewable OAuth lifecycle and an unpatched maintained release are future work, not requirements for this bounded pinned recovery.
+3. The normal batch's eventual classification/Notion/digest result is distinct from source-only recovery. No batch was forced for this acceptance.
 
 No production import, migration, deployment, mailbox edit, GitHub secret change, or upstream comment was performed during the local testing stages above.
 
@@ -115,4 +117,24 @@ The [recovery command](../scripts/hey-cli-recover.mjs) (`npm run recover:hey-cli
 
 The September 4 read-only preflight found one eligible failed record. Its thread had four messages: three historical messages with three attachments and one newer message. Original API timestamps confirmed none of the three historical messages had been edited since the original import. No production write occurred in that preflight.
 
-Synthetic [regression tests](../test/hey-cli-recovery.test.ts) cover fail-closed identity/content/download checks, cutoff and timezone handling, Unicode MIME round trips, a real migrated D1/R2 importer round trip with DOCX parsing, preserved classification, unchanged downstream tables, no-write repeats, and content-free command failures. Live PDF parsing and production recovery require their own acceptance evidence.
+Synthetic [regression tests](../test/hey-cli-recovery.test.ts) cover fail-closed identity/content/download checks, cutoff and timezone handling, Unicode MIME round trips, a real migrated D1/R2 importer round trip with DOCX parsing, preserved classification, unchanged downstream tables, no-write repeats, and content-free command failures. [Parser regressions](../test/parse.test.ts) also verify recovered PDFs with either explicit PDF or generic binary MIME metadata. The live recovery below contains DOCX files, not the PDFs from the earlier qualification sample.
+
+## Production recovery acceptance — September 4, 2026 (America/Denver)
+
+[PR #36](https://github.com/aindaco1/dust-wave-opportunity-radar/pull/36) merged the reviewed adapter after required CI passed. Both approved hosted runs used merge commit `54881707706716eb94233cad2ba89ba888fc261f` and the pinned candidate build.
+
+| Check | Result |
+|---|---|
+| [Hosted preview](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33943014092) | Passed; zero imports, three historical messages, three attachments, one newer message excluded; production record/counts unchanged |
+| [Source-only import](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33943096412) | Passed; one existing identity restored to `queued`, attempts reset to zero, no error; no additional row |
+| Immediate repeat guard | `already_queued`, zero additional imports or payload writes |
+| Saved MIME | 143,722 bytes; same synthetic Message-ID and three historical body sections |
+| Attachments | Three DOCX files, 99,373 bytes total; all downloaded privately with exact size/identity checks |
+| Independent R2 read and production parser | Matching stored raw size/identity; all three DOCX files yielded nonempty text, zero parsing warnings; no production write |
+| Retained state | Original subject, mailbox, sender, received/created times, classification, canonical URL and parsed reference preserved |
+| Database preservation | 524 messages / 78 HEY rows / 86 opportunities / 124 digest items / 77 runs before and after; zero duplicate rows, forced batches, or downstream-table changes |
+| Cleanup | Both runner cleanup steps passed; zero uploaded artifacts; temporary recovery token deleted and absence independently checked; existing `production` environment preserved |
+
+The import job ran from 21:53:42 to 21:55:10 Mountain time (September 5 in UTC). Its full project check passed with 322 tests in 27 files, enforced coverage floors, docs/types and dry bundling; upstream HTML/auth/thread/MCP tests and all six synthetic authentication scenarios passed. Two subsequent synthetic PDF-parser cases bring the final project suite to 324 tests. No private MIME, attachment names, source text, private URLs or credential values were retained in the repository or acceptance logs.
+
+No Worker deployment, schema migration, mailbox mutation, broad backfill, forced classification, Notion publication or digest delivery was performed. The restored source waits for the normal 07:00/19:00 Mountain-time batch. A future one-off recovery requires a fresh explicitly approved temporary credential; no unattended HEY token is left configured on GitHub.

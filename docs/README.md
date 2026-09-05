@@ -19,7 +19,7 @@ Choose the shortest path for the task at hand.
 ## Operate and recover
 
 - [Operations](OPERATIONS.md) — schedule, run lifecycle, monitoring, state meanings, and rollout.
-- [HEY CLI qualification](HEY-CLI.md) — tested attachment fix, local verification, and remaining importer acceptance.
+- [HEY CLI qualification and recovery](HEY-CLI.md) — pinned attachment fix, hosted verification, and guarded single-record historical recovery.
 - [Admin API](API.md) — authenticated routes, request/response shapes, and examples.
 - [Troubleshooting](TROUBLESHOOTING.md) — symptom-driven diagnosis and recovery.
 - [Data model](DATA-MODEL.md) — tables, constraints, status transitions, and retained content.

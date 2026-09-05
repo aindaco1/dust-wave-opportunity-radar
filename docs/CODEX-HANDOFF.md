@@ -43,6 +43,8 @@ Then read:
 
 Production secrets are not in this repository. A clean local test run does not need them.
 
+The September 4 official-CLI recovery merged through PR #36 and restored one existing failed historical HEY identity with three older messages and three DOCX attachments. Hosted preview/import, no-write repeat, independent R2 parsing and temporary-token cleanup passed; no downstream batch was forced. See the [acceptance record](HEY-CLI.md#production-recovery-acceptance--september-4-2026-americadenver).
+
 ## Colossal deployment
 
 Colossal monthly roundups are enabled in the reviewed configuration with `COLOSSAL_ENABLED=true`; migration 0006 must precede deployment of this code. Verify the deployed flag through `/health`, and distinguish source-only import from scheduled Notion/digest acceptance. See [Colossal](COLOSSAL.md) for the current/previous-month scope, shared processing, recovery, and deployment sequence.
