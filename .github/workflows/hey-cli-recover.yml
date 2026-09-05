@@ -1,0 +1,56 @@
+name: Recover one historical HEY record
+
+on:
+  workflow_dispatch:
+    inputs:
+      message_id:
+        description: Existing failed-expired D1 message ID, not a new HEY topic ID
+        type: string
+        required: true
+      mode:
+        description: Preview by default; import requires explicit production authorization
+        type: choice
+        options: [preview, import]
+        default: preview
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hey-cli-historical-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-project
+        with:
+          cache-dependencies: "false"
+      - name: Validate Radar before accessing HEY
+        run: npm run check
+      - uses: ./.github/actions/setup-hey-cli
+      - name: Create disposable recovery directory
+        run: node -e 'require("node:fs").mkdirSync(require("node:path").join(process.env.RUNNER_TEMP,"hey-cli-recovery","tmp"),{recursive:true,mode:0o700})'
+      - name: Recover only the approved existing historical record
+        run: npm run recover:hey-cli
+        env:
+          HEY_RECOVERY_MESSAGE_ID: ${{ inputs.message_id }}
+          HEY_RECOVERY_MODE: ${{ inputs.mode }}
+          HEY_CLI_BINARY: ${{ github.workspace }}/hey-cli/bin/hey
+          HEY_TOKEN: ${{ secrets.HEY_CLI_RECOVERY_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          ADMIN_TOKEN: ${{ inputs.mode == 'import' && secrets.ADMIN_TOKEN || '' }}
+          TMPDIR: ${{ runner.temp }}/hey-cli-recovery/tmp
+      - name: Remove and verify disposable recovery state
+        if: always()
+        run: |
+          node --input-type=module -e 'import fs from "node:fs"; import path from "node:path"; const root=path.join(process.env.RUNNER_TEMP,"hey-cli-recovery"); fs.rmSync(root,{recursive:true,force:true}); if(fs.existsSync(root))process.exit(2); console.log(JSON.stringify({disposableStateRemoved:true}));'

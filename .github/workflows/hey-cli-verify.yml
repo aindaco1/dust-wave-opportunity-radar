@@ -1,11 +1,8 @@
 name: Verify HEY CLI read-only
 
-# Bootstrap on one named branch; no schedule, main trigger, or production job.
-# Documentation-only follow-ups do not rerun the credentialed check.
+# Manual only after the one-off bootstrap qualification. No recurring watcher.
 on:
-  push:
-    branches: [codex/hey-cli-hosted-verification]
-    paths: [.github/workflows/hey-cli-verify.yml]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,10 +13,10 @@ concurrency:
 
 jobs:
   verify:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Created temporarily with a deployment-branch restriction to this branch.
-    environment: hey-cli-verification
+    environment: production
     env:
       HEY_NO_KEYRING: "1"
       HEY_NONINTERACTIVE: "1"
@@ -27,39 +24,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: ./.github/actions/setup-project
         with:
-          node-version-file: .nvmrc
-          # No dependency cache is saved by this disposable qualification job.
-      - run: npm ci
+          cache-dependencies: "false"
       - name: Validate Radar before accessing HEY
         run: npm run check
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: basecamp/hey-cli
-          ref: d5d5a9360266c74c95165939d478132bc2752344
-          path: hey-cli
-          persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version-file: hey-cli/go.mod
-          cache: false
-      - name: Apply reviewed embedded-attachment patch
-        working-directory: hey-cli
-        run: |
-          git apply --check "$GITHUB_WORKSPACE/patches/hey-cli-pr346-attachments.patch"
-          git apply "$GITHUB_WORKSPACE/patches/hey-cli-pr346-attachments.patch"
-          git diff --check
-      - name: Test and build pinned candidate
-        working-directory: hey-cli
-        run: |
-          go test ./internal/htmlutil ./internal/auth ./internal/threadload
-          make build VERSION=1.4.1-radar-pr346
-          sha256sum bin/hey
-      - name: Test authentication lifecycle using invented credentials
-        run: npm run verify:hey-cli-auth
-        env:
-          HEY_CLI_TEST_BINARY: ${{ github.workspace }}/hey-cli/bin/hey
+      - uses: ./.github/actions/setup-hey-cli
       - name: Create disposable live-check directories
         run: node -e 'require("node:fs").mkdirSync(require("node:path").join(process.env.RUNNER_TEMP,"hey-cli-qualification","tmp"),{recursive:true,mode:0o700})'
       - name: Verify bounded live attachment sample

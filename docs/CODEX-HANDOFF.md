@@ -39,6 +39,7 @@ Then read:
 - Digest: `opportunities@digest.dustwave.xyz` → `alonso@hey.com`; empty suppressed
 - Raw/parsed R2 retention: 24 hours
 - HEY steady state: official forwarding; reverse-engineered MCP is historical import only
+- Official HEY CLI: pinned patched build for manually authorized one-record failed-expired recovery only; no recurring watcher. See [HEY CLI](HEY-CLI.md).
 
 Production secrets are not in this repository. A clean local test run does not need them.
 

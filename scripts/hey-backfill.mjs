@@ -3,6 +3,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { readFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { parseBackfillTargets } from "./hey-backfill-targets.mjs";
+import { buildMime } from "./hey-mime.mjs";
 
 const workerUrl = requiredEnv("WORKER_URL").replace(/\/$/, "");
 const adminToken = requiredEnv("ADMIN_TOKEN");
@@ -152,43 +153,6 @@ async function downloadAttachments(emailId, metadata) {
   return attachments;
 }
 
-function buildMime({ id, subject, fromName, fromEmail, to, date, body, attachments }) {
-  const boundary = `dustwave-${id}-${Date.now()}`.replace(/[^a-zA-Z0-9-]/g, "");
-  const headers = [
-    `Message-ID: <mcp-hey-${cleanHeader(id)}@dustwave-opportunity-radar>`,
-    `Subject: ${cleanHeader(subject)}`,
-    `From: ${cleanHeader(fromName)} <${cleanHeader(fromEmail)}>`,
-    `To: ${cleanHeader(to)}`,
-    `Date: ${date.toUTCString()}`,
-    "MIME-Version: 1.0"
-  ];
-  if (!attachments.length) {
-    return Buffer.from([...headers, 'Content-Type: text/plain; charset="UTF-8"', "Content-Transfer-Encoding: 8bit", "", body].join("\r\n"));
-  }
-  const parts = [
-    ...headers,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    "",
-    `--${boundary}`,
-    'Content-Type: text/plain; charset="UTF-8"',
-    "Content-Transfer-Encoding: 8bit",
-    "",
-    body
-  ];
-  for (const attachment of attachments) {
-    parts.push(
-      `--${boundary}`,
-      `Content-Type: ${attachment.mime}; name="${attachment.filename.replace(/"/g, "")}"`,
-      "Content-Transfer-Encoding: base64",
-      `Content-Disposition: attachment; filename="${attachment.filename.replace(/"/g, "")}"`,
-      "",
-      wrapBase64(attachment.bytes.toString("base64"))
-    );
-  }
-  parts.push(`--${boundary}--`, "");
-  return Buffer.from(parts.join("\r\n"));
-}
-
 async function callJson(name, args) {
   const result = await client.callTool({ name, arguments: args });
   if (result.isError) throw new Error(textContent(result) || `${name} failed`);
@@ -213,10 +177,6 @@ function heyMailboxName(folder) {
 
 function cleanHeader(value) {
   return String(value).replace(/[\r\n\0]+/g, " ").trim();
-}
-
-function wrapBase64(value) {
-  return value.match(/.{1,76}/g)?.join("\r\n") ?? "";
 }
 
 function positiveInteger(value, name, maximum) {

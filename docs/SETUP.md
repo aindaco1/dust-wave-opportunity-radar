@@ -60,7 +60,7 @@ Run Actions → **HEY seven-day backfill** → Run workflow. The importer is ide
 
 ### Official HEY CLI qualification
 
-The official HEY CLI is installed and authenticated on an operator machine for supervised read-only investigation. A disposable GitHub read-only check also passed; its temporary credential was deleted afterward. The CLI is not the production watcher or the deployed historical importer. To repeat the local evidence check, run:
+The official HEY CLI is installed and authenticated on an operator machine for supervised read-only investigation. A disposable GitHub read-only check also passed; its temporary credential was deleted afterward. A separate [manual recovery workflow](HEY-CLI.md#scoped-historical-recovery) uses the pinned patched candidate for one existing failed-expired historical record; it is not a production watcher or replacement for official forwarding. To repeat the local evidence check, run:
 
 ```bash
 npm run verify:hey-cli
