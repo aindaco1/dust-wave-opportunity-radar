@@ -14,7 +14,7 @@ Inbound HEY mail is queued immediately and Zoho is pulled inside the same 12-hou
 
 ## Official APIs in steady state
 
-HEY official forwarding and the Zoho Mail API are the ongoing paths. HEY has no public read API, so the pinned `Sealjay/mcp-hey` revision is isolated to a manually dispatched, disposable historical-import runner with a temporary cookie secret.
+HEY official forwarding and the Zoho Mail API are the ongoing paths. The legacy `Sealjay/mcp-hey` backfill remains isolated to a manually dispatched disposable runner with a temporary cookie secret. The official CLI's attachment-patched candidate passed local and GitHub qualification and now has a single-record historical-recovery adapter. It reuses the existing Worker importer and MIME builder, preserves legacy topic keys, excludes later replies, and refuses incomplete or edited historical content. This gives supervised recovery without adding a Worker endpoint, deployment, recurring watcher, or parallel classification path. Forwarded-message overlap remains unverified; new overlapping imports are refused. See [HEY CLI qualification](HEY-CLI.md).
 
 ## D1 plus short-lived R2
 

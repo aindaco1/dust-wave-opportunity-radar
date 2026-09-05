@@ -58,6 +58,20 @@ Because HEY has no public read API, this one-time path needs a valid `data/hey-c
 
 Run Actions → **HEY seven-day backfill** → Run workflow. The importer is idempotent by the stable HEY external ID and imports Imbox, Feed, and Paper Trail over the selected window. For a proven pagination gap, an operator may temporarily set `HEY_BACKFILL_TARGETS_JSON` to a bounded array of `{id,folder}` objects so the runner reads only those known threads. Delete `HEY_COOKIES_JSON` and `HEY_BACKFILL_TARGETS_JSON` after the backfill succeeds. Ongoing official forwarding does not require either secret.
 
+### Official HEY CLI qualification
+
+The official HEY CLI is installed and authenticated on an operator machine for supervised read-only investigation. A disposable GitHub read-only check also passed; its temporary credential was deleted afterward. A separate [manual recovery workflow](HEY-CLI.md#scoped-historical-recovery) uses the pinned patched candidate for one existing failed-expired historical record; it is not a production watcher or replacement for official forwarding. To repeat the local evidence check, run:
+
+```bash
+npm run verify:hey-cli
+```
+
+The verifier searches a bounded seven-day Paper Trail PDF sample by default, uses exact `topic_id` values rather than posting IDs, compares the CLI attachment list with attachment-shaped evidence in the original HTML, emits content-free counters, removes its disposable cache, and exits nonzero on silent evidence loss or an empty evidence sample. It expects the reviewed v1.4.1 release; set `HEY_CLI_EXPECTED_VERSION` deliberately when qualifying a later version. `HEY_CLI_BOX`, `HEY_CLI_ATTACHMENT_KIND`, `HEY_CLI_DATE_RANGE`, and `HEY_CLI_MAX_THREADS` can narrow the read-only check to supported values.
+
+As of September 4, 2026, official CLI v1.4.1 still omitted PDFs nested inside `text/html` Trix attachments. An isolated build with upstream PR #346 discovered all five expected files across the three sampled threads and successfully downloaded all four PDFs. See [HEY CLI qualification](HEY-CLI.md) for the exact revisions, corrected attachment counts, and remaining identity/hosted-authentication checks. Do not copy `hey auth token` output into logs or the repository.
+
+The continuation verified three real legacy topic keys and local repeat-import/recovery behavior. Six synthetic headless-authentication cases also passed (`npm run verify:hey-cli-auth`). The explicitly approved [hosted check](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33940128171) verified three threads and all five expected attachments; its temporary secret/environment and runner state were removed. No HEY credential remains configured for the candidate on GitHub. A local login does not provision a hosted runner, and a plain environment token does not provide a renewable credential lifecycle. Do not run a broad historical import across forwarded mail without a verified identity or non-overlap boundary.
+
 ## 4. Zoho OAuth
 
 Create a Zoho OAuth client for `alonso@dustwave.xyz` with offline access and the minimum read scopes:

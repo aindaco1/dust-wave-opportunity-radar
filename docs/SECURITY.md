@@ -25,7 +25,11 @@ Email bodies, Colossal/Hyperallergic RSS/HTML, Creative West API fields, attachm
 
 ## Known boundary
 
-HEY’s official forwarding is the production path. The one-time historical import uses the unofficial `Sealjay/mcp-hey` reverse-engineered API because HEY offers no public read API. It runs on a disposable GitHub runner at a pinned revision, needs a temporary session-cookie secret, performs read-only MCP calls, and should be disabled by deleting `HEY_COOKIES_JSON` immediately after use.
+HEY’s official forwarding is the production path. The one-time historical import still uses the unofficial `Sealjay/mcp-hey` reverse-engineered API because HEY offers no supported public read API for this service. It runs on a disposable GitHub runner at a pinned revision, needs a temporary session-cookie secret, performs read-only MCP calls, and should be disabled by deleting `HEY_COOKIES_JSON` immediately after use.
+
+The official HEY CLI supports read-only qualification and a narrowly scoped, manually authorized recovery adapter, not ongoing ingestion or broad overlapping backfill. Its verifier uses original HTML solely to reconcile attachment evidence, never logs content, filenames, IDs, or private URLs, does not download files, and removes its isolated cache. The recovery adapter downloads complete attachments into private disposable files and restores only a verified existing failed-expired historical identity. Any missing, malformed, unsafe, truncated, or unreadable evidence blocks the entire operation. A `HEY_TOKEN` supports a short-lived headless command but not a renewable credential lifecycle.
+
+The initial disposable GitHub qualification used a temporary branch-restricted environment, since deleted. Subsequent qualification/recovery workflows are manual-only on protected `main`, using temporary secrets in the existing `production` environment. Only the final operation receives real credentials; setup, dependencies, build, and synthetic tests do not. Recovery's HEY children never receive the admin/Cloudflare tokens; Wrangler never receives HEY/admin tokens and has disk logging disabled. The official CLI MCP gateway is read-only and restricted to threads. There are no uploaded mail artifacts or persistent caches. Always remove runner state and separately delete the temporary GitHub secret after the run; do not delete the production environment or revoke the operator login merely to remove its copied token. See [HEY CLI qualification](HEY-CLI.md).
 
 ## Incident response
 

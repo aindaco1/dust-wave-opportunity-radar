@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ingestForwardedHeyEmail, ingestImportedHeyEmail } from "../src/ingest/email-worker";
 import { getMessage } from "../src/storage/database";
+import { extractHeySearchTopicIds } from "../scripts/hey-cli-fidelity.mjs";
 import { env as baseEnv } from "./support/fixtures";
 import { createTestDatabase, type TestDatabase } from "./support/d1";
 import "./support/fixed-length-stream";
@@ -31,6 +32,86 @@ function setup() {
 }
 
 describe("HEY backfill ingestion", () => {
+  const historicalInput = {
+    externalId: "mcp-hey:9001",
+    mailbox: "Feed",
+    subject: "Synthetic historical call",
+    senderEmail: "calls@example.org",
+    receivedAt: "2026-08-05T12:00:00Z",
+    rawBase64: btoa("Message-ID: <original@example.org>\r\nSubject: Synthetic historical call\r\n\r\nApply")
+  };
+
+  it("reuses the legacy topic key across CLI postings and mailbox moves", async () => {
+    const { env, testDb, objects } = setup();
+    const original = await ingestImportedHeyEmail(historicalInput, env);
+    testDb.sqlite.prepare("UPDATE messages SET status = 'notion', attempts = 2, classification_json = ? WHERE id = ?")
+      .run('{"title":"Synthetic call"}', original.id);
+    const [topicId] = extractHeySearchTopicIds({ ok: true, data: [{ id: 1001, topic_id: 9001 }] });
+    const repeated = await ingestImportedHeyEmail({
+      ...historicalInput, externalId: `mcp-hey:${topicId}`, mailbox: "Paper Trail"
+    }, env);
+
+    expect(repeated.id).toBe(original.id);
+    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS count FROM messages").get()).toEqual({ count: 1 });
+    expect(await getMessage(env.DB, original.id)).toMatchObject({
+      status: "notion", attempts: 2, classification_json: '{"title":"Synthetic call"}', mailbox: "Paper Trail"
+    });
+    expect(objects.size).toBe(1);
+  });
+
+  it("restores an expired failed payload under the same historical identity", async () => {
+    const { env, testDb, objects } = setup();
+    const original = await ingestImportedHeyEmail(historicalInput, env);
+    const before = await getMessage(env.DB, original.id);
+    objects.delete(before!.raw_r2_key);
+    testDb.sqlite.prepare("UPDATE messages SET status = 'failed', attempts = 4, raw_r2_key = '', last_error = 'expired' WHERE id = ?")
+      .run(original.id);
+
+    expect(await ingestImportedHeyEmail(historicalInput, env)).toEqual(original);
+    expect(await getMessage(env.DB, original.id)).toMatchObject({
+      status: "queued", attempts: 0, last_error: null, raw_r2_key: before!.raw_r2_key
+    });
+    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS count FROM messages").get()).toEqual({ count: 1 });
+    expect(objects.size).toBe(1);
+  });
+
+  it("does not silently reset failed rows that still retain their payload", async () => {
+    const { env, testDb } = setup();
+    const original = await ingestImportedHeyEmail(historicalInput, env);
+    testDb.sqlite.prepare("UPDATE messages SET status = 'failed', attempts = 4, last_error = 'parse_failed' WHERE id = ?")
+      .run(original.id);
+    await ingestImportedHeyEmail(historicalInput, env);
+    expect(await getMessage(env.DB, original.id)).toMatchObject({ status: "failed", attempts: 4, last_error: "parse_failed" });
+  });
+
+  it("keeps a forwarded RFC Message-ID distinct from a historical topic snapshot", async () => {
+    const { env, testDb } = setup();
+    const raw = atob(historicalInput.rawBase64);
+    await ingestForwardedHeyEmail({
+      rawSize: raw.length,
+      raw: new Response(raw).body,
+      from: historicalInput.senderEmail,
+      headers: new Headers({
+        "message-id": "<original@example.org>", subject: historicalInput.subject,
+        from: historicalInput.senderEmail, date: historicalInput.receivedAt
+      }),
+      setReject: vi.fn()
+    } as unknown as ForwardableEmailMessage, env);
+    await ingestImportedHeyEmail(historicalInput, env);
+    // Identical MIME and metadata cannot justify treating a whole topic as one RFC message.
+    expect(testDb.sqlite.prepare("SELECT external_id FROM messages ORDER BY external_id").all())
+      .toEqual([{ external_id: "<original@example.org>" }, { external_id: "mcp-hey:9001" }]);
+  });
+
+  it("does not turn a terminal topic snapshot into a new-reply watcher", async () => {
+    const { env, testDb } = setup();
+    const original = await ingestImportedHeyEmail(historicalInput, env);
+    testDb.sqlite.prepare("UPDATE messages SET status = 'digest' WHERE id = ?").run(original.id);
+    await ingestImportedHeyEmail({ ...historicalInput, rawBase64: btoa("Synthetic new reply in the same topic") }, env);
+    expect(await getMessage(env.DB, original.id)).toMatchObject({ status: "digest" });
+    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS count FROM messages").get()).toEqual({ count: 1 });
+  });
+
   it("stores deterministic MIME and queue metadata", async () => {
     const { env, bucket, objects } = setup();
     const result = await ingestImportedHeyEmail({

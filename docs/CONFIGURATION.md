@@ -69,10 +69,14 @@ Install with `npx wrangler secret put NAME`. Use a random admin token with at le
 | Secret | `ADMIN_TOKEN` | Manual admin workflows and HEY import |
 | Secret | `HEY_COOKIES_JSON` | Temporary HEY historical import only; delete afterward |
 | Secret | `HEY_BACKFILL_TARGETS_JSON` | Optional temporary recovery list of `{id,folder}` objects; delete afterward |
+| Environment secret | `HEY_CLI_VERIFY_TOKEN` | Temporary read-only qualification token in `production`; delete afterward |
+| Environment secret | `HEY_CLI_RECOVERY_TOKEN` | Temporary official-CLI token for one approved historical recovery; delete afterward |
 | Variable | `CLOUDFLARE_ACCOUNT_ID` | Wrangler deployment target |
 | Variable | `WORKER_URL` | Manual admin workflow target |
 
-GitHub Actions reads Node from `.nvmrc`, installs through one local composite action, and routes authenticated operator requests through one reusable workflow. The separate dispatch workflows remain the user-visible authorization boundaries. The `production` environment accepts only protected branches, and repository settings require the pinned `CI / check` result before `main` changes.
+GitHub Actions reads Node from `.nvmrc`, installs through one local composite action, and routes authenticated operator requests through one reusable workflow. Disposable HEY jobs disable the shared installer's optional dependency cache and share a pinned CLI build action. The separate dispatch workflows remain the user-visible authorization boundaries. The `production` environment accepts only protected branches, and repository settings require the pinned `CI / check` result before `main` changes.
+
+The official-CLI recovery command uses `HEY_RECOVERY_MESSAGE_ID` (existing D1 hash), `HEY_RECOVERY_MODE` (`preview` by default, or explicitly authorized `import`), and `HEY_CLI_BINARY` (qualified binary path). It requires `HEY_TOKEN` without stored-login fallback plus Cloudflare D1 credentials; only import mode receives `ADMIN_TOKEN`. The existing production Worker URL and DB binding are fixed by the command/repository, not supplied by source mail. No Worker binding, secret, migration, or deployment is added. See [HEY CLI](HEY-CLI.md#scoped-historical-recovery).
 
 ## Supported Zoho data centers
 

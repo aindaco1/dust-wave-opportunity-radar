@@ -1,0 +1,58 @@
+name: Verify HEY CLI read-only
+
+# Manual only after the one-off bootstrap qualification. No recurring watcher.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hey-cli-hosted-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      HEY_NO_KEYRING: "1"
+      HEY_NONINTERACTIVE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-project
+        with:
+          cache-dependencies: "false"
+      - name: Validate Radar before accessing HEY
+        run: npm run check
+      - uses: ./.github/actions/setup-hey-cli
+      - name: Create disposable live-check directories
+        run: node -e 'require("node:fs").mkdirSync(require("node:path").join(process.env.RUNNER_TEMP,"hey-cli-qualification","tmp"),{recursive:true,mode:0o700})'
+      - name: Verify bounded live attachment sample
+        # The real credential exists only in this step's environment. Raw CLI
+        # diagnostics stay captured in memory; the wrapper emits counters only.
+        env:
+          HEY_TOKEN: ${{ secrets.HEY_CLI_VERIFY_TOKEN }}
+          HEY_CLI_EXPECTED_VERSION: 1.4.1-radar-pr346
+          HEY_CLI_BOX: papertrail
+          HEY_CLI_ATTACHMENT_KIND: pdfs
+          HEY_CLI_DATE_RANGE: last_7_days
+          HEY_CLI_MAX_THREADS: "10"
+          XDG_CONFIG_HOME: ${{ runner.temp }}/hey-cli-qualification/config
+          XDG_STATE_HOME: ${{ runner.temp }}/hey-cli-qualification/state
+          XDG_CACHE_HOME: ${{ runner.temp }}/hey-cli-qualification/cache
+          TMPDIR: ${{ runner.temp }}/hey-cli-qualification/tmp
+        run: |
+          if [ -z "$HEY_TOKEN" ]; then
+            echo "Temporary HEY verification credential is missing."
+            exit 2
+          fi
+          PATH="$GITHUB_WORKSPACE/hey-cli/bin:$PATH" npm run verify:hey-cli
+      - name: Remove and verify disposable state
+        if: always()
+        run: |
+          node --input-type=module -e 'import fs from "node:fs"; import path from "node:path"; const root=path.join(process.env.RUNNER_TEMP,"hey-cli-qualification"); fs.rmSync(root,{recursive:true,force:true}); if(fs.existsSync(root))process.exit(2); console.log(JSON.stringify({disposableStateRemoved:true}));'

@@ -1,0 +1,35 @@
+name: Build qualified HEY CLI
+description: Build the exact reviewed v1.4.1 plus embedded-attachment patch and test authentication without real credentials.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      with:
+        repository: basecamp/hey-cli
+        ref: d5d5a9360266c74c95165939d478132bc2752344
+        path: hey-cli
+        persist-credentials: false
+    - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      with:
+        go-version-file: hey-cli/go.mod
+        cache: false
+    - name: Apply reviewed embedded-attachment patch
+      shell: bash
+      working-directory: hey-cli
+      run: |
+        git apply --check "$GITHUB_WORKSPACE/patches/hey-cli-pr346-attachments.patch"
+        git apply "$GITHUB_WORKSPACE/patches/hey-cli-pr346-attachments.patch"
+        git diff --check
+    - name: Test and build pinned candidate
+      shell: bash
+      working-directory: hey-cli
+      run: |
+        go test ./internal/htmlutil ./internal/auth ./internal/threadload ./internal/mcpserver
+        make build VERSION=1.4.1-radar-pr346
+        sha256sum bin/hey
+    - name: Test authentication lifecycle using invented credentials
+      shell: bash
+      run: npm run verify:hey-cli-auth
+      env:
+        HEY_CLI_TEST_BINARY: ${{ github.workspace }}/hey-cli/bin/hey
