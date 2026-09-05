@@ -4,7 +4,7 @@
 
 The attachment omission is resolved in the tested v1.4.1 build with upstream [PR #346](https://github.com/basecamp/hey-cli/pull/346) applied. The ordinary installed v1.4.1 release still omits these files. The candidate was built and exercised in an isolated temporary checkout; it was not installed or deployed.
 
-Official forwarding remains the production ingestion path. Legacy topic-key compatibility now passes the bounded live check below, and synthetic headless-authentication checks pass. Deduplication against forwarded Message-IDs and a real authenticated hosted run remain unverified. The candidate is suitable for further qualification of explicitly selected historical recovery, not broad overlapping imports or an ongoing mailbox watcher.
+Official forwarding remains the production ingestion path. Legacy topic-key compatibility passes the bounded live check below. The disposable GitHub run also passed authenticated reads and attachment reconciliation; its temporary secret and environment were deleted afterward. Deduplication against forwarded Message-IDs remains unverified. The candidate is suitable for building a narrowly scoped historical-recovery adapter, not broad overlapping imports or an ongoing mailbox watcher. No official-CLI import adapter has been deployed.
 
 ## September 4, 2026 comparison
 
@@ -67,23 +67,36 @@ npm run verify:hey-cli-auth
 | Rejected refresh | Fails before mail read and preserves the prior synthetic credentials |
 | Mid-request HTTP 401 | Refreshes once, retries successfully, and uses the rotated credential on restart |
 
-A bare `HEY_TOKEN` is suitable for a supervised one-off runner test, but does not carry refresh state. Reusable hosted OAuth requires an approved secure store for rotated credentials and installation state; copying an immutable credential snapshot on each job is not a verified lifecycle. GitHub repository and `production` environment secret inventories contain no HEY credential for this candidate. Nothing has been transferred from the operator login to GitHub.
+A bare `HEY_TOKEN` is suitable for a supervised one-off runner test, but does not carry refresh state. Reusable hosted OAuth requires an approved secure store for rotated credentials and installation state; copying an immutable credential snapshot on each job is not a verified lifecycle. Before the hosted test below, GitHub repository and `production` environment secret inventories contained no HEY credential for this candidate, and nothing had been transferred from the operator login to GitHub.
 
 These are local simulations of headless behavior, not Linux/GitHub-hosted acceptance. The wrapper's [process tests](../test/hey-cli-verify.test.ts) also verify redacted command failures and cache cleanup. The wrapper no longer treats an empty search or zero attachment evidence as a qualified sample, and checks the doctor's authentication result rather than its top-level execution-success envelope.
 
-The continuation's final `npm run check` passed: 275 tests in 26 files, coverage floors (89.35% statements, 78.12% branches, 93.93% functions, 91.90% lines), documentation, type checks, and the Worker dry bundle. `git diff --check` and Node syntax checks also passed. All repository changes remain local; no commit, push, or workflow dispatch was performed.
+The local continuation's final `npm run check` passed: 275 tests in 26 files, coverage floors (89.35% statements, 78.12% branches, 93.93% functions, 91.90% lines), documentation, type checks, and the Worker dry bundle. `git diff --check` and Node syntax checks also passed. At that stage all changes were local; the later hosted run below used a dedicated verification branch.
 
 ## Remaining acceptance
 
 1. Select the maintained release or explicitly pinned patch to use for a future importer; PR #346 was still open and unmerged at the time of this test.
 2. Limit the first import to explicitly verified existing historical IDs. Before allowing new overlapping imports, establish original-message identity or another independently verified non-overlap boundary; matching by title/body is insufficient.
-3. Provision an explicitly approved temporary HEY credential and verify one disposable hosted runner's authenticated reads, failures, and cleanup. Do not treat the local login or synthetic auth tests as hosted acceptance.
-4. With explicit production-import authorization, exercise selected historical recovery through the existing private ingestion boundary, preserving `mcp-hey:` keys, then verify source-only counts and rerun deduplication before treating the candidate as deployed.
+3. Keep the initial CLI use supervised and one-off. The hosted test below clears read-only runner acceptance, not an unattended renewable OAuth lifecycle.
+4. Implement and test the scoped official-CLI historical-recovery adapter. With explicit production-import authorization, exercise selected recovery through the existing private ingestion boundary, preserving `mcp-hey:` keys, then verify source-only counts and rerun deduplication before treating the candidate as deployed.
 
-No production import, migration, deployment, mailbox edit, GitHub secret change, or upstream comment was performed during this test.
+No production import, migration, deployment, mailbox edit, GitHub secret change, or upstream comment was performed during the local testing stages above.
 
 ## Disposable GitHub qualification
 
 The [read-only workflow](../.github/workflows/hey-cli-verify.yml) bootstraps only from `codex/hey-cli-hosted-verification` when that workflow file changes. It has no schedule or production credentials. A temporary `hey-cli-verification` environment must restrict access to that branch and contain `HEY_CLI_VERIFY_TOKEN` only for the approved run. Remove the secret after completion or failure; the workflow token deliberately has no permission to administer secrets.
 
 The job validates Radar, checks out the exact v1.4.1 source commit, applies the [reviewed PR #346 patch](../patches/hey-cli-pr346-attachments.patch), runs upstream component tests, and builds the distinctly named `1.4.1-radar-pr346` candidate. It reruns synthetic authentication checks on Linux before giving the actual token to the final bounded Paper Trail PDF check. Dependency and Go caches are disabled, no mail artifacts are uploaded, and an `always()` step removes the isolated live config/state/cache directories. The operator must separately verify secret removal. This qualification does not authorize an import or production deployment.
+
+### Hosted acceptance — September 4, 2026 (America/Denver)
+
+[GitHub run 33940128171](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33940128171) passed on verification commit `0338c7c35425904ec843a6eb8fdcb911f9f6fd78`. The Linux job ran from 20:48:50 to 20:50:14 Mountain time (84 seconds; September 5 in UTC).
+
+- Radar's complete gate passed with 276 tests in 26 files and enforced coverage floors. Actionlint passed locally.
+- The pinned upstream HTML, authentication, and thread-loading tests passed. The Linux candidate binary SHA-256 was `a00eacf32d7e09b6e83c9a7aa7c53f3007c346adce91dcf4ac015ef2f9b7541b`.
+- All six synthetic authentication scenarios passed on the actual runner, including rotation and restart. Real-token expiry/revocation was not deliberately induced.
+- The live seven-day Paper Trail PDF sample matched and completely checked three threads: five attachment evidence items, five listed attachments, zero missing/unsafe/malformed evidence, zero command failures. This hosted run did not download attachments.
+- The verifier confirmed its temporary cache was removed; the final job step confirmed all isolated live state was removed. GitHub reported zero uploaded artifacts.
+- With explicit user approval, the operator token was piped directly into the encrypted environment secret without displaying it or writing a local token file. After completion, the secret was deleted and its absence checked, then the temporary environment was deleted. An independent environment listing contained only `production`; repository secret names remained `ADMIN_TOKEN` and `CLOUDFLARE_API_TOKEN`. The operator's HEY login was not revoked.
+
+This clears one-off authenticated hosted verification for the pinned candidate and sample. It is not a production HEY rollout, broad mailbox completeness proof, forwarding-overlap deduplication proof, or authorization to import the failed historical record. No merge to `main`, production import, migration, batch, mailbox mutation, or Worker deployment occurred.

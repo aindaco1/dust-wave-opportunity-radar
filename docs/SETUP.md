@@ -60,7 +60,7 @@ Run Actions → **HEY seven-day backfill** → Run workflow. The importer is ide
 
 ### Official HEY CLI qualification
 
-The official HEY CLI is installed and authenticated on an operator machine only for supervised read-only investigation. It is not the production watcher or the deployed historical importer. Before considering that boundary again, run:
+The official HEY CLI is installed and authenticated on an operator machine for supervised read-only investigation. A disposable GitHub read-only check also passed; its temporary credential was deleted afterward. The CLI is not the production watcher or the deployed historical importer. To repeat the local evidence check, run:
 
 ```bash
 npm run verify:hey-cli
@@ -70,7 +70,7 @@ The verifier searches a bounded seven-day Paper Trail PDF sample by default, use
 
 As of September 4, 2026, official CLI v1.4.1 still omitted PDFs nested inside `text/html` Trix attachments. An isolated build with upstream PR #346 discovered all five expected files across the three sampled threads and successfully downloaded all four PDFs. See [HEY CLI qualification](HEY-CLI.md) for the exact revisions, corrected attachment counts, and remaining identity/hosted-authentication checks. Do not copy `hey auth token` output into logs or the repository.
 
-The continuation verified three real legacy topic keys and local repeat-import/recovery behavior. Six synthetic headless-authentication cases also passed (`npm run verify:hey-cli-auth`). No HEY credential is configured for the candidate on GitHub. A local login does not provision a hosted runner, and a plain environment token does not provide a renewable credential lifecycle. Do not run a broad historical import across forwarded mail without a verified identity or non-overlap boundary.
+The continuation verified three real legacy topic keys and local repeat-import/recovery behavior. Six synthetic headless-authentication cases also passed (`npm run verify:hey-cli-auth`). The explicitly approved [hosted check](https://github.com/aindaco1/dust-wave-opportunity-radar/actions/runs/33940128171) verified three threads and all five expected attachments; its temporary secret/environment and runner state were removed. No HEY credential remains configured for the candidate on GitHub. A local login does not provision a hosted runner, and a plain environment token does not provide a renewable credential lifecycle. Do not run a broad historical import across forwarded mail without a verified identity or non-overlap boundary.
 
 ## 4. Zoho OAuth
 
