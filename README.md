@@ -11,7 +11,7 @@ Notion body conflicts are held in a counted review queue. Formatting-equivalent 
 ## Production behavior
 
 - Schedule: 07:00 and 19:00 in `America/Denver`; an hourly cron selects those local slots across daylight-saving changes.
-- HEY: official forwarding of non-spam mail to Cloudflare Email Routing. `Sealjay/mcp-hey` is limited to the optional historical backfill.
+- HEY: official forwarding of non-spam mail to Cloudflare Email Routing. `Sealjay/mcp-hey` is limited to the optional historical backfill; the [pinned official CLI](docs/HEY-CLI.md) supports supervised recovery of one existing failed historical record.
 - Zoho: `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`, with a seven-day initial window and one-hour checkpoint overlap.
 - Creative West: open New Mexico opportunities for artists or organizations whose deadlines fall between the Mountain-time run date and 31 days later, sorted by newest open date.
 - Colossal: current/previous named roundup month, plus an early next-month post, split into individual candidates with persistent deduplication and retry state. See [Colossal](docs/COLOSSAL.md).

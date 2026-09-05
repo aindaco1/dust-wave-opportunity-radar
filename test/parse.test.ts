@@ -9,6 +9,7 @@ import {
 } from "../src/notion/client";
 import type { Classification } from "../src/types";
 import { messageRecord } from "./support/fixtures";
+import { buildMime } from "../scripts/hey-mime.mjs";
 
 describe("message parsing", () => {
   it("converts email HTML to compact text", () => {
@@ -120,6 +121,19 @@ describe("message parsing", () => {
 });
 
 describe("stored MIME parsing", () => {
+  it.each(["application/pdf", "application/octet-stream"])("parses recovered PDFs with %s metadata", async (mimeType) => {
+    const raw = buildMime({ id: "9001", subject: "Synthetic recovery", fromName: "Example Foundation",
+      fromEmail: "calls@example.org", to: "receiver@example.org", date: new Date("2026-08-05T12:00:00Z"),
+      body: "Synthetic historical message", attachments: [{ filename: "requirements.pdf", mime: mimeType,
+        bytes: Buffer.from(buildSimplePdf("Synthetic PDF application deadline September 15")) }] });
+    const bucket = { get: async () => ({ arrayBuffer: async () => new Uint8Array(raw).buffer }) } as unknown as R2Bucket;
+    const parsed = await parseStoredMessage(bucket, messageRecord(), 20_971_520);
+    expect(parsed.messageId).toBe("<mcp-hey-9001@dustwave-opportunity-radar>");
+    expect(parsed.attachments).toHaveLength(1);
+    expect(parsed.attachments[0]?.text).toContain("Synthetic PDF application deadline September 15");
+    expect(parsed.warnings).toEqual([]);
+  });
+
   it("rejects expired and missing R2 objects clearly", async () => {
     const bucket = { get: async () => null } as unknown as R2Bucket;
     await expect(parseStoredMessage(bucket, messageRecord({ raw_r2_key: "" }), 1_000)).rejects.toThrow("expired from R2");
