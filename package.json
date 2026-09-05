@@ -11,6 +11,8 @@
   "scripts": {
     "check": "npm run docs:check && npm run typecheck && npm run test:coverage && npm run deploy:dry",
     "backfill:hey": "node scripts/hey-backfill.mjs",
+    "verify:hey-cli": "node scripts/hey-cli-verify.mjs",
+    "verify:hey-cli-auth": "node scripts/hey-cli-auth-smoke.mjs",
     "cf-typegen": "wrangler types --env-file .env.example",
     "deploy": "node scripts/deploy.ts",
     "deploy:email-routing": "wrangler deploy",

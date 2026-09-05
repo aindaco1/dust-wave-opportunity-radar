@@ -28,6 +28,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | Colossal | `colossal-parser.test.ts`, `colossal.test.ts`, `discovery-policy.test.ts` | Named-month discovery, featured/individual entries, safe official evidence, cross-month dedupe/shared URLs, source caps/cursors, archive fallback, conditional requests, expired payload recovery, and closed-call dates |
 | Hyperallergic | `hyperallergic-parser.test.ts`, `hyperallergic.test.ts`, `discovery-policy.test.ts` | Monthly-only discovery, observed Ghost heading families, multiple listings per paragraph, continuation text, shortener evidence, grouped/shared URLs, safe limits, dedupe, cached/partial recovery, and disabled-source behavior |
 | Ingestion adapters | `email-worker.test.ts`, `email-runtime.test.ts`, `zoho.test.ts`, `creative-west.test.ts` | HEY limits/cleanup, production-shaped Email Worker streams with local R2/D1, OAuth/account/folders, MIME/fallback, checkpoints, exact public-feed filters/window, and snapshot dedupe |
+| HEY CLI qualification | `hey-cli-fidelity.test.ts`, `hey-cli-verify.test.ts`, `email-worker.test.ts` | exact topic/posting identity separation; legacy repeat import and expired-row recovery; forwarded identity boundary; fail-closed attachment reconciliation and nonempty sample requirement; redacted subprocess failures and cache cleanup, using synthetic fixtures only |
 | Persistence | `database.test.ts` | real migrations, uniqueness, state machine, stale claims, retention, runs |
 | Notion | `notion.test.ts` | schema, find-before-create, manual-page preference, safe body update, explicit body ownership, guarded newest-message page-group reconciliation, duplicate trash ownership |
 | Rendering/delivery | `digest.test.ts` | copy, escaping, category order, compaction, binding request |
@@ -61,6 +62,8 @@ Always restore global mocks in `afterEach`. Avoid implementation-only call count
 ## Fixtures and privacy
 
 Use invented domains such as `example.org`, fictional organizations, and synthetic MIME/PDF/DOCX content. Do not copy a production email, sender list, private opportunity URL, Notion response, HEY cookie, or OAuth payload into the repository. Keep fixtures small and inline unless reuse materially improves clarity.
+
+`npm run verify:hey-cli-auth` is a separate opt-in check of an installed HEY binary against a loopback mock server with invented credentials only. It exercises missing/rejected credentials, expiry, HTTP 401 refresh, rotation, process restart, private file permissions, and cleanup. `HEY_CLI_TEST_BINARY` selects a specific build. It does not prove live HEY or GitHub authentication; see [HEY CLI qualification](HEY-CLI.md).
 
 `creative-west.test.ts` verifies the exact effective portal filters, Mountain-time 31-day range, bounded synthetic MIME, snapshot dedupe/update behavior, disabled switch, inspection count, and malformed/upstream failure paths using only fictional responses.
 

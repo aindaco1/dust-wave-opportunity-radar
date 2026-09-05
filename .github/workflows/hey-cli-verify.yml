@@ -1,0 +1,88 @@
+name: Verify HEY CLI read-only
+
+# Bootstrap on one named branch; no schedule, main trigger, or production job.
+# Documentation-only follow-ups do not rerun the credentialed check.
+on:
+  push:
+    branches: [codex/hey-cli-hosted-verification]
+    paths: [.github/workflows/hey-cli-verify.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hey-cli-hosted-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Created temporarily with a deployment-branch restriction to this branch.
+    environment: hey-cli-verification
+    env:
+      HEY_NO_KEYRING: "1"
+      HEY_NONINTERACTIVE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          # No dependency cache is saved by this disposable qualification job.
+      - run: npm ci
+      - name: Validate Radar before accessing HEY
+        run: npm run check
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: basecamp/hey-cli
+          ref: d5d5a9360266c74c95165939d478132bc2752344
+          path: hey-cli
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: hey-cli/go.mod
+          cache: false
+      - name: Apply reviewed embedded-attachment patch
+        working-directory: hey-cli
+        run: |
+          git apply --check "$GITHUB_WORKSPACE/patches/hey-cli-pr346-attachments.patch"
+          git apply "$GITHUB_WORKSPACE/patches/hey-cli-pr346-attachments.patch"
+          git diff --check
+      - name: Test and build pinned candidate
+        working-directory: hey-cli
+        run: |
+          go test ./internal/htmlutil ./internal/auth ./internal/threadload
+          make build VERSION=1.4.1-radar-pr346
+          sha256sum bin/hey
+      - name: Test authentication lifecycle using invented credentials
+        run: npm run verify:hey-cli-auth
+        env:
+          HEY_CLI_TEST_BINARY: ${{ github.workspace }}/hey-cli/bin/hey
+      - name: Create disposable live-check directories
+        run: node -e 'require("node:fs").mkdirSync(require("node:path").join(process.env.RUNNER_TEMP,"hey-cli-qualification","tmp"),{recursive:true,mode:0o700})'
+      - name: Verify bounded live attachment sample
+        # The real credential exists only in this step's environment. Raw CLI
+        # diagnostics stay captured in memory; the wrapper emits counters only.
+        env:
+          HEY_TOKEN: ${{ secrets.HEY_CLI_VERIFY_TOKEN }}
+          HEY_CLI_EXPECTED_VERSION: 1.4.1-radar-pr346
+          HEY_CLI_BOX: papertrail
+          HEY_CLI_ATTACHMENT_KIND: pdfs
+          HEY_CLI_DATE_RANGE: last_7_days
+          HEY_CLI_MAX_THREADS: "10"
+          XDG_CONFIG_HOME: ${{ runner.temp }}/hey-cli-qualification/config
+          XDG_STATE_HOME: ${{ runner.temp }}/hey-cli-qualification/state
+          XDG_CACHE_HOME: ${{ runner.temp }}/hey-cli-qualification/cache
+          TMPDIR: ${{ runner.temp }}/hey-cli-qualification/tmp
+        run: |
+          if [ -z "$HEY_TOKEN" ]; then
+            echo "Temporary HEY verification credential is missing."
+            exit 2
+          fi
+          PATH="$GITHUB_WORKSPACE/hey-cli/bin:$PATH" npm run verify:hey-cli
+      - name: Remove and verify disposable state
+        if: always()
+        run: |
+          node --input-type=module -e 'import fs from "node:fs"; import path from "node:path"; const root=path.join(process.env.RUNNER_TEMP,"hey-cli-qualification"); fs.rmSync(root,{recursive:true,force:true}); if(fs.existsSync(root))process.exit(2); console.log(JSON.stringify({disposableStateRemoved:true}));'

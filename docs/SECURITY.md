@@ -25,7 +25,11 @@ Email bodies, Colossal/Hyperallergic RSS/HTML, Creative West API fields, attachm
 
 ## Known boundary
 
-HEY’s official forwarding is the production path. The one-time historical import uses the unofficial `Sealjay/mcp-hey` reverse-engineered API because HEY offers no public read API. It runs on a disposable GitHub runner at a pinned revision, needs a temporary session-cookie secret, performs read-only MCP calls, and should be disabled by deleting `HEY_COOKIES_JSON` immediately after use.
+HEY’s official forwarding is the production path. The one-time historical import still uses the unofficial `Sealjay/mcp-hey` reverse-engineered API because HEY offers no supported public read API for this service. It runs on a disposable GitHub runner at a pinned revision, needs a temporary session-cookie secret, performs read-only MCP calls, and should be disabled by deleting `HEY_COOKIES_JSON` immediately after use.
+
+The official HEY CLI remains a qualification tool, not a production ingestion path. Its verifier uses the original HTML solely to count and reconcile attachment evidence, never logs content, filenames, IDs, or private URLs, does not download files, and removes its isolated cache. Any missing, malformed, unsafe, truncated, or unreadable attachment evidence blocks qualification. A `HEY_TOKEN` can support a short-lived headless command, but it is a bearer secret and does not by itself establish refresh, rotation, revocation, or hosted-runner acceptance.
+
+An explicitly approved disposable GitHub qualification uses the same verifier with a temporary environment secret restricted to the verification branch. Only the final read-only step receives that secret; setup, dependencies, build, and synthetic tests do not. There are no uploaded mail artifacts or persistent caches. Always remove runner state and separately delete the GitHub secret after the run; deleting a copied secret does not revoke the operator's existing HEY login. See [HEY CLI qualification](HEY-CLI.md).
 
 ## Incident response
 
