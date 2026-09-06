@@ -27,48 +27,29 @@ Then read:
 
 `npm run check` is offline with respect to production services. It validates docs/types/tests and builds a dry-run Worker bundle but does not deploy.
 
-## Current production profile
+## Current state and authoritative references
 
-- Worker: `dustwave-opportunity-radar`
-- Public URL: `https://dustwave-opportunity-radar.jogo.workers.dev`
-- Schedule: 07:00 and 19:00 `America/Denver`
-- Notion and Zoho runtime flags: enabled in `wrangler.jsonc`
-- Creative West runtime flag: enabled in `wrangler.jsonc`; New Mexico open artist/organization listings through local run date +31 days
-- Zoho folders: `Inbox`, `Dust Wave`, `Newsletter`, `Notification`
-- Notion data source ID: `248a67e1-4d47-48f8-bc84-a9602ca91b78`
-- Digest: `opportunities@digest.dustwave.xyz` → `alonso@hey.com`; empty suppressed
-- Raw/parsed R2 retention: 24 hours
-- HEY steady state: official forwarding; reverse-engineered MCP is historical import only
-- Official HEY CLI: pinned patched build for manually authorized one-record failed-expired recovery only; no recurring watcher. See [HEY CLI](HEY-CLI.md).
+The reviewed [Worker configuration](../wrangler.jsonc) enables Zoho, Creative West, Colossal, Hyperallergic, and Notion. HEY forwarding remains the ongoing inbound path; the official CLI is limited to supervised historical recovery. Use these documents for details:
 
-Production secrets are not in this repository. A clean local test run does not need them.
+- [Configuration](CONFIGURATION.md) owns bindings, runtime values, source flags, and secret locations. Production secrets are outside the repository; local quality gates do not need them.
+- [Operations](OPERATIONS.md) owns the schedule, monitoring, recovery, and rollout procedures. Deployed state must be checked separately from reviewed configuration.
+- [Data model](DATA-MODEL.md) owns the current schema and migration sequence.
+- [Colossal](COLOSSAL.md) and [Hyperallergic](HYPERALLERGIC.md) own source scope and acceptance. Both use the shared roundup helpers described in [Architecture](ARCHITECTURE.md#code-map); preserve existing snapshot identity and recovery when changing them.
+- [HEY CLI recovery](HEY-CLI.md#scoped-historical-recovery) owns the guarded one-record recovery procedure and pinned candidate requirements.
 
-The September 4 official-CLI recovery merged through PR #36 and restored one existing failed historical HEY identity with three older messages and three DOCX attachments. Hosted preview/import, no-write repeat, independent R2 parsing and temporary-token cleanup passed; no downstream batch was forced. See the [acceptance record](HEY-CLI.md#production-recovery-acceptance--september-4-2026-americadenver).
+## Recorded acceptance and outstanding verification
 
-## Colossal deployment
+The dated records below describe September 4, 2026 results. They do not establish subsequent scheduled outcomes or today's deployed state.
 
-Colossal monthly roundups are enabled in the reviewed configuration with `COLOSSAL_ENABLED=true`; migration 0006 must precede deployment of this code. Verify the deployed flag through `/health`, and distinguish source-only import from scheduled Notion/digest acceptance. See [Colossal](COLOSSAL.md) for the current/previous-month scope, shared processing, recovery, and deployment sequence.
+- [Hyperallergic production acceptance](HYPERALLERGIC.md#production-acceptance--september-4-2026) records migration 0007, deployment, a source-only import of 22 unique queued entries, and a repeat with zero imports. Scheduled classification, Notion publication, and digest delivery were not verified by that acceptance.
+- [HEY production recovery acceptance](HEY-CLI.md#production-recovery-acceptance--september-4-2026-americadenver) records restoration of one existing identity, no-write repeat verification, independent DOCX parsing, and temporary-credential cleanup. No downstream batch was forced or accepted.
+- [Colossal deployment and acceptance](COLOSSAL.md#deployment-and-acceptance) defines the required live checks. The [archived implementation plan](archive/COLOSSAL-INTEGRATION-PLAN.md) records original scope, not live acceptance evidence.
 
-## Hyperallergic rollout
+A future production investigation should verify scheduled outcomes independently and update the relevant source acceptance record with dated evidence.
 
-Hyperallergic monthly roundups are enabled in the reviewed configuration with `HYPERALLERGIC_ENABLED=true`. Migration 0007 must precede deployment. Verify the deployed flag, source-only import, and scheduled outcomes separately. Colossal and Hyperallergic share `roundup-source.ts` and `roundup-parser.ts`; preserve Colossal snapshot identity and recovery behavior when changing those helpers. See [Hyperallergic](HYPERALLERGIC.md).
+## Required behavior
 
-The September 4 production rollout applied migration 0007 and enabled the source. Source-only acceptance queued 22 unique entries; a repeat imported zero. Scheduled classification/Notion/digest acceptance was not forced or claimed. See the runbook's [production acceptance record](HYPERALLERGIC.md#production-acceptance--september-4-2026).
-
-## Behavior that must not regress
-
-- Check existing Notion records before creating a page.
-- Treat alternate submission/application titles for the same named/year opportunity as equivalent while rejecting conflicting years and generic token collisions.
-- Prefer manual Notion pages; trash only automation-owned duplicates.
-- Keep Notion bodies free of visible automation markers/history.
-- Store prior generated Markdown in D1 and fail if it appears manually edited.
-- Keep Workflow execution metadata content-free; use D1 as the classification/state owner.
-- Count retryable Notion and manual-review outcomes separately; never hide them inside a completed run.
-- Demote uncertain/no-official-URL calls to human review.
-- Recovery classification never auto-publishes.
-- Reject geographically only when all three target states are explicitly excluded.
-- Parse PDF and DOCX within the documented byte/page/decompression/time limits.
-- Revalidate every web redirect against SSRF controls.
+[AGENTS.md](../AGENTS.md) owns repository-wide invariants and production authorization boundaries. Follow [Classification](CLASSIFICATION.md) for publication and recovery policy, [Notion integration](NOTION.md) for entity matching and manual-body protection, [Architecture](ARCHITECTURE.md#failure-isolation) for durable orchestration and outcome accounting, and [Security](SECURITY.md) for parsing and network limits. Keep these references authoritative instead of copying their rules into this handoff.
 
 ## Safe prompt starters
 

@@ -1,12 +1,45 @@
-# HEY CLI qualification
+# HEY CLI recovery and qualification
 
 ## Current decision
 
-The attachment omission is resolved in the tested v1.4.1 build with upstream [PR #346](https://github.com/basecamp/hey-cli/pull/346) applied. The ordinary installed v1.4.1 release still omits these files and has not been replaced. Local qualification used an isolated checkout; the hosted workflows build the same explicitly pinned candidate for each approved run.
+The September 4, 2026 qualification resolved the attachment omission in the tested v1.4.1 build with upstream [PR #346](https://github.com/basecamp/hey-cli/pull/346) applied. The ordinary installed v1.4.1 release omitted these files and was not replaced during that qualification. Local qualification used an isolated checkout; the hosted workflows build the same explicitly pinned candidate for each approved run.
 
 Official forwarding remains the ongoing production ingestion path. The pinned candidate's [manual historical-recovery adapter](../scripts/hey-cli-recovery.mjs) and [disposable GitHub workflow](../.github/workflows/hey-cli-recover.yml) are merged and passed the first source-only production recovery below. This is limited to one explicitly selected existing failed record with an expired payload; it is not a broad backfill or mailbox watcher. Deduplication against forwarded Message-IDs and unattended renewable OAuth remain unverified and outside this recovery scope.
 
-## September 4, 2026 comparison
+## Scoped historical recovery
+
+The [recovery command](../scripts/hey-cli-recover.mjs) (`npm run recover:hey-cli -- --help`) defaults to preview. Its workflow accepts a D1 SHA-256 message ID, not a new HEY topic, and runs only on protected `main`. The shared [build action](../.github/actions/setup-hey-cli/action.yml) pins the same base and reviewed patch as the hosted qualification, labels it `1.4.1-radar-pr346`, and tests the read-only MCP gateway as well as HTML, auth, and thread loading.
+
+- Require the exact existing `hey` / `mcp-hey:<topic>` identity, one D1 row, `failed` status, and an empty raw reference. Successful or retained-failed records are refused. An already queued restored row is a no-write skip.
+- Read only that topic. Require complete hydrated messages and attachment inventory. The CLI JSON timestamps omit zone/seconds, so `hey mcp --read-only --domains threads` supplies original API timestamps and HTML via `hey_threads/get_message`.
+- Include only messages created by the original D1 insertion time. Exclude later replies and their attachments. Refuse older messages edited since that cutoff; historical content cannot be reconstructed reliably in that case.
+- Reconcile attachment-shaped HTML evidence per message, then download every selected file under generated filenames. Require exact owner/ID/size, private regular files, PDF signatures, a 20 MiB aggregate attachment budget and 25 MiB MIME budget. Any incomplete file blocks the entire import.
+- Share MIME construction with the legacy backfill. Preserve the `mcp-hey:` topic key, stored metadata, and synthetic Message-ID; encode Unicode headers, bodies, and filenames safely.
+- Re-read D1 immediately before the sole POST to the existing `/admin/import/hey` endpoint. Verify the same row is queued with attempts reset, exact raw size/key, and preserved classification/metadata. Repeat the guard and require zero additional writes. There is no forced batch or Notion operation.
+- The pre-write check is not a server-side compare-and-swap. Do not concurrently edit/delete the target or run another importer. A scheduled batch may claim a restored row immediately; if verification stops after the POST, reconcile D1 before any retry. Network ambiguity never triggers an automatic POST retry.
+- Real credentials are restricted to the final workflow step and separated between HEY and Wrangler child environments. No token is persisted by this runner. Source output stays in memory, Wrangler disk logging is disabled, attachments/cache use private disposable directories, and no artifacts or persistent caches are uploaded. Delete the temporary environment secret after success or failure; this does not revoke the operator login.
+
+Synthetic [regression tests](../test/hey-cli-recovery.test.ts) cover fail-closed identity/content/download checks, cutoff and timezone handling, Unicode MIME round trips, a real migrated D1/R2 importer round trip with DOCX parsing, preserved classification, unchanged downstream tables, no-write repeats, and content-free command failures. [Parser regressions](../test/parse.test.ts) also verify recovered PDFs with either explicit PDF or generic binary MIME metadata. The live recovery below contains DOCX files, not the PDFs from the [qualification sample](#september-4-2026-comparison).
+
+## Boundaries for any future expansion
+
+The approved single-record recovery is accepted below; there is no outstanding deployment requirement for that scope.
+
+1. Broader overlapping imports require original-message identity or another independently verified non-overlap boundary; matching by title/body is insufficient. They are deliberately outside this adapter.
+2. Keep CLI use supervised and one-off. An unattended renewable OAuth lifecycle and an unpatched maintained release are future work, not requirements for this bounded pinned recovery.
+3. The normal batch's eventual classification/Notion/digest result is distinct from source-only recovery. No batch was forced for this acceptance.
+
+## Disposable GitHub qualification
+
+The original [read-only workflow](../.github/workflows/hey-cli-verify.yml) bootstrapped from `codex/hey-cli-hosted-verification` using a temporary branch-restricted environment. After that successful bootstrap it is manual-only on protected `main`, with a temporary `HEY_CLI_VERIFY_TOKEN` in the existing `production` environment and no Worker admin credential. Remove the secret after completion or failure; the workflow token deliberately has no permission to administer secrets. Do not delete the existing production environment.
+
+The job validates Radar, checks out the exact v1.4.1 source commit, applies the [reviewed PR #346 patch](../patches/hey-cli-pr346-attachments.patch), runs upstream component tests, and builds the distinctly named `1.4.1-radar-pr346` candidate. It reruns synthetic authentication checks on Linux before giving the actual token to the final bounded Paper Trail PDF check. Dependency and Go caches are disabled, no mail artifacts are uploaded, and an `always()` step removes the isolated live config/state/cache directories. The operator must separately verify secret removal. This qualification does not authorize an import or production deployment.
+
+## Qualification and acceptance history
+
+The following evidence records September 4, 2026 testing and production actions. Counts, installed-binary observations, and credential inventories describe those checks, not current live state. Use the procedures above for a new authorized operation.
+
+### September 4, 2026 comparison
 
 The same three Paper Trail threads matched the last-seven-days PDF search for both binaries. Original HTML was read in memory and compared with each binary's attachment inventory. Threads were read without allowing partial results.
 
@@ -21,7 +54,7 @@ All four PDF downloads matched declared sizes, had PDF headers, and had owner-on
 
 The earlier local verifier reported eleven references because it included six distinct externally referenced inline images. HEY represents these as unnamed `action-text-attachment` elements with `content-type="image"`; they remain part of the HTML body and are not downloadable mail attachments. The verifier now excludes that specific remote-image shape while retaining named image files, HEY blob links, and document URLs. Regression tests reproduce the previous false warning and preserve the real missing-PDF failure.
 
-## Tested source and checks
+### Tested source and checks
 
 - Base: official [v1.4.1](https://github.com/basecamp/hey-cli/releases/tag/v1.4.1), commit `d5d5a9360266c74c95165939d478132bc2752344`.
 - Applied change: [PR commit `3447d76c93d1b2da564d7d196c95a03b24e870d7`](https://github.com/basecamp/hey-cli/commit/3447d76c93d1b2da564d7d196c95a03b24e870d7), the reviewed changes to `internal/htmlutil/htmlutil.go` and its test file. No SDK or authentication implementation changes.
@@ -33,7 +66,7 @@ The earlier local verifier reported eleven references because it included six di
 
 All unit tests used isolated config/cache/state directories and disabled keyring access. Live reads used the existing login with a disposable cache; PDF downloads were also temporary. Caches and downloaded copies were deleted after each live check. No source mail, attachment filenames, private URLs, or credentials were saved in project files or diagnostic logs.
 
-## Identity verification continuation
+### Identity verification continuation
 
 A read-only production D1 check on September 4 found 78 HEY rows: 73 with legacy `mcp-hey:` keys and five with other keys. The legacy records comprise 66 ignored, four digest, two Notion, and one failed record. All 78 rows have expired payload references. No payload was restored or classification rerun. The first D1 request returned Cloudflare code 7403; account/scope checks succeeded and the bounded retry succeeded, so that transient error is not an outstanding access blocker.
 
@@ -48,7 +81,7 @@ Three legacy records were selected, prioritizing the failed row and then recent 
 
 The reviewed SDK `Entry` and `Message` models contain HEY numeric identities but no original RFC Message-ID field. No supported mapping from a whole topic to forwarded mail has been established. An importer must retain the legacy prefix and topic identity for explicitly verified existing records; it must not substitute posting/entry IDs or a new `hey-cli:` prefix. Overlapping fresh imports remain unqualified. The local topic extractor now rejects numeric IDs that cannot be represented exactly in JavaScript.
 
-## Headless authentication continuation
+### Headless authentication continuation
 
 The [authentication smoke harness](../scripts/hey-cli-auth-smoke.mjs) executes the real CLI against a loopback-only mock service. It supplies only invented credentials, disables keyring access, uses isolated config/state/cache directories, tests mode-`0600` stored credentials, suppresses raw subprocess diagnostics, and deletes all temporary state. It requires no HEY login and does not contact the production Worker.
 
@@ -73,21 +106,7 @@ These are local simulations of headless behavior, not Linux/GitHub-hosted accept
 
 The local continuation's final `npm run check` passed: 275 tests in 26 files, coverage floors (89.35% statements, 78.12% branches, 93.93% functions, 91.90% lines), documentation, type checks, and the Worker dry bundle. `git diff --check` and Node syntax checks also passed. At that stage all changes were local; the later hosted run below used a dedicated verification branch.
 
-## Boundaries for any future expansion
-
-The approved single-record recovery is accepted below; there is no outstanding deployment requirement for that scope.
-
-1. Broader overlapping imports require original-message identity or another independently verified non-overlap boundary; matching by title/body is insufficient. They are deliberately outside this adapter.
-2. Keep CLI use supervised and one-off. An unattended renewable OAuth lifecycle and an unpatched maintained release are future work, not requirements for this bounded pinned recovery.
-3. The normal batch's eventual classification/Notion/digest result is distinct from source-only recovery. No batch was forced for this acceptance.
-
 No production import, migration, deployment, mailbox edit, GitHub secret change, or upstream comment was performed during the local testing stages above.
-
-## Disposable GitHub qualification
-
-The original [read-only workflow](../.github/workflows/hey-cli-verify.yml) bootstrapped from `codex/hey-cli-hosted-verification` using a temporary branch-restricted environment. After that successful bootstrap it is manual-only on protected `main`, with a temporary `HEY_CLI_VERIFY_TOKEN` in the existing `production` environment and no Worker admin credential. Remove the secret after completion or failure; the workflow token deliberately has no permission to administer secrets. Do not delete the existing production environment.
-
-The job validates Radar, checks out the exact v1.4.1 source commit, applies the [reviewed PR #346 patch](../patches/hey-cli-pr346-attachments.patch), runs upstream component tests, and builds the distinctly named `1.4.1-radar-pr346` candidate. It reruns synthetic authentication checks on Linux before giving the actual token to the final bounded Paper Trail PDF check. Dependency and Go caches are disabled, no mail artifacts are uploaded, and an `always()` step removes the isolated live config/state/cache directories. The operator must separately verify secret removal. This qualification does not authorize an import or production deployment.
 
 ### Hosted acceptance — September 4, 2026 (America/Denver)
 
@@ -102,24 +121,11 @@ The job validates Radar, checks out the exact v1.4.1 source commit, applies the 
 
 This clears one-off authenticated hosted verification for the pinned candidate and sample. It is not a production HEY rollout, broad mailbox completeness proof, forwarding-overlap deduplication proof, or authorization to import the failed historical record. No merge to `main`, production import, migration, batch, mailbox mutation, or Worker deployment occurred.
 
-## Scoped historical recovery
-
-The [recovery command](../scripts/hey-cli-recover.mjs) (`npm run recover:hey-cli -- --help`) defaults to preview. Its workflow accepts a D1 SHA-256 message ID, not a new HEY topic, and runs only on protected `main`. The shared [build action](../.github/actions/setup-hey-cli/action.yml) pins the same base and reviewed patch as the hosted qualification, labels it `1.4.1-radar-pr346`, and tests the read-only MCP gateway as well as HTML, auth, and thread loading.
-
-- Require the exact existing `hey` / `mcp-hey:<topic>` identity, one D1 row, `failed` status, and an empty raw reference. Successful or retained-failed records are refused. An already queued restored row is a no-write skip.
-- Read only that topic. Require complete hydrated messages and attachment inventory. The CLI JSON timestamps omit zone/seconds, so `hey mcp --read-only --domains threads` supplies original API timestamps and HTML via `hey_threads/get_message`.
-- Include only messages created by the original D1 insertion time. Exclude later replies and their attachments. Refuse older messages edited since that cutoff; historical content cannot be reconstructed reliably in that case.
-- Reconcile attachment-shaped HTML evidence per message, then download every selected file under generated filenames. Require exact owner/ID/size, private regular files, PDF signatures, a 20 MiB aggregate attachment budget and 25 MiB MIME budget. Any incomplete file blocks the entire import.
-- Share MIME construction with the legacy backfill. Preserve the `mcp-hey:` topic key, stored metadata, and synthetic Message-ID; encode Unicode headers, bodies, and filenames safely.
-- Re-read D1 immediately before the sole POST to the existing `/admin/import/hey` endpoint. Verify the same row is queued with attempts reset, exact raw size/key, and preserved classification/metadata. Repeat the guard and require zero additional writes. There is no forced batch or Notion operation.
-- The pre-write check is not a server-side compare-and-swap. Do not concurrently edit/delete the target or run another importer. A scheduled batch may claim a restored row immediately; if verification stops after the POST, reconcile D1 before any retry. Network ambiguity never triggers an automatic POST retry.
-- Real credentials are restricted to the final workflow step and separated between HEY and Wrangler child environments. No token is persisted by this runner. Source output stays in memory, Wrangler disk logging is disabled, attachments/cache use private disposable directories, and no artifacts or persistent caches are uploaded. Delete the temporary environment secret after success or failure; this does not revoke the operator login.
+### Historical recovery preflight
 
 The September 4 read-only preflight found one eligible failed record. Its thread had four messages: three historical messages with three attachments and one newer message. Original API timestamps confirmed none of the three historical messages had been edited since the original import. No production write occurred in that preflight.
 
-Synthetic [regression tests](../test/hey-cli-recovery.test.ts) cover fail-closed identity/content/download checks, cutoff and timezone handling, Unicode MIME round trips, a real migrated D1/R2 importer round trip with DOCX parsing, preserved classification, unchanged downstream tables, no-write repeats, and content-free command failures. [Parser regressions](../test/parse.test.ts) also verify recovered PDFs with either explicit PDF or generic binary MIME metadata. The live recovery below contains DOCX files, not the PDFs from the earlier qualification sample.
-
-## Production recovery acceptance — September 4, 2026 (America/Denver)
+### Production recovery acceptance — September 4, 2026 (America/Denver)
 
 [PR #36](https://github.com/aindaco1/dust-wave-opportunity-radar/pull/36) merged the reviewed adapter after required CI passed. Both approved hosted runs used merge commit `54881707706716eb94233cad2ba89ba888fc261f` and the pinned candidate build.
 
@@ -137,4 +143,4 @@ Synthetic [regression tests](../test/hey-cli-recovery.test.ts) cover fail-closed
 
 The import job ran from 21:53:42 to 21:55:10 Mountain time (September 5 in UTC). Its full project check passed with 322 tests in 27 files, enforced coverage floors, docs/types and dry bundling; upstream HTML/auth/thread/MCP tests and all six synthetic authentication scenarios passed. Two subsequent synthetic PDF-parser cases bring the final project suite to 324 tests. No private MIME, attachment names, source text, private URLs or credential values were retained in the repository or acceptance logs.
 
-No Worker deployment, schema migration, mailbox mutation, broad backfill, forced classification, Notion publication or digest delivery was performed. The restored source waits for the normal 07:00/19:00 Mountain-time batch. A future one-off recovery requires a fresh explicitly approved temporary credential; no unattended HEY token is left configured on GitHub.
+No Worker deployment, schema migration, mailbox mutation, broad backfill, forced classification, Notion publication or digest delivery was performed. At acceptance, the restored source awaited the normal 07:00/19:00 Mountain-time batch. A future one-off recovery requires a fresh explicitly approved temporary credential; no unattended HEY token is left configured on GitHub.

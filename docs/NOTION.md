@@ -98,4 +98,4 @@ curl "$WORKER_URL/admin/integrations" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
-See [Setup](SETUP.md#5-notion), [Admin API](API.md), and [Troubleshooting](TROUBLESHOOTING.md#notion) for provisioning and recovery.
+See [Setup](SETUP.md#6-notion), [Admin API](API.md), and [Troubleshooting](TROUBLESHOOTING.md#notion) for provisioning and recovery.

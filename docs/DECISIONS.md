@@ -1,5 +1,11 @@
 # Design decisions
 
+## Colossal uses named months and individual candidates
+
+Monthly roundups can be published before their named month, so a publication-date cutoff would miss part of the requested current/previous-month scope. Discovery therefore uses the named month and includes an early next-month roundup when found. Structural parsing separates individual candidates before they enter the shared queue; classifying a whole roundup as one opportunity could combine unrelated programs into one Notion page.
+
+The adapter extends the existing public snapshot and safe-fetch helpers, preserving Creative West's identity and recovery behavior. Source-specific parsing and shared batch policy keep broad roundup ingestion separate from automatic publication. Ambiguous grouped programs and shared organizer URLs need human review because a common URL alone cannot distinguish the programs safely. See the current [Colossal runbook](COLOSSAL.md) and the [archived implementation plan](archive/COLOSSAL-INTEGRATION-PLAN.md) for the original scope and investigation.
+
 ## Hyperallergic shares the public-roundup pipeline
 
 The initial Hyperallergic scope is monthly Opportunities roundups, matching the requested example. Standalone sponsored announcements are excluded. Publisher-specific layout/URL parsers share Colossal's bounded transport, month discovery, resumable progress, snapshot identity, and existing batch/Notion/digest machinery. This keeps one recovery and policy path instead of a second scraper service. Unresolved short links cannot qualify as official primary URLs. The reviewed configuration enables the source for the explicitly authorized rollout; migration 0007 must precede deployment. See [Hyperallergic](HYPERALLERGIC.md).

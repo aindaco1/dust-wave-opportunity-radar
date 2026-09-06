@@ -8,7 +8,7 @@ The test suite is fast, privacy-safe, and layered around production risks. It us
 npm test                 # all tests once
 npm run test:watch       # focused local iteration
 npm run test:coverage    # tests plus enforced coverage floors
-npm run docs:check       # required docs and local Markdown links
+npm run docs:check       # required docs, local links, and ATX heading anchors
 npm run typecheck        # Cloudflare generated-type check + TypeScript
 npm run deploy:dry       # production bundle without upload
 npm run check            # complete required quality gate
@@ -25,6 +25,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | Shared public sources | `public-source-helpers.test.ts` | Snapshot identity, terminal preservation, expired-failure recovery, partial-write cleanup, bounded MIME and conditional RSS fetch |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
 | Toolchain | `toolchain.test.ts` | Exact locked workerd installer allowance and matching Vitest/coverage versions |
+| Documentation | `docs.test.ts` | Stale local heading anchors fail; valid cross-file/same-page anchors and code examples are handled; missing files and required current documents remain checked |
 | Colossal | `colossal-parser.test.ts`, `colossal.test.ts`, `discovery-policy.test.ts` | Named-month discovery, featured/individual entries, safe official evidence, cross-month dedupe/shared URLs, source caps/cursors, archive fallback, conditional requests, expired payload recovery, and closed-call dates |
 | Hyperallergic | `hyperallergic-parser.test.ts`, `hyperallergic.test.ts`, `discovery-policy.test.ts` | Monthly-only discovery, observed Ghost heading families, multiple listings per paragraph, continuation text, shortener evidence, grouped/shared URLs, safe limits, dedupe, cached/partial recovery, and disabled-source behavior |
 | Ingestion adapters | `email-worker.test.ts`, `email-runtime.test.ts`, `zoho.test.ts`, `creative-west.test.ts` | HEY limits/cleanup, production-shaped Email Worker streams with local R2/D1, OAuth/account/folders, MIME/fallback, checkpoints, exact public-feed filters/window, and snapshot dedupe |

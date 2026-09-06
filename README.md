@@ -63,7 +63,7 @@ For a fresh Codex task, open this repository as the project folder and start wit
 - [Admin API](docs/API.md)
 - [Testing](docs/TESTING.md)
 - [Security model](docs/SECURITY.md)
-- [Contributing](CONTRIBUTING.md)
+- [Contributing](docs/CONTRIBUTING.md)
 
 ## Repository layout
 
