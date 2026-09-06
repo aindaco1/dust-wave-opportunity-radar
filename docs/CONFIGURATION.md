@@ -4,6 +4,8 @@
 
 The GitHub repository and local project folder are named `dust-wave-opportunity-radar`. Existing deployed Cloudflare resources intentionally retain their stable `dustwave-opportunity-radar` identifiers; renaming the repository does not rename or recreate production infrastructure.
 
+The reviewed Worker name is `dustwave-opportunity-radar`, with public URL `https://dustwave-opportunity-radar.jogo.workers.dev`. Use its `/health` endpoint to verify deployed flags separately from the configuration recorded here.
+
 ## Cloudflare bindings
 
 | Binding | Resource | Purpose |

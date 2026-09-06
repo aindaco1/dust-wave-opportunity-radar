@@ -1,6 +1,8 @@
 # Colossal opportunities integration plan
 
-Status: implemented with regression coverage and enabled in the reviewed production configuration. The current behavior and deployment acceptance contract are in [Colossal](COLOSSAL.md); the implementation sequence below records the original plan. Scope confirmed September 4, 2026: initially import the **current and previous roundup month**, then discover new and updated roundups through the existing Cloudflare batches.
+Archived September 6, 2026. This is the original implementation plan, completed with regression coverage and enabled in the reviewed configuration. Its proposed steps and rollout instructions are historical. Follow [Colossal](../COLOSSAL.md) for current behavior and deployment acceptance, and [Design decisions](../DECISIONS.md#colossal-uses-named-months-and-individual-candidates) for the retained rationale.
+
+Scope confirmed September 4, 2026: initially import the **current and previous roundup month**, then discover new and updated roundups through the existing Cloudflare batches.
 
 ## Source findings
 

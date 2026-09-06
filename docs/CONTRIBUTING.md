@@ -4,35 +4,23 @@
 
 1. Create a focused branch from `main`.
 2. Install the locked dependencies with `npm ci`.
-3. Make the smallest change that preserves the invariants in [AGENTS.md](AGENTS.md).
+3. Make the smallest change that preserves the invariants in [AGENTS.md](../AGENTS.md).
 4. Add or update tests. Bug fixes require a regression example that fails before the fix.
 5. Update documentation when behavior, configuration, operations, data shape, or external access changes.
 6. Run `npm run check` and, for core pipeline changes, `npm run test:coverage`.
 7. Review `git diff` for credentials, real email data, generated coverage output, and unrelated edits before commit.
 
-## Test expectations
+## Tests and migrations
 
-Use the lowest useful layer, then add an orchestration test when boundaries interact:
+Follow [Testing](TESTING.md) for test layers, privacy-safe fixtures, quality gates, and the regression-test procedure. Follow the [migration procedure](DATA-MODEL.md#migration-procedure) for append-only schema changes and local validation. Production authorization boundaries are defined in [AGENTS.md](../AGENTS.md).
 
-- Pure policy/formatting helpers: direct unit test.
-- D1 behavior: the SQLite-backed D1 adapter in `test/support/d1.ts`, applying the real migrations.
-- External API adapters: stub `fetch` at the HTTP boundary and verify URL, method, headers, bounded failure behavior, and resulting state.
-- Worker routes and Workflow control flow: use the Cloudflare test shim in `test/support/cloudflare-workers.ts`.
+## Documentation changes
 
-Fixtures must be invented and privacy-safe. Do not paste real message bodies, session cookies, OAuth responses, Notion tokens, or private URLs into tests or snapshots.
+Use the [documentation index](README.md) to find the document that owns the behavior or procedure being changed. Update that document and link to it from summaries instead of copying its instructions.
 
-## Database migrations
+Keep project guides and references in `docs/`. The root retains `README.md`, repository-wide `AGENTS.md`, and the attribution `NOTICE.md`. Keep completed plans in `docs/archive/`, with a dated status and a link to the current reference; dated acceptance evidence must remain identifiable as historical.
 
-Create the next numbered SQL file in `migrations/`. Migrations are append-only. Update the schema version seed, data-model documentation, D1 test harness migration list, and migration tests in the same change.
-
-Apply locally first:
-
-```bash
-npm run migrate:local
-npm run check
-```
-
-Remote migration and deployment are separate, explicitly authorized production actions.
+When moving or adding a document, update incoming links, the index, and the required current-document list in [the documentation checker](../scripts/check-docs.mjs). Use ATX headings (`#` through `######`) and inline Markdown links, the syntax checked by `npm run docs:check`, including local heading anchors. Run that check before the full project gate.
 
 ## Toolchain updates
 
