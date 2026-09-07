@@ -1,9 +1,13 @@
+import originalDigest from "./fixtures/digest-before-extraction.json";
 import { describe, expect, it, vi } from "vitest";
 import { renderOpportunityDigest, sendOpportunityDigest } from "../src/email/digest";
 import type { DigestItemRecord } from "../src/storage/database";
 import { runtimeConfig } from "./support/fixtures";
 
 describe("opportunity digest", () => {
+  it("preserves the characterized HTML and plain text after shared extraction", () => {
+    expect(renderOpportunityDigest(originalDigest.items as DigestItemRecord[], new Date(originalDigest.date), "America/Denver")).toEqual(originalDigest.expected);
+  });
   it("uses the RSS digest visual language and escapes untrusted content", () => {
     const item: DigestItemRecord = {
       message_id: "1",
