@@ -75,7 +75,7 @@ Check `hyperallergicEnabled` first: it should be true after the reviewed rollout
 
 ## Artwork Archive
 
-Check `artworkArchiveEnabled`; the current configuration enables it for an explicitly authorized access check; disable it if access fails. Browser access does not establish Worker access. A 403, unexpected redirect, unsupported layout/filter, pagination, or empty guide fails inspection or increments source `failed`, retaining pending work. Read the [Artwork Archive runbook](ARTWORK-ARCHIVE.md) before enabling. Check sync counters even on HTTP 200; do not log HTML or transfer browser cookies to work around the access requirement.
+Check `artworkArchiveEnabled`; the source is enabled following the successful September 8 Cloudflare access check. The earlier local direct HTTP 403 did not reproduce from the deployed Worker. Browser access does not establish Worker access. A 403, unexpected redirect, unsupported layout/filter, pagination, or empty guide fails inspection or increments source `failed`, retaining pending work. Read the [Artwork Archive runbook](ARTWORK-ARCHIVE.md) before enabling. Check sync counters even on HTTP 200; do not log HTML or transfer browser cookies to work around the access requirement.
 
 ## Classification
 

@@ -12,7 +12,7 @@ The initial Hyperallergic scope is monthly Opportunities roundups, matching the 
 
 ## Artwork Archive uses the exact filtered evergreen guide
 
-The requested category is Film/Video/New Media within the Western U.S. guide. Individual cards share document processing and public snapshot storage with the roundup adapters, without imposing a named-month window. Countdown text and account buttons do not create changed snapshots. Automated HTTP access returned a browser-verification 403, so the authorized Cloudflare access check must succeed before the source is left enabled for scheduled ingestion. See [Artwork Archive](ARTWORK-ARCHIVE.md).
+The requested category is Film/Video/New Media within the Western U.S. guide. Individual cards share document processing and public snapshot storage with the roundup adapters, without imposing a named-month window. Countdown text and account buttons do not create changed snapshots. Automated HTTP access returned a browser-verification 403, but the subsequent authorized Cloudflare check succeeded with two entries. The source remains enabled for scheduled ingestion; production acceptance is recorded separately from the local probe. See [Artwork Archive](ARTWORK-ARCHIVE.md).
 
 ## Cloudflare is the execution boundary
 

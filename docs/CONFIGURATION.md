@@ -37,7 +37,7 @@ The inbound Worker address is `hey@ingest.dustwave.xyz`. Email Sending is allowl
 | `ZOHO_ENABLED` | `true` | Zoho batch synchronization switch |
 | `CREATIVE_WEST_ENABLED` | `true` | Creative West filtered-feed synchronization switch |
 | `COLOSSAL_ENABLED` | `true` | Colossal monthly-roundup synchronization switch |
-| `ARTWORK_ARCHIVE_ENABLED` | `true` | Artwork Archive Western Film/Video/New Media guide; authorized Cloudflare access verification, disable on failure |
+| `ARTWORK_ARCHIVE_ENABLED` | `true` | Artwork Archive Western Film/Video/New Media guide; Cloudflare access verified September 8, 2026 |
 | `HYPERALLERGIC_ENABLED` | `true` | Hyperallergic monthly-roundup synchronization switch |
 | `ZOHO_ACCOUNT_EMAIL` | `alonso@dustwave.xyz` | Required account/alias |
 | `ZOHO_DATACENTER` | `us` | API endpoint family |
@@ -52,7 +52,7 @@ Colossal uses fixed public RSS/article endpoints and no secret. Its source windo
 
 Hyperallergic reuses the shared roundup machinery with its own fixed feed/archive and parser. Migration 0007 extends the message-source constraint; apply it before enabling `HYPERALLERGIC_ENABLED=true` and deploying the new source. No new secret or binding is required. See [Hyperallergic](HYPERALLERGIC.md).
 
-Artwork Archive uses a fixed filtered public HTML guide. Migration 0008 extends the message-source constraint. Keep `ARTWORK_ARCHIVE_ENABLED=false` until Cloudflare access is verified; the September 8 direct HTTP probe received a browser-verification 403. See [Artwork Archive](ARTWORK-ARCHIVE.md).
+Artwork Archive uses a fixed filtered public HTML guide. Migration 0008 extends the message-source constraint. Cloudflare access passed on September 8 with two parsed entries, despite the earlier local direct HTTP probe receiving a browser-verification 403. Migration 0008 was applied during that rollout. See [Artwork Archive](ARTWORK-ARCHIVE.md).
 
 ## Cloudflare secrets
 
