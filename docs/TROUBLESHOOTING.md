@@ -73,6 +73,10 @@ Check `colossalEnabled` and the Colossal result in `/admin/integrations`. Source
 
 Check `hyperallergicEnabled` first: it should be true after the reviewed rollout. A deliberately disabled source reports `skipped`, not a broken connection. When enabled, use the same month/failure/deferred diagnostics as Colossal. Monthly roundups are supported; standalone tagged announcements are not. Unresolved shorteners, grouped listings, and shared landing pages require human review. Unknown/empty layouts must not be accepted as successful imports. See the [Hyperallergic runbook](HYPERALLERGIC.md); never log article HTML or entry text.
 
+## Artwork Archive
+
+Check `artworkArchiveEnabled`; the current configuration enables it for an explicitly authorized access check; disable it if access fails. Browser access does not establish Worker access. A 403, unexpected redirect, unsupported layout/filter, pagination, or empty guide fails inspection or increments source `failed`, retaining pending work. Read the [Artwork Archive runbook](ARTWORK-ARCHIVE.md) before enabling. Check sync counters even on HTTP 200; do not log HTML or transfer browser cookies to work around the access requirement.
+
 ## Classification
 
 ### Automatic classification could not produce a reliable structured result

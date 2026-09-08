@@ -1,6 +1,7 @@
 import { loadRuntimeConfig } from "./config";
 import { ingestForwardedHeyEmail, ingestImportedHeyEmail, type ImportedHeyEmail } from "./ingest/email-worker";
 import { inspectColossalConnection, syncColossal } from "./ingest/colossal";
+import { inspectArtworkArchiveConnection, syncArtworkArchive } from "./ingest/artwork-archive";
 import { inspectHyperallergicConnection, syncHyperallergic } from "./ingest/hyperallergic";
 import { inspectCreativeWestConnection, syncCreativeWest } from "./ingest/creative-west";
 import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
@@ -52,6 +53,7 @@ const worker = {
           zohoEnabled: config.zohoEnabled,
           creativeWestEnabled: config.creativeWestEnabled,
           colossalEnabled: config.colossalEnabled,
+          artworkArchiveEnabled: config.artworkArchiveEnabled,
           hyperallergicEnabled: config.hyperallergicEnabled
         });
       }
@@ -77,8 +79,9 @@ const worker = {
           const creativeWest = await inspectIntegration(() => inspectCreativeWestConnection(config, new Date()));
           const colossal = await inspectIntegration(() => inspectColossalConnection(config, new Date()));
           const hyperallergic = await inspectIntegration(() => inspectHyperallergicConnection(config, new Date()));
-          const ok = notion.ok && zoho.ok && creativeWest.ok && colossal.ok && hyperallergic.ok;
-          return Response.json({ ok, notion, zoho, creativeWest, colossal, hyperallergic }, { status: ok ? 200 : 502 });
+          const artworkArchive = await inspectIntegration(() => inspectArtworkArchiveConnection(config));
+          const ok = artworkArchive.ok && notion.ok && zoho.ok && creativeWest.ok && colossal.ok && hyperallergic.ok;
+          return Response.json({ ok, notion, zoho, creativeWest, colossal, hyperallergic, artworkArchive }, { status: ok ? 200 : 502 });
         }
         if (request.method === "GET" && url.pathname === "/admin/notion/review") {
           const config = loadRuntimeConfig(env);
@@ -99,6 +102,9 @@ const worker = {
         if (request.method === "POST" && url.pathname === "/admin/sync/hyperallergic") {
           const config = loadRuntimeConfig(env);
           return Response.json(await syncHyperallergic(env, config, new Date()));
+        }
+        if (request.method === "POST" && url.pathname === "/admin/sync/artwork-archive") {
+          return Response.json(await syncArtworkArchive(env, loadRuntimeConfig(env), new Date()));
         }
         if (request.method === "POST" && url.pathname === "/admin/notion/trash") {
           try {

@@ -7,7 +7,7 @@ export type { RoundupSyncResult as ColossalSyncResult } from "./roundup-source";
 
 const source: RoundupSource = {
   id: "colossal", label: "Colossal", senderEmail: "opportunities@thisiscolossal.com",
-  feedUrl: COLOSSAL_FEED, archiveUrl: COLOSSAL_ARCHIVE, articleUrl: colossalArticleUrl,
+  feedUrl: COLOSSAL_FEED, archiveUrl: COLOSSAL_ARCHIVE, documentUrl: colossalArticleUrl,
   parseFeed: parseColossalFeed, parseArchive: parseColossalArchive, parseEntries: parseColossalEntries,
   normalizeText: (text) => text.replace(/\bFeatured\b/g, "")
 };

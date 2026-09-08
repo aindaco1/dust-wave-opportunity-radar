@@ -4,6 +4,8 @@ Dust Wave Opportunity Radar is a Cloudflare-hosted source triage service for cre
 
 Hyperallergic monthly Opportunities roundups also use the shared pipeline and are enabled in the reviewed configuration. Migration 0007 must precede deployment. See [Hyperallergic](docs/HYPERALLERGIC.md) for scope, rollout, and live acceptance evidence.
 
+An optional [Artwork Archive adapter](docs/ARTWORK-ARCHIVE.md) covers the Western guide filtered to Film/Video/New Media. It is configured for the explicitly authorized Cloudflare access check; a direct HTTP probe received browser-verification 403, so disable the source if that check fails. Migration 0008 is prepared for an explicitly authorized rollout.
+
 Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 
 Notion body conflicts are held in a counted review queue. Formatting-equivalent managed text can be refreshed; substantive edits can make the page body permanently manual while automation continues managing its properties.
@@ -27,6 +29,7 @@ flowchart LR
   Zoho["Zoho Mail API"] --> Workflow["12-hour Workflow"]
   CreativeWest["Creative West API"] --> Workflow
   Roundups["Enabled Colossal / Hyperallergic roundups"] --> Workflow
+  ArtworkArchive["Artwork Archive guide (optional)"] --> Workflow
   Email --> R2["R2 source MIME"]
   R2 --> Workflow
   Workflow --> Parse["MIME + PDF/DOCX parsing"]
@@ -69,7 +72,7 @@ For a fresh Codex task, open this repository as the project folder and start wit
 
 | Path | Responsibility |
 |---|---|
-| `src/ingest` | HEY ingestion, Zoho/Creative West synchronization, shared Colossal/Hyperallergic roundups, and safe web enrichment |
+| `src/ingest` | HEY ingestion, Zoho/Creative West synchronization, shared Colossal/Hyperallergic roundups, optional Artwork Archive guide, and safe web enrichment |
 | `src/email` | MIME/PDF/DOCX parsing and digest rendering/sending |
 | `src/ai` | Workers AI prompts, structured parsing, recovery, and deterministic policy |
 | `src/notion` | Schema checks, entity resolution, safe create/update, duplicate cleanup |

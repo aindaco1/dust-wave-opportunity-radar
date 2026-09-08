@@ -10,6 +10,10 @@ The adapter extends the existing public snapshot and safe-fetch helpers, preserv
 
 The initial Hyperallergic scope is monthly Opportunities roundups, matching the requested example. Standalone sponsored announcements are excluded. Publisher-specific layout/URL parsers share Colossal's bounded transport, month discovery, resumable progress, snapshot identity, and existing batch/Notion/digest machinery. This keeps one recovery and policy path instead of a second scraper service. Unresolved short links cannot qualify as official primary URLs. The reviewed configuration enables the source for the explicitly authorized rollout; migration 0007 must precede deployment. See [Hyperallergic](HYPERALLERGIC.md).
 
+## Artwork Archive uses the exact filtered evergreen guide
+
+The requested category is Film/Video/New Media within the Western U.S. guide. Individual cards share document processing and public snapshot storage with the roundup adapters, without imposing a named-month window. Countdown text and account buttons do not create changed snapshots. Automated HTTP access returned a browser-verification 403, so the authorized Cloudflare access check must succeed before the source is left enabled for scheduled ingestion. See [Artwork Archive](ARTWORK-ARCHIVE.md).
+
 ## Cloudflare is the execution boundary
 
 Workers, Workflows, D1, R2, Workers AI, Email Routing, and Email Sending keep ingestion, state, scheduling, inference, and delivery off a personal machine. The tradeoff is provider-specific bindings and the need for a small Node test shim; dry-run bundling and Cloudflare-generated types guard that boundary.

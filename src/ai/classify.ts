@@ -173,6 +173,7 @@ export function buildManualReviewClassification(message: ParsedMessage, error: u
   const errorMessage = (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 500);
   const sourceDescription = message.source === "creative_west"
     ? "Creative West listing"
+    : message.source === "artwork_archive" ? "Artwork Archive listing"
     : message.source === "hyperallergic" ? "Hyperallergic listing"
     : message.source === "colossal" ? "Colossal listing" : `${message.source.toUpperCase()} email`;
   return classificationSchema.parse({

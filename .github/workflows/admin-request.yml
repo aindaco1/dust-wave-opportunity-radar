@@ -70,6 +70,9 @@ jobs:
             sync-colossal)
               admin_request POST /admin/sync/colossal | jq .
               ;;
+            sync-artwork-archive)
+              admin_request POST /admin/sync/artwork-archive | jq .
+              ;;
             sync-hyperallergic)
               admin_request POST /admin/sync/hyperallergic | jq .
               ;;

@@ -122,6 +122,10 @@ Colossal is enabled in the reviewed configuration with `COLOSSAL_ENABLED=true` a
 
 `HYPERALLERGIC_ENABLED=true` enables monthly Hyperallergic roundups in the reviewed configuration. No new secret or binding is needed. Apply migration 0007 locally and pass the quality gate before authorized remote migration/deployment. Verify the deployed flag, feed access, and **Sync Hyperallergic source only** counts, then separately verify scheduled outcomes. Follow the [Hyperallergic runbook](HYPERALLERGIC.md#operations-and-rollout). Standalone announcements are outside the initial scope.
 
+## Artwork Archive optional source
+
+The Western Film/Video/New Media adapter is configured with `ARTWORK_ARCHIVE_ENABLED=true` for an explicitly authorized access check; absence or any other value disables it. It needs migration 0008 and verified automated access from Cloudflare before activation; a direct HTTP request returned browser-verification 403 during development. No new secret or binding is needed for the adapter. Follow [Artwork Archive](ARTWORK-ARCHIVE.md#operations-and-rollout) for the explicit production rollout and acceptance sequence.
+
 ## 8. Activation verification
 
 1. Call public `/health`; verify timezone, batch hours, and reviewed feature flags.

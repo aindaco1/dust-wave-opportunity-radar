@@ -29,7 +29,7 @@ Then read:
 
 ## Current state and authoritative references
 
-The reviewed [Worker configuration](../wrangler.jsonc) enables Zoho, Creative West, Colossal, Hyperallergic, and Notion. HEY forwarding remains the ongoing inbound path; the official CLI is limited to supervised historical recovery. Use these documents for details:
+The reviewed [Worker configuration](../wrangler.jsonc) enables Zoho, Creative West, Colossal, Hyperallergic, and Notion. HEY forwarding remains the ongoing inbound path; the official CLI is limited to supervised historical recovery. The optional Artwork Archive adapter is configured for explicitly authorized automated-access verification after migration 0008; see [Artwork Archive](ARTWORK-ARCHIVE.md). Use these documents for details:
 
 - [Configuration](CONFIGURATION.md) owns bindings, runtime values, source flags, and secret locations. Production secrets are outside the repository; local quality gates do not need them.
 - [Operations](OPERATIONS.md) owns the schedule, monitoring, recovery, and rollout procedures. Deployed state must be checked separately from reviewed configuration.
