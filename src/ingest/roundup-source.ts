@@ -1,35 +1,25 @@
 import type { RuntimeConfig } from "../config";
-import type { MessageSource } from "../types";
 import {
-  getSourceValidators, linkSourceMessage, markDiscoveryUrlCollisions, listSourceDocuments, rememberSourceDocument,
-  saveSourceDocumentProgress, saveSourceValidators, type HttpValidators, type SourceDocument
+  getSourceValidators, listSourceDocuments, rememberSourceDocument,
+  saveSourceDocumentProgress, saveSourceValidators, type HttpValidators
 } from "../storage/source-documents";
 import { sha256Hex } from "../util/crypto";
 import { logInfo } from "../util/log";
-import { ingestPublicSnapshot } from "./public-snapshot";
+import { DiscoverySafetyError, syncPublicDocument, type PublicDocumentSource } from "./public-document";
 import { fetchPublicText } from "./public-fetch";
-import { roundupWindow, type RoundupEntry, type Roundup } from "./roundup-parser";
+import { roundupWindow, type Roundup } from "./roundup-parser";
 
-export interface RoundupSource {
-  id: Extract<MessageSource, "colossal" | "hyperallergic">;
-  label: string;
-  senderEmail: string;
+export interface RoundupSource extends PublicDocumentSource {
   feedUrl: string;
   archiveUrl: string;
-  articleUrl(value: string): string | null;
   parseFeed(xml: string): { roundups: Roundup[]; invalid: number };
   parseArchive(html: string): Roundup[];
-  parseEntries(html: string): RoundupEntry[];
-  normalizeText?(text: string): string;
 }
 
 const XML_TYPES = ["application/rss+xml", "application/xml", "text/xml"];
 const HTML_TYPES = ["text/html"];
 const MAX_DOCUMENTS = 4;
 const MAX_ENTRIES = 200;
-class DiscoverySafetyError extends Error {
-  constructor(source: string) { super(`${source}_discovery_safety_failed`); }
-}
 export interface RoundupSyncResult {
   discovered: number;
   extracted: number;
@@ -106,7 +96,7 @@ export async function syncRoundups(source: RoundupSource, enabled: boolean, env:
         result.cached++;
         continue;
       }
-      const outcome = await syncDocument(source, env, document, post, runAt, budget, result);
+      const outcome = await syncPublicDocument(source, env, document, post, runAt, budget, result);
       budget -= outcome.processed;
     } catch (error) {
       if (error instanceof DiscoverySafetyError) throw error;
@@ -123,92 +113,4 @@ export async function syncRoundups(source: RoundupSource, enabled: boolean, env:
   if (!discovered.invalid && !discovered.notModified) await saveSourceValidators(env.DB, source.id, discovered.validators);
   logInfo(`${source.id}_sync_completed`, { ...result });
   return result;
-}
-
-async function syncDocument(
-  source: RoundupSource, env: Env, document: SourceDocument, post: Roundup | undefined, runAt: Date,
-  budget: number, result: RoundupSyncResult
-): Promise<{ processed: number }> {
-  let html = post?.html;
-  let entries: RoundupEntry[] | undefined;
-  let validators: HttpValidators | undefined;
-  if (html && !/continue reading|read (?:more|the rest)|\[\.\.\.\]/i.test(html)) {
-    try { entries = source.parseEntries(html); }
-    catch { html = undefined; }
-  }
-  if (!entries) {
-    const response = await fetchPublicText(document.url, {
-      contentTypes: HTML_TYPES,
-      etag: !document.pending && !document.needs_restore ? document.etag ?? undefined : undefined,
-      lastModified: !document.pending && !document.needs_restore ? document.last_modified ?? undefined : undefined
-    });
-    if (!source.articleUrl(response.finalUrl)) throw new Error(`${source.id}_article_redirect`);
-    if (response.status === 304) {
-      if (document.pending || document.needs_restore) throw new Error(`${source.id}_unexpected_304`);
-      result.cached++;
-      return { processed: 0 };
-    }
-    html = response.text;
-    entries = source.parseEntries(html);
-    validators = { etag: response.etag, last_modified: response.lastModified };
-  }
-  const hash = await sha256Hex(html!);
-  const start = hash === document.content_hash && !document.needs_restore ? document.next_entry : 0;
-  let next = start;
-  // A previous partial pass that failed an item needs another complete pass after reaching the end.
-  let failed = hash === document.content_hash && start > 0 && Boolean(document.last_error_code);
-  for (const entry of entries.slice(start, start + budget)) {
-    next++;
-    result.extracted++;
-    const unresolved = entry.requiresReview || entry.ambiguousUrls.length > 0 || !entry.urls.length;
-    try {
-      const stored = await ingestEntry(source, env, entry, document, runAt);
-      let shared: boolean;
-      try { shared = await markDiscoveryUrlCollisions(env.DB, source.id, entry.title, entry.urls); }
-      catch { throw new DiscoverySafetyError(source.id); }
-      if (unresolved || shared) result.unresolved++;
-      await linkSourceMessage(env.DB, document.id, stored.id);
-      if (stored.ingested) result.ingested++; else result.unchanged++;
-    } catch (error) {
-      if (error instanceof DiscoverySafetyError) throw error;
-      failed = true; result.failed++;
-    }
-  }
-  const remaining = next < entries.length;
-  if (remaining) result.deferred++;
-  await saveSourceDocumentProgress(env.DB, document, {
-    hash, nextEntry: remaining ? next : 0, pending: remaining || failed,
-    error: failed ? "entry_sync_failed" : null, checkedAt: runAt.toISOString(), validators
-  });
-  return { processed: next - start };
-}
-
-async function ingestEntry(source: RoundupSource, env: Env, entry: RoundupEntry, document: SourceDocument, runAt: Date) {
-  // Provenance and HTML layout never enter the snapshot identity: monthly repeats dedupe.
-  const normalized = {
-    title: entry.title.normalize("NFKC").toLowerCase(),
-    text: (source.normalizeText?.(entry.text) ?? entry.text).replace(/\s+/g, " ").trim(),
-    urls: entry.urls, ambiguousUrls: entry.ambiguousUrls, requiresReview: entry.requiresReview
-  };
-  const externalId = await sha256Hex(JSON.stringify(normalized));
-  const receivedAt = runAt.toISOString();
-  return ingestPublicSnapshot(env, {
-    source: source.id, externalId, namespace: source.id, mailbox: "Opportunities",
-    subject: entry.title, senderName: source.label, receivedAt,
-    discoveryContext: {
-      sourceUrl: document.url, officialUrls: entry.urls,
-      ambiguousUrls: entry.ambiguousUrls, requiresReview: entry.requiresReview
-    },
-    mime: () => [
-      `Message-ID: <${source.id}-${externalId}@dustwave-opportunity-radar>`,
-      `Subject: ${entry.title.replace(/[\r\n\0]/g, " ")}`,
-      `From: "${source.label}" <${source.senderEmail}>`,
-      `Date: ${runAt.toUTCString()}`, "MIME-Version: 1.0",
-      'Content-Type: text/plain; charset="UTF-8"', "Content-Transfer-Encoding: 8bit", "",
-      ...entry.urls.map((url) => `Organizer/application link: ${url}`),
-      `Discovery article (secondary source): ${document.url}`,
-      `Roundup month: ${document.roundup_month}`, `Article publication: ${document.published_at || "(unknown)"}`,
-      `Section: ${entry.section}`, "", entry.text
-    ].join("\r\n")
-  });
 }

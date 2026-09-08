@@ -26,7 +26,7 @@ Public liveness/configuration summary. It does not verify credentials or return 
 }
 ```
 
-Health also includes the reviewed `colossalEnabled` and `hyperallergicEnabled` feature flags.
+Health also includes the reviewed `colossalEnabled`, `hyperallergicEnabled`, and `artworkArchiveEnabled` feature flags.
 
 ## `POST /admin/run`
 
@@ -52,7 +52,7 @@ curl --fail-with-body "$WORKER_URL/admin/runs" \
 
 ## `GET /admin/integrations`
 
-Performs live, read-only Notion, Zoho, Creative West, and optional Colossal/Hyperallergic access/schema/query checks. Returns `200` only when all checks succeed and `502` with per-integration error text otherwise. It does not return tokens or source content. Disabled roundup sources return `skipped: true` without network access.
+Performs live, read-only Notion, Zoho, Creative West, and optional Colossal/Hyperallergic/Artwork Archive access/schema/query checks. Returns `200` only when all checks succeed and `502` with per-integration error text otherwise. It does not return tokens or source content. Disabled roundup sources return `skipped: true` without network access.
 
 ```json
 {
@@ -104,6 +104,10 @@ Queues new/changed Colossal entries without starting publication or digest deliv
 Queues new/changed monthly Hyperallergic roundup entries without starting publication or digest delivery. `HYPERALLERGIC_ENABLED` must be the exact literal `true`, as in the reviewed configuration; absent or other values disable the source. Uses the same content-free counters as Colossal. Standalone announcements are excluded from this initial scope. See [Hyperallergic](HYPERALLERGIC.md) for limits and rollout instructions.
 
 Source-only imports can be consumed by the next normal batch; they are not an isolated production publishing sandbox.
+
+## `POST /admin/sync/artwork-archive`
+
+Queues new/changed entries from the Western guide filtered to Film/Video/New Media. `ARTWORK_ARCHIVE_ENABLED` must be the exact literal `true`; the reviewed setting is `true` for explicitly authorized automated-access verification; disable it if access fails. Returns `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, and `skipped`. HTTP 200 can include document failures; inspect `failed` and `deferred`. The integration inspection adds `artworkArchive` with `matchingEntries` and `skipped`; errors produce the existing 502 inspection response. See [Artwork Archive](ARTWORK-ARCHIVE.md).
 
 ## `POST /admin/import/hey`
 

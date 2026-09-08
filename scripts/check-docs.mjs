@@ -9,6 +9,7 @@ const required = [
   "docs/API.md",
   "docs/README.md",
   "docs/ARCHITECTURE.md",
+  "docs/ARTWORK-ARCHIVE.md",
   "docs/CLASSIFICATION.md",
   "docs/CODEX-HANDOFF.md",
   "docs/COLOSSAL.md",

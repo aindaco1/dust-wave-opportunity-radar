@@ -7,7 +7,7 @@ import {
 
 const source: RoundupSource = {
   id: "hyperallergic", label: "Hyperallergic", senderEmail: "opportunities@hyperallergic.com",
-  feedUrl: HYPERALLERGIC_FEED, archiveUrl: HYPERALLERGIC_ARCHIVE, articleUrl: hyperallergicArticleUrl,
+  feedUrl: HYPERALLERGIC_FEED, archiveUrl: HYPERALLERGIC_ARCHIVE, documentUrl: hyperallergicArticleUrl,
   parseFeed: parseHyperallergicFeed, parseArchive: parseHyperallergicArchive, parseEntries: parseHyperallergicEntries
 };
 export const inspectHyperallergicConnection = (config: RuntimeConfig, runAt: Date) =>
