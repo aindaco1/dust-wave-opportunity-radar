@@ -107,7 +107,7 @@ Source-only imports can be consumed by the next normal batch; they are not an is
 
 ## `POST /admin/sync/artwork-archive`
 
-Queues new/changed entries from the Western guide filtered to Film/Video/New Media. `ARTWORK_ARCHIVE_ENABLED` must be the exact literal `true`; the reviewed setting is `true` for explicitly authorized automated-access verification; disable it if access fails. Returns `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, and `skipped`. HTTP 200 can include document failures; inspect `failed` and `deferred`. The integration inspection adds `artworkArchive` with `matchingEntries` and `skipped`; errors produce the existing 502 inspection response. See [Artwork Archive](ARTWORK-ARCHIVE.md).
+Queues new/changed entries from the Western guide filtered to Film/Video/New Media. `ARTWORK_ARCHIVE_ENABLED` must be the exact literal `true`; the reviewed setting is `true` after successful Cloudflare automated-access verification on September 8, 2026. Returns `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, and `skipped`. HTTP 200 can include document failures; inspect `failed` and `deferred`. The integration inspection adds `artworkArchive` with `matchingEntries` and `skipped`; errors produce the existing 502 inspection response. See [Artwork Archive](ARTWORK-ARCHIVE.md).
 
 ## `POST /admin/import/hey`
 

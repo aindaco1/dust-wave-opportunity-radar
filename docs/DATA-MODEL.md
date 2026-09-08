@@ -1,6 +1,6 @@
 # Data model
 
-D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current local schema version is `8`; migration 0008 adds Artwork Archive and has not been applied to production by this change. Migration 0007 was applied to production on September 4, 2026; see [Hyperallergic acceptance](HYPERALLERGIC.md#production-acceptance--september-4-2026). Future remote migrations still require explicit authorization.
+D1 is the operational source of truth. Migrations are ordered and append-only in `migrations/`; the current schema version is `8`. Migration 0008 adds Artwork Archive and was applied to production on September 8, 2026; see [Artwork Archive acceptance](ARTWORK-ARCHIVE.md#production-acceptance--september-8-2026). Migration 0007 was applied to production on September 4, 2026; see [Hyperallergic acceptance](HYPERALLERGIC.md#production-acceptance--september-4-2026). Future remote migrations still require explicit authorization.
 
 ## Tables
 
