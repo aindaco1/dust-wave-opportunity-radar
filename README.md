@@ -4,6 +4,8 @@ Dust Wave Opportunity Radar is a Cloudflare-hosted source triage service for cre
 
 Hyperallergic monthly Opportunities roundups also use the shared pipeline and are enabled in the reviewed configuration. Migration 0007 must precede deployment. See [Hyperallergic](docs/HYPERALLERGIC.md) for scope, rollout, and live acceptance evidence.
 
+An optional [Artwork Archive adapter](docs/ARTWORK-ARCHIVE.md) covers the Western guide filtered to Film/Video/New Media. It is enabled after the authorized September 8 deployment and successful Cloudflare access check, which found two entries. Migration 0008 is applied. Scheduled ingestion and publication remain separate acceptance checks.
+
 Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 
 Notion body conflicts are held in a counted review queue. Formatting-equivalent managed text can be refreshed; substantive edits can make the page body permanently manual while automation continues managing its properties.
@@ -15,6 +17,7 @@ Notion body conflicts are held in a counted review queue. Formatting-equivalent 
 - Zoho: `Inbox`, `Dust Wave`, `Newsletter`, and `Notification`, with a seven-day initial window and one-hour checkpoint overlap.
 - Creative West: open New Mexico opportunities for artists or organizations whose deadlines fall between the Mountain-time run date and 31 days later, sorted by newest open date.
 - Colossal: current/previous named roundup month, plus an early next-month post, split into individual candidates with persistent deduplication and retry state. See [Colossal](docs/COLOSSAL.md).
+- Artwork Archive: the Western guide filtered to Film/Video/New Media, with all returned call types entering the shared policy. [Cloudflare access](docs/ARTWORK-ARCHIVE.md#production-acceptance--september-8-2026) is verified; no manual import or batch was forced.
 - Notion: automatic create/update at batch time, including conservative equivalent-title matching and cleanup of automation-owned duplicate pages.
 - Digest: sent to `alonso@hey.com` only when at least one item is waiting.
 - Retention: raw and parsed R2 objects are purged after 24 hours; D1 retains operational metadata and structured classification results.
@@ -27,6 +30,7 @@ flowchart LR
   Zoho["Zoho Mail API"] --> Workflow["12-hour Workflow"]
   CreativeWest["Creative West API"] --> Workflow
   Roundups["Enabled Colossal / Hyperallergic roundups"] --> Workflow
+  ArtworkArchive["Artwork Archive guide (optional)"] --> Workflow
   Email --> R2["R2 source MIME"]
   R2 --> Workflow
   Workflow --> Parse["MIME + PDF/DOCX parsing"]
@@ -69,7 +73,7 @@ For a fresh Codex task, open this repository as the project folder and start wit
 
 | Path | Responsibility |
 |---|---|
-| `src/ingest` | HEY ingestion, Zoho/Creative West synchronization, shared Colossal/Hyperallergic roundups, and safe web enrichment |
+| `src/ingest` | HEY ingestion, Zoho/Creative West synchronization, shared Colossal/Hyperallergic roundups, optional Artwork Archive guide, and safe web enrichment |
 | `src/email` | MIME/PDF/DOCX parsing and digest rendering/sending |
 | `src/ai` | Workers AI prompts, structured parsing, recovery, and deterministic policy |
 | `src/notion` | Schema checks, entity resolution, safe create/update, duplicate cleanup |

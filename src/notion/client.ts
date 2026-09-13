@@ -687,6 +687,7 @@ function notionSourceName(source: MessageRecord["source"]): string {
   if (source === "zoho") return "Zoho";
   if (source === "colossal") return "Colossal";
   if (source === "hyperallergic") return "Hyperallergic";
+  if (source === "artwork_archive") return "Artwork Archive";
   return "Creative West";
 }
 

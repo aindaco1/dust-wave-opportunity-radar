@@ -30,6 +30,7 @@ Start with the entry points below, then use the document that owns the subject. 
 
 - [HEY CLI recovery and qualification](HEY-CLI.md) — current guarded single-record recovery and read-only qualification procedures, followed by dated evidence. Official forwarding remains the ongoing HEY path.
 - [Colossal](COLOSSAL.md) — discovery scope, source-specific evidence, recovery, counters, and deployment acceptance.
+- [Artwork Archive](ARTWORK-ARCHIVE.md) — filtered Western guide, access prerequisite, recovery, and rollout.
 - [Hyperallergic](HYPERALLERGIC.md) — monthly roundup scope, short-link safety, recovery, and dated rollout acceptance.
 
 Source runbooks own publisher-specific details and acceptance records. Shared policy, state, and publication rules belong in the references above.

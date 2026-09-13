@@ -4,6 +4,7 @@ import { loadRuntimeConfig } from "../config";
 import { renderOpportunityDigest, sendOpportunityDigest } from "../email/digest";
 import { parseStoredMessage } from "../email/parse";
 import { syncColossal } from "../ingest/colossal";
+import { syncArtworkArchive } from "../ingest/artwork-archive";
 import { syncHyperallergic } from "../ingest/hyperallergic";
 import { syncCreativeWest } from "../ingest/creative-west";
 import { syncZoho } from "../ingest/zoho";
@@ -93,6 +94,12 @@ export class OpportunityBatchWorkflow extends WorkflowEntrypoint<Env, BatchParam
         "sync Hyperallergic opportunities",
         { retries: { limit: 3, delay: "10 seconds", backoff: "exponential" }, timeout: "10 minutes" },
         async () => syncHyperallergic(this.env, config, new Date(event.payload.scheduledFor))
+      );
+
+      await step.do(
+        "sync Artwork Archive opportunities",
+        { retries: { limit: 3, delay: "10 seconds", backoff: "exponential" }, timeout: "10 minutes" },
+        async () => syncArtworkArchive(this.env, config, new Date(event.payload.scheduledFor))
       );
 
       if (config.notionEnabled) {

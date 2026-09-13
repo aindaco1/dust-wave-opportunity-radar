@@ -1,3 +1,5 @@
+import { ARTWORK_ARCHIVE_GUIDE } from "../src/ingest/artwork-archive-parser";
+import { guideHtml, entryHtml as artworkEntryHtml } from "./support/artwork-archive";
 import { HYPERALLERGIC_FEED } from "../src/ingest/hyperallergic-parser";
 import { articleHtml as hyperArticleHtml, entryHtml as hyperEntryHtml, augustUrl as hyperAugustUrl, septemberUrl as hyperSeptemberUrl } from "./support/hyperallergic";
 import { COLOSSAL_FEED } from "../src/ingest/colossal-parser";
@@ -104,6 +106,7 @@ describe("batch workflow orchestration", () => {
       "sync Creative West opportunities",
       "sync Colossal opportunities",
       "sync Hyperallergic opportunities",
+      "sync Artwork Archive opportunities",
       "load queued message ids",
       "send non-empty digest",
       "purge expired source payloads",
@@ -398,16 +401,17 @@ describe("batch workflow orchestration", () => {
 });
 
 
-describe.each(["colossal", "hyperallergic"] as const)("%s through the shared batch", (source) => {
+describe.each(["colossal", "hyperallergic", "artwork_archive"] as const)("%s through the shared batch", (source) => {
   const hyper = source === "hyperallergic";
-  const label = hyper ? "Hyperallergic" : "Colossal";
+  const artwork = source === "artwork_archive";
+  const label = artwork ? "Artwork Archive" : hyper ? "Hyperallergic" : "Colossal";
   const feedUrl = hyper ? HYPERALLERGIC_FEED : COLOSSAL_FEED;
   const sourceAugustUrl = hyper ? hyperAugustUrl : augustUrl;
-  const sourceSeptemberUrl = hyper ? hyperSeptemberUrl : septemberUrl;
-  const renderArticle = hyper ? hyperArticleHtml : articleHtml;
-  const renderEntry = hyper ? hyperEntryHtml : entryHtml;
+  const sourceSeptemberUrl = artwork ? ARTWORK_ARCHIVE_GUIDE : hyper ? hyperSeptemberUrl : septemberUrl;
+  const renderArticle = artwork ? guideHtml : hyper ? hyperArticleHtml : articleHtml;
+  const renderEntry = artwork ? artworkEntryHtml : hyper ? hyperEntryHtml : entryHtml;
   it("splits and deduplicates roundups, publishes only qualified calls, and suppresses an empty second digest", async () => {
-    const { workflow, step, ai, email, env, outputs, testDb } = setup({ [hyper ? "HYPERALLERGIC_ENABLED" : "COLOSSAL_ENABLED"]: "true", NOTION_ENABLED: "true" });
+    const { workflow, step, ai, email, env, outputs, testDb } = setup({ [artwork ? "ARTWORK_ARCHIVE_ENABLED" : hyper ? "HYPERALLERGIC_ENABLED" : "COLOSSAL_ENABLED"]: "true", NOTION_ENABLED: "true" });
     const titles = ["Qualified Film Grant", "Possible Call", "Creative Job", "Closed Film Grant"];
     const html = renderArticle(titles.map((title, index) => renderEntry(title, `https://example.org/apply/${index}`)).join(""));
     ai.run.mockImplementation(async (_model: string, input: { messages: Array<{ content: string }> }) => {
@@ -424,6 +428,7 @@ describe.each(["colossal", "hyperallergic"] as const)("%s through the shared bat
     const creates: unknown[] = [];
     const fetch = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
       const url = String(urlValue); const method = init?.method ?? "GET";
+      if (artwork && url === ARTWORK_ARCHIVE_GUIDE) return responseAt(url, html);
       if (url === feedUrl) return responseAt(url, rss([
         { title: hyper ? "Opportunities in August 2026" : "August 2026 Opportunities", url: sourceAugustUrl, html },
         { title: hyper ? "Opportunities in September 2026" : "September 2026 Opportunities", url: sourceSeptemberUrl, html }

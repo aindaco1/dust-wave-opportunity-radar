@@ -44,6 +44,7 @@ describe("Worker HTTP routes", () => {
       zohoEnabled: true,
       creativeWestEnabled: true,
       colossalEnabled: false,
+      artworkArchiveEnabled: false,
       hyperallergicEnabled: false
     });
   });

@@ -56,6 +56,7 @@
     "CREATIVE_WEST_ENABLED": "true",
     "COLOSSAL_ENABLED": "true",
     "HYPERALLERGIC_ENABLED": "true",
+    "ARTWORK_ARCHIVE_ENABLED": "true",
     "ZOHO_ACCOUNT_EMAIL": "alonso@dustwave.xyz",
     "ZOHO_DATACENTER": "us",
     "ZOHO_FOLDERS": "Inbox,Dust Wave,Newsletter,Notification",
