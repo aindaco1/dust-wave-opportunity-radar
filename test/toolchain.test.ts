@@ -9,6 +9,14 @@ const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta
 };
 
 describe("locked toolchain compatibility", () => {
+  it("generates the checked-in runtime types with the locked workerd version", () => {
+    const declarations = readFileSync(new URL("../worker-configuration.d.ts", import.meta.url), "utf8");
+    const generatedVersion = declarations.match(/^\/\/ Runtime types generated with workerd@(\S+) /m)?.[1];
+    const runtime = lock.packages["node_modules/workerd"];
+    expect(runtime).toBeDefined();
+    expect(generatedVersion).toBe(runtime!.version);
+  });
+
   it("allows the exact locked workerd installer needed by local runtime tests", () => {
     const runtime = lock.packages["node_modules/workerd"];
     expect(runtime).toBeDefined();
