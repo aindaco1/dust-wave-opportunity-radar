@@ -83,7 +83,8 @@ export const testMigrationFiles = [
   "0005_track_notion_review.sql",
   "0006_add_colossal_source.sql",
   "0007_add_hyperallergic_source.sql",
-  "0008_add_artwork_archive_source.sql"
+  "0008_add_artwork_archive_source.sql",
+  "0009_add_newsletter.sql"
 ] as const;
 
 export function applyTestMigrations(sqlite: DatabaseSync, migrations: readonly string[] = testMigrationFiles): void {

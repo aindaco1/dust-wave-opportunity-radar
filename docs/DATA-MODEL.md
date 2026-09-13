@@ -81,3 +81,7 @@ The cleanup batch lists both expired R2 keys, deletes in groups of at most 500, 
 4. Update this document and add a migration/state test.
 5. Run `npm run migrate:local`, `npm run check`, and `npm run test:coverage`.
 6. Run `npm run migrate:remote` only as an explicitly authorized production change, before deploying code that requires the schema.
+
+## Internal newsletter
+
+Migration `0009_add_newsletter.sql` adds `newsletter_editions` (local-day key, private frozen payload, attempt state and provider ID) and `newsletter_summaries` (page ID, content hash, derived summary and timestamp). See [retention and recovery](NEWSLETTER.md#preview-and-operations).

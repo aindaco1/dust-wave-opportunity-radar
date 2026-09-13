@@ -130,3 +130,7 @@ See [Data model](DATA-MODEL.md), [Notion integration](NOTION.md), and [Security]
 The digest HTML shell and display formatting use `@dustwave/digest-core` 0.1.0 at Platform commit `4992520`, pinned through `shared/dust-wave-platform`. Opportunity grouping, full plain text, sender/recipient, schedule and Cloudflare Email Sending remain here. The extraction preserves the existing HTML and text byte for byte in `test/digest.test.ts`. GitHub Repo Scan consumes the same presentation with its own labels and report model.
 
 Rollback is independent: restore the prior local digest adapter and remove the package/gitlink adoption together; no database or email-routing change is involved.
+
+## Internal opportunities newsletter
+
+The [newsletter](NEWSLETTER.md) reads existing Notion entries through the shared client, uses a separate weekday-selected Workflow, and sends a private deadline list through its own restricted email binding. It does not run the source ingestion batch. D1 freezes each local-date edition and prevents repeated provider attempts.
