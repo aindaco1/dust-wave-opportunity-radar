@@ -86,10 +86,10 @@ describe("newsletter schedule",()=>{
   });
 });
 describe("newsletter content and recipient reads",()=>{
-  it("preserves intro links and omits the rolling-view instruction",()=>{
+  it("removes the license link and omits the rolling-view instruction",()=>{
     const intro=businessIntro([{plain_text:"Rolling submissions listed at the top\nDust Wave Biz Info\n"},{text:{content:"Biz license",link:{url:"https://notion.so/license"}}}]);
     const rendered=renderNewsletter({...newsletter(),intro});
-    expect(rendered.html).toContain(MEMBER_NOTICE);expect(rendered.text).toContain("Biz license (https://notion.so/license)");
+    expect(rendered.html).toContain(MEMBER_NOTICE);expect(rendered.text).not.toContain("Biz license");expect(rendered.html).not.toContain("https://notion.so/license");
     expect(rendered.html).not.toContain("Rolling submissions");expect(()=>businessIntro([])).toThrow();
   });
   it("escapes untrusted values and rejects unsafe link protocols",()=>{
