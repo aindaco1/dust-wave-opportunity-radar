@@ -10,6 +10,20 @@ Start with the least invasive evidence:
 
 Do not retrieve or print raw R2 MIME unless the investigation explicitly requires private content and the user has authorized that handling.
 
+## Wrangler dependency PR fails CI
+
+If `npm run typecheck` reports `Types at worker-configuration.d.ts are out of date`, the new Wrangler/workerd lock no longer matches the committed generated declarations. `npm ci` can also warn that the new workerd installer is not covered by `allowScripts`; installation can succeed while that required script remains blocked.
+
+On the failing PR branch, use Node from `.nvmrc`, inspect the locked `node_modules/workerd` version, and replace only the old exact workerd entry in `package.json`'s `allowScripts`. Then run:
+
+```bash
+npm ci
+npm run cf-typegen
+npm run check
+```
+
+Review and commit `worker-configuration.d.ts` and the exact installer allowance together. The toolchain regression test verifies the generated runtime version and installer allowance against the lockfile; the full gate also checks declaration freshness, coverage, local email ingestion, and dry bundling. Rerunning an unchanged dependency PR cannot repair these files. Keep the generated-type check enabled and the installer allowlist exact. See [Toolchain updates](CONTRIBUTING.md#toolchain-updates).
+
 ## Schedule and run
 
 ### No batch at the expected time

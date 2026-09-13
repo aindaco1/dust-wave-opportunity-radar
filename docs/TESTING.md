@@ -24,7 +24,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
 | Shared public sources | `public-source-helpers.test.ts` | Snapshot identity, terminal preservation, expired-failure recovery, partial-write cleanup, bounded MIME and conditional RSS fetch |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
-| Toolchain | `toolchain.test.ts` | Exact locked workerd installer allowance and matching Vitest/coverage versions |
+| Toolchain | `toolchain.test.ts` | Generated runtime types match locked workerd, exact locked workerd installer allowance, and matching Vitest/coverage versions |
 | Documentation | `docs.test.ts` | Stale local heading anchors fail; valid cross-file/same-page anchors and code examples are handled; missing files and required current documents remain checked |
 | Colossal | `colossal-parser.test.ts`, `colossal.test.ts`, `discovery-policy.test.ts` | Named-month discovery, featured/individual entries, safe official evidence, cross-month dedupe/shared URLs, source caps/cursors, archive fallback, conditional requests, expired payload recovery, and closed-call dates |
 | Hyperallergic | `hyperallergic-parser.test.ts`, `hyperallergic.test.ts`, `discovery-policy.test.ts` | Monthly-only discovery, observed Ghost heading families, multiple listings per paragraph, continuation text, shortener evidence, grouped/shared URLs, safe limits, dedupe, cached/partial recovery, and disabled-source behavior |
