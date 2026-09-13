@@ -6,7 +6,7 @@
   "description": "Cloudflare-based HEY, Zoho, and Creative West opportunity ingestion for Dust Wave.",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=24"
+    "node": "^24.0.0 || >=26.0.0"
   },
   "scripts": {
     "check": "npm run docs:check && npm run typecheck && npm run test:coverage && npm run deploy:dry",
@@ -38,11 +38,11 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@types/node": "^26.4.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@types/node": "^26.4.1",
+    "@vitest/coverage-v8": "^5.0.0",
     "jsonc-parser": "^3.3.1",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.0",
     "wrangler": "^4.131.0"
   },
   "overrides": {

@@ -4,7 +4,7 @@ This runbook provisions a new environment. The checked-in production configurati
 
 ## Prerequisites
 
-- Node.js 24 or newer and npm
+- Node.js 24 (the reviewed version in `.nvmrc`) and npm
 - a Cloudflare account with `dustwave.xyz`
 - access to `alonso@hey.com` and `alonso@dustwave.xyz`
 - the Dust Wave Notion workspace and Opportunities data source
