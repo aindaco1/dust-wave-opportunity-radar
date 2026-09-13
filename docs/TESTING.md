@@ -2,6 +2,8 @@
 
 The test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Creative West, Notion, or public websites.
 
+Vitest and its V8 coverage provider are locked together at 5.0.0. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
+
 ## Commands
 
 ```bash
@@ -24,7 +26,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
 | Shared public sources | `public-source-helpers.test.ts` | Snapshot identity, terminal preservation, expired-failure recovery, partial-write cleanup, bounded MIME and conditional RSS fetch |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
-| Toolchain | `toolchain.test.ts` | Exact locked workerd installer allowance and matching Vitest/coverage versions |
+| Toolchain | `toolchain.test.ts` | Generated runtime types match locked workerd, exact locked workerd installer allowance, and matching Vitest/coverage versions |
 | Documentation | `docs.test.ts` | Stale local heading anchors fail; valid cross-file/same-page anchors and code examples are handled; missing files and required current documents remain checked |
 | Colossal | `colossal-parser.test.ts`, `colossal.test.ts`, `discovery-policy.test.ts` | Named-month discovery, featured/individual entries, safe official evidence, cross-month dedupe/shared URLs, source caps/cursors, archive fallback, conditional requests, expired payload recovery, and closed-call dates |
 | Artwork Archive | `artwork-archive-parser.test.ts`, `artwork-archive.test.ts`, `workflow.test.ts`, `database.test.ts` | Exact guide/filter, complete card evidence, snapshot stability, access/layout failures, resumable caps, expired recovery, collision-safety interruption, migration preservation, disabled/route boundaries, and shared publication outcomes |

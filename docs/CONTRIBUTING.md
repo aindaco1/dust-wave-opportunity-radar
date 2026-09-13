@@ -24,7 +24,11 @@ When moving or adding a document, update incoming links, the index, and the requ
 
 ## Toolchain updates
 
+Use Node 24 from `.nvmrc` for local checks and CI. The package engine range excludes Node 25 to match Vitest 5's supported runtimes.
+
 Keep Vitest and `@vitest/coverage-v8` on the same locked version; Dependabot groups these updates. When updating Wrangler, review the new locked `workerd` version and replace its exact version entry in `allowScripts` without broadening the installer allowlist. Run `npm ci`, regenerate runtime types with `npm run cf-typegen`, and run `npm run check`. The generated-type check and local email-runtime test must pass with the updated runtime.
+
+Dependabot updates dependency manifests and lockfiles, but does not refresh `worker-configuration.d.ts` or the exact `allowScripts` entry. Complete those steps on the dependency PR branch and commit the reviewed generated declarations with the allowlist change. CI intentionally checks the committed types without regenerating them. See [Wrangler update failures](TROUBLESHOOTING.md#wrangler-dependency-pr-fails-ci).
 
 ## Pull-request checklist
 
