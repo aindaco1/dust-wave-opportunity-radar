@@ -141,10 +141,9 @@ describe("Notion publishing", () => {
     const [url, request] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(url).toBe("https://api.notion.com/v1/pages");
     expect(request.method).toBe("POST");
-    expect(request.headers).toMatchObject({
-      Authorization: "Bearer test-notion-token",
-      "Notion-Version": "2026-03-11"
-    });
+    const headers = new Headers(request.headers);
+    expect(headers.get("authorization")).toBe("Bearer test-notion-token");
+    expect(headers.get("notion-version")).toBe("2026-03-11");
     const body = JSON.parse(String(request.body));
     expect(body.properties.Name.title[0].text.content).toBe("Dust Wave Film Grant");
     expect(body.properties.Source.select.name).toBe("Zoho");

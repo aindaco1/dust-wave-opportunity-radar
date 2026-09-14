@@ -3,9 +3,8 @@ import { classificationSchema, type Classification, type MessageRecord } from ".
 import { canonicalizeUrl } from "../email/parse";
 import { markNotionReviewGroupReconciled, saveClassification, upsertOpportunity } from "../storage/database";
 import { sha256Hex } from "../util/crypto";
-import { readBoundedText } from "../util/http";
+import { notionRequest, NotionResponseError } from "@dustwave/worker-core/notion";
 
-const NOTION_API = "https://api.notion.com/v1";
 const NOTION_VERSION = "2026-03-11";
 const LEGACY_MANAGED_START = "**Opportunity Radar managed section — do not edit below this line**";
 const LEGACY_MANAGED_END = "**End Opportunity Radar managed section**";
@@ -723,28 +722,22 @@ async function notionJson<T = Record<string, unknown>>(
 ): Promise<T> {
   let lastError: Error | undefined;
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const response = await fetch(`${NOTION_API}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Notion-Version": NOTION_VERSION,
-        "Content-Type": "application/json",
-        ...init.headers
-      },
-      signal: AbortSignal.timeout(30_000)
-    });
-    const text = await readBoundedText(response, 2_000_000);
-    if (response.ok) return (text ? JSON.parse(text) : {}) as T;
-    let detail = text;
+    let retryAfter = 0;
     try {
-      const body = JSON.parse(text) as { message?: string };
-      detail = body.message ?? text;
-    } catch {
-      // Keep the original response text.
+      return await notionRequest<T>({
+        token, version: NOTION_VERSION, path, init,
+        errorMessage: ({ status, text }: { status: number; text: string }) => {
+          let detail = text;
+          try { detail = (JSON.parse(text) as { message?: string }).message ?? text; } catch { /* Preserve the existing bounded response detail. */ }
+          return `Notion ${init.method ?? "GET"} ${path} failed (${status}): ${detail}`;
+        }
+      });
+    } catch (error) {
+      if (!(error instanceof NotionResponseError)) throw error;
+      lastError = new Error(error.message);
+      if (error.status !== 429 && error.status < 500) throw lastError;
+      retryAfter = Number(error.retryAfter ?? 0);
     }
-    lastError = new Error(`Notion ${init.method ?? "GET"} ${path} failed (${response.status}): ${detail}`);
-    if (response.status !== 429 && response.status < 500) throw lastError;
-    const retryAfter = Number(response.headers.get("retry-after") ?? 0);
     await delay(Math.max(retryAfter * 1_000, 500 * 2 ** attempt));
   }
   throw lastError ?? new Error(`Notion request failed: ${path}`);
