@@ -21,6 +21,8 @@ The beginning includes the database description starting at `Dust Wave Biz Info`
 
 The notice reads: “For active Dust Wave members only. This includes our internal business info, so please don’t forward it or share it outside the collective.” The help line reads “Email (address) or text (number) Alonso for assistance.” The approved help email comes from private newsletter settings; the phone is read from his Point People page. The same help email is the reply-to address.
 
+Both email formats end with Shakespeare's “Our doubts are traitors” quotation, credited to William Shakespeare and linked to *Measure for Measure*, act 1, scene 4, in the Folger edition. HTML separates the closing quote with a thin rule and preserves its verse line breaks.
+
 ## Recipient source
 
 Fetch `https://dustwave.xyz/about.html` each run and extract only the first heading of each `article.member-card`. Resolve each member by an exact Point People Name (with explicitly reviewed name aliases). Use Email, falling back to Email 2 only when Email is empty. Missing or ambiguous people or invalid email addresses stop the send. Do not infer addresses or silently drop members. Deduplicate addresses. Recheck membership and email addresses immediately before delivery. A changed audience stops the frozen edition for review.
