@@ -38,7 +38,7 @@ export async function buildNewsletter(env: Env, now: Date): Promise<FrozenEditio
   }
   const viewUrl = (id: string) => `https://www.notion.so/${settings.databaseId.replaceAll("-", "")}?v=${id.replaceAll("-", "")}`;
   const browseViews = settings.views ? { types: viewUrl(settings.views.byType), tags: viewUrl(settings.views.byTag) } : undefined;
-  const newsletter: Newsletter = { day: localBatchSlot(now, env.TIMEZONE).dateLabel, timezone: env.TIMEZONE, intro, contact, opportunities, browseViews };
+  const newsletter: Newsletter = { day: localBatchSlot(now, env.TIMEZONE).dateLabel, timezone: env.TIMEZONE, intro, contact, opportunities, browseViews, businessAddress: settings.businessAddress };
   return { newsletter, recipients, rendered: renderNewsletter(newsletter) };
 }
 export async function freezeEdition(env: Env, edition: FrozenEdition): Promise<void> {

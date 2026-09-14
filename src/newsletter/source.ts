@@ -8,6 +8,7 @@ import { localBatchSlot } from "../util/dates";
 export const settingsSchema = z.object({
   databaseId: z.string().uuid(), peopleDataSourceId: z.string().uuid(), helpContactPageId: z.string().uuid(),
   helpEmail: z.email(),
+  businessAddress: z.string().trim().min(1).max(300).optional(),
   views: z.object({ byType: z.string().uuid(), byTag: z.string().uuid() }).optional(),
   aliases: z.record(z.string(), z.string()).default({})
 });

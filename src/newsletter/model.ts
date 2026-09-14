@@ -7,6 +7,10 @@ const CLOSING_QUOTE = {
   author: "William Shakespeare", work: "Measure for Measure", scene: "act 1, scene 4",
   url: "https://www.folger.edu/explore/shakespeares-works/measure-for-measure/read/1/4/"
 };
+const BODY_FONT = "'Inter',Helvetica,Arial,sans-serif";
+const HEADING_FONT = "'Gambado Sans Forte','Gambado Sans'," + BODY_FONT;
+const LINK_STYLE = "color:#ffffff;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px";
+const LOGO_URL = "https://dustwave.xyz/img/favicon/dust-wave-square.png";
 export interface RichText { plain_text?: string; text?: { content: string; link?: { url: string } | null }; href?: string | null }
 export interface Opportunity {
   id: string; name: string; website: string | null; notionUrl: string;
@@ -19,6 +23,7 @@ export interface Newsletter {
   day: string; timezone: string; intro: RichText[]; contact: Contact;
   opportunities: Opportunity[];
   browseViews?: { types: string; tags: string };
+  businessAddress?: string;
 }
 export const plainText = (items: RichText[]) => items.map(item => item.plain_text ?? item.text?.content ?? "").join("");
 export function safeUrl(value: string | null | undefined): string | null {
@@ -80,7 +85,7 @@ export function businessIntro(description: RichText[]): RichText[] {
   });
 }
 
-function renderBusinessInfo(description: RichText[]): { html: string; text: string } {
+function renderBusinessInfo(description: RichText[], businessAddress?: string): { html: string; text: string } {
   // Rich-text runs can split a label or place its URL on the following line.
   const lines: RichText[][] = [[]];
   for (const run of description) {
@@ -119,15 +124,16 @@ function renderBusinessInfo(description: RichText[]): { html: string; text: stri
       }
     }
     if (field && !/^https?$/i.test(field[1]!)) {
-      fields.push({ label: field[1]!, value: field[2]! });
-      textLines.push(text);
+      const value = field[1]!.trim().toLowerCase() === "address" && businessAddress ? businessAddress : field[2]!;
+      fields.push({ label: field[1]!, value });
+      textLines.push(`${field[1]}: ${value}`);
     } else {
       const html = line.map(run => {
         const value = escapeHtml(plainText([run]));
         const url = safeUrl(run.href ?? run.text?.link?.url);
-        return url ? `<a href="${escapeHtml(url)}" style="color:#185abc;text-decoration:underline">${value}</a>` : value;
+        return url ? `<a href="${escapeHtml(url)}" style="${LINK_STYLE}">${value}</a>` : value;
       }).join("");
-      paragraphs.push(`<p style="margin:0 0 14px">${html}</p>`);
+      paragraphs.push(`<p style="margin:0 0 14px;color:#ffffff">${html}</p>`);
       textLines.push(line.map(run => {
         const value = plainText([run]);
         const url = safeUrl(run.href ?? run.text?.link?.url);
@@ -135,10 +141,10 @@ function renderBusinessInfo(description: RichText[]): { html: string; text: stri
       }).join("").trim());
     }
   }
-  const rows = fields.map(field => `<tr><th scope="row" style="padding:3px 18px 3px 0;text-align:left;vertical-align:top;font-weight:600;white-space:nowrap">${escapeHtml(field.label)}</th><td style="padding:3px 0;vertical-align:top">${escapeHtml(field.value)}</td></tr>`).join("");
-  const links = resources.map(resource => `<a href="${escapeHtml(resource.url)}" style="color:#185abc;text-decoration:underline">${escapeHtml(resource.label)}</a>`).join(' <span style="color:#777">&nbsp;·&nbsp;</span> ');
+  const rows = fields.map(field => `<tr><th scope="row" style="padding:4px 18px 4px 0;text-align:left;vertical-align:top;font-weight:600;white-space:nowrap;color:#ffffff">${escapeHtml(field.label)}</th><td style="padding:4px 0;vertical-align:top;color:#cccccc">${escapeHtml(field.value)}</td></tr>`).join("");
+  const links = resources.map(resource => `<a href="${escapeHtml(resource.url)}" style="${LINK_STYLE}">${escapeHtml(resource.label)}</a>`).join(' <span style="color:#999999">&nbsp;·&nbsp;</span> ');
   return {
-    html: `<h2 style="font-size:21px;margin:0 0 12px">Dust Wave Biz Info</h2>${paragraphs.join("")}${rows ? `<table style="border-collapse:collapse;font-size:15px;line-height:1.5;margin:0 0 16px">${rows}</table>` : ""}${links ? `<p style="margin:0;line-height:1.8">${links}</p>` : ""}`,
+    html: `<h2 style="font-family:${HEADING_FONT};font-size:22px;line-height:1.2;color:#ffffff;margin:0 0 16px">Dust Wave Biz Info</h2>${paragraphs.join("")}${rows ? `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:${BODY_FONT};font-size:14px;line-height:1.5;margin:0 0 16px">${rows}</table>` : ""}${links ? `<p style="margin:0;font-size:14px;line-height:1.8">${links}</p>` : ""}`,
     text: textLines.join("\n")
   };
 }
@@ -167,13 +173,13 @@ function optionBadge(label: string, colorName: string | undefined, view: string 
 
 export function renderNewsletter(newsletter: Newsletter) {
   const e = escapeHtml;
-  const link = (label: string, url: string | null) => url ? `<a href="${e(url)}">${e(label)}</a>` : e(label);
-  const intro = renderBusinessInfo(newsletter.intro);
+  const link = (label: string, url: string | null) => url ? `<a href="${e(url)}" style="${LINK_STYLE}">${e(label)}</a>` : e(label);
+  const intro = renderBusinessInfo(newsletter.intro, newsletter.businessAddress);
   const contact = newsletter.contact;
   const helpText = `Email (${contact.email})${contact.phone ? ` or text (${contact.phone})` : ""} Alonso for assistance.`;
-  const helpHtml = `Email (<a href="mailto:${e(contact.email)}">${e(contact.email)}</a>)${contact.phone ? ` or text (<a href="sms:${e(contact.phone.replace(/[^+\d]/g, ""))}">${e(contact.phone)}</a>)` : ""} Alonso for assistance.`;
+  const helpHtml = `Email (<a href="mailto:${e(contact.email)}" style="${LINK_STYLE}">${e(contact.email)}</a>)${contact.phone ? ` or text (<a href="sms:${e(contact.phone.replace(/[^+\d]/g, ""))}" style="${LINK_STYLE}">${e(contact.phone)}</a>)` : ""} Alonso for assistance.`;
   const count = newsletter.opportunities.length;
-  const subject = `Dust Wave Opportunities — ${newsletter.day}`;
+  const subject = `Opportunities — ${newsletter.day}`;
   const date = dateLabel(newsletter.day, newsletter.timezone);
   const items = newsletter.opportunities.map(item => {
     const due = dateLabel(item.due, newsletter.timezone);
@@ -183,14 +189,29 @@ export function renderNewsletter(newsletter: Newsletter) {
     const summary = item.summary || "No description is saved in Notion yet. Check the website for details.";
     const typeBadge = item.type ? optionBadge(item.type, item.typeColor, newsletter.browseViews?.types, "type") : "Not listed";
     const tagBadges = item.tags.map(tag => optionBadge(tag, item.tagColors?.[tag], newsletter.browseViews?.tags, "tag")).join(" ") || "None listed";
-    const row = (label: string, value: string) => `<tr><th scope="row" style="width:126px;padding:3px 12px 3px 0;vertical-align:top;text-align:left;font-size:14px;font-weight:400;color:#5f6368">${label}</th><td style="padding:3px 0;vertical-align:top">${value}</td></tr>`;
-    const metadata = `<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:15px;line-height:1.6">${row("Due", `<strong style="display:inline-block;padding:2px 8px;border-radius:4px;background:#f7dfdc;color:#963e36">${e(due)}</strong>`)}${row("Applications open", e(opens))}${row("Type", typeBadge)}${row("Tags", tagBadges)}</table>`;
+    const row = (label: string, value: string) => `<tr><th scope="row" style="width:126px;padding:3px 12px 3px 0;vertical-align:top;text-align:left;font-size:13px;font-weight:400;color:#aaaaaa">${label}</th><td style="padding:3px 0;vertical-align:top;color:#cccccc">${value}</td></tr>`;
+    const metadata = `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:14px 0;font-family:${BODY_FONT};font-size:14px;line-height:1.6">${row("Due", `<strong style="display:inline-block;padding:2px 8px;border-radius:4px;background:#f7dfdc;color:#963e36">${e(due)}</strong>`)}${row("Applications open", e(opens))}${row("Type", typeBadge)}${row("Tags", tagBadges)}</table>`;
     return {
-      html: `<li><h3>${link(item.name, safeUrl(item.website))}</h3>${metadata}<p>${item.website ? link("Website", safeUrl(item.website)) + " · " : "Website not listed · "}${link("Notion details", safeUrl(item.notionUrl))}</p><p>${e(summary)}</p>${item.note ? `<p><strong>Check before applying:</strong> ${e(item.note)}</p>` : ""}</li>`,
+      html: `<li style="margin:0 0 26px;padding:0 0 26px;border-bottom:1px solid #444444"><h3 style="font-family:${HEADING_FONT};font-size:21px;font-weight:800;line-height:1.3;color:#ffffff;margin:0">${link(item.name, safeUrl(item.website))}</h3>${metadata}<p style="margin:0 0 12px;font-size:13px">${item.website ? link("Website", safeUrl(item.website)) + " · " : "Website not listed · "}${link("Notion details", safeUrl(item.notionUrl))}</p><p style="margin:0;line-height:1.65;color:#cccccc">${e(summary)}</p>${item.note ? `<p style="margin:14px 0 0;padding-left:12px;border-left:2px solid #aaaaaa;font-size:14px;line-height:1.6;color:#cccccc"><strong style="color:#ffffff">Check before applying:</strong> ${e(item.note)}</p>` : ""}</li>`,
       text: `${item.name}\nType: ${item.type || "Not listed"}\nWebsite: ${item.website || "Not listed"}\n${dates}\nTags: ${tags}\n${summary}${item.note ? `\nCheck before applying: ${item.note}` : ""}\nNotion details: ${item.notionUrl}`
     };
   });
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${e(subject)}</title><style>a{color:#185abc;text-decoration:underline}h3{font-size:18px;margin:0}li{margin:0 0 26px}p{margin:8px 0}ul{padding-left:24px}</style></head><body style="margin:0;background:#fff;color:#202124;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6"><main style="max-width:720px;margin:0 auto;padding:28px 22px;overflow-wrap:anywhere"><h1 style="font-size:28px;line-height:1.2;margin:0 0 8px">Dust Wave Opportunities</h1><p style="color:#5f6368">${e(date)} · ${count} opportunit${count === 1 ? "y" : "ies"}</p><p><strong>${e(MEMBER_NOTICE)}</strong></p><p>${helpHtml}</p><section style="margin:24px 0 30px;padding:22px 0;border-top:1px solid #dadce0;border-bottom:1px solid #dadce0">${intro.html}</section><h2 style="font-size:21px">Upcoming deadlines</h2><p>Open calls due within 31 days, soonest first.</p>${count ? `<ul>${items.map(item => item.html).join("")}</ul>` : "<p>No opportunities meet the deadline window today.</p>"}<p style="font-size:14px;color:#5f6368">Dates and details come from the Opportunities database. Check the application website before submitting.</p><footer style="margin:28px 0 0;padding:22px 0 0;border-top:1px solid #dadce0"><blockquote cite="${e(CLOSING_QUOTE.url)}" style="margin:0;font-family:Georgia,Times,serif;font-size:18px;line-height:1.65;color:#414141">“${CLOSING_QUOTE.lines.map(line => e(line)).join("<br>")}”</blockquote><p style="margin:12px 0 0;font-size:14px;line-height:1.6"><strong>${e(CLOSING_QUOTE.author)}</strong><br>— <a href="${e(CLOSING_QUOTE.url)}"><cite>${e(CLOSING_QUOTE.work)}</cite>, ${e(CLOSING_QUOTE.scene)}</a></p></footer></main></body></html>`;
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><title>${e(subject)}</title>
+<style>:root{color-scheme:dark}body,table,td{font-family:${BODY_FONT}}a{${LINK_STYLE}}p{margin:0 0 12px}img{border:0;outline:0}h1,h2,h3{font-family:${HEADING_FONT}}@media only screen and (max-width:480px){.newsletter-title{font-size:30px!important}.brand-cell{width:62px!important}.brand-logo{width:48px!important;height:48px!important}}</style></head>
+<body bgcolor="#000000" style="margin:0;padding:0;background:#000000;color:#cccccc;font-family:${BODY_FONT};font-size:15px;line-height:1.6">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="width:100%;border-collapse:collapse;background:#000000"><tr><td align="center" style="padding:28px 18px 36px">
+<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<main style="max-width:600px;margin:0 auto;text-align:left;overflow-wrap:anywhere">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 16px"><tr><td class="brand-cell" width="76" valign="middle" style="width:76px;vertical-align:middle"><a href="https://dustwave.xyz" style="${LINK_STYLE}"><img class="brand-logo" src="${LOGO_URL}" alt="Dust Wave" width="60" height="60" style="display:block;width:60px;height:60px;border:0"></a></td><td valign="middle" style="vertical-align:middle"><h1 class="newsletter-title" style="font-family:${HEADING_FONT};font-size:38px;font-weight:800;line-height:1.1;color:#ffffff;margin:0">Opportunities</h1></td></tr></table>
+<p style="margin:0 0 20px;color:#aaaaaa;font-size:13px">${e(date)} · ${count} opportunit${count === 1 ? "y" : "ies"}</p>
+<div style="border-top:2px solid #ffffff;padding:18px 0 0"><p style="font-size:14px;line-height:1.6;color:#cccccc">${e(MEMBER_NOTICE)}</p><p style="margin:0;font-size:14px;line-height:1.7;color:#cccccc">${helpHtml}</p></div>
+<section style="margin:24px 0 28px;padding:24px 0;border-top:1px solid #444444;border-bottom:1px solid #444444">${intro.html}</section>
+<h2 style="font-family:${HEADING_FONT};font-size:26px;font-weight:800;line-height:1.2;color:#ffffff;margin:0 0 8px">Upcoming deadlines</h2><p style="margin:0 0 26px;font-size:14px;color:#aaaaaa">Open calls due within 31 days, soonest first.</p>
+${count ? `<ul style="list-style:none;margin:0;padding:0">${items.map(item => item.html).join("")}</ul>` : '<p style="color:#cccccc">No opportunities meet the deadline window today.</p>'}
+<p style="margin:0;color:#aaaaaa;font-size:12px;line-height:1.6">Dates and details come from the Opportunities database. Check the application website before submitting.</p>
+<footer style="margin:26px 0 0;padding:24px 0 0;border-top:1px solid #444444"><blockquote cite="${e(CLOSING_QUOTE.url)}" style="margin:0;font-family:${BODY_FONT};font-size:18px;font-style:italic;line-height:1.7;color:#dddddd">“${CLOSING_QUOTE.lines.map(line => e(line)).join("<br>")}”</blockquote><p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#aaaaaa"><strong style="color:#ffffff">${e(CLOSING_QUOTE.author)}</strong><br>— <a href="${e(CLOSING_QUOTE.url)}" style="${LINK_STYLE}"><cite>${e(CLOSING_QUOTE.work)}</cite>, ${e(CLOSING_QUOTE.scene)}</a></p></footer>
+</main><!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>`;
   const browseText = newsletter.browseViews ? [safeUrl(newsletter.browseViews.types) ? `Browse by type: ${newsletter.browseViews.types}` : "", safeUrl(newsletter.browseViews.tags) ? `Browse by tag: ${newsletter.browseViews.tags}` : ""].filter(Boolean).join("\n") : "";
   const quoteText = `“${CLOSING_QUOTE.lines.join("\n")}”\n— ${CLOSING_QUOTE.author}, ${CLOSING_QUOTE.work}, ${CLOSING_QUOTE.scene}\n${CLOSING_QUOTE.url}`;
   const text = [subject, MEMBER_NOTICE, helpText, intro.text, "UPCOMING DEADLINES", ...items.map(item => item.text), browseText, quoteText].filter(Boolean).join("\n\n");

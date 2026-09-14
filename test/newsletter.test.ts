@@ -120,7 +120,16 @@ describe("newsletter content and recipient reads",()=>{
     const r=renderNewsletter(n);
     expect(r.html).toContain("&lt;img src=x&gt;");expect(r.html).toContain("&lt;b&gt;Film&lt;/b&gt;");
     expect(r.html).toContain("background:#f1f1ef;color:#454541");
-    expect(r.html).not.toMatch(/javascript:|password|position:fixed|<img/);expect(r.text).not.toContain("Browse by");
+    expect(r.html).not.toMatch(/javascript:|password|position:fixed|<img src=x>/);expect(r.text).not.toContain("Browse by");
+  });
+  it("uses the configured business address in both email formats while preserving the source",()=>{
+    const n=newsletter();n.intro=[{plain_text:"Dust Wave Biz Info\nExample LLC\nAddress: 123 Example Street, 87000"}];
+    expect(renderNewsletter(n).text).toContain("Address: 123 Example Street, 87000");
+    n.businessAddress="123 Example Street, Example City, NM 87000";
+    const r=renderNewsletter(n);
+    expect(r.text).toContain(`Address: ${n.businessAddress}`);expect(r.html).toContain(n.businessAddress);
+    expect(r.text).not.toContain("Street, 87000");expect(n.intro[0]!.plain_text).toContain("Street, 87000");
+    expect(renderNewsletter({...n,businessAddress:"<script>bad</script>"}).html).toContain("&lt;script&gt;bad&lt;/script&gt;");
   });
   it("extracts only member names, not social links or other headings",()=>{
     expect(parseMemberNames('<h3>Ignore</h3><article class="x member-card"><h3>Artist &amp; Name</h3><h3>Social</h3></article>')).toEqual(["Artist & Name"]);
@@ -155,10 +164,11 @@ describe("newsletter generation and delivery",()=>{
   });
   it("builds database view URLs from the private saved view IDs",async()=>{
     const {env}=setup();mockSources();
-    env.NEWSLETTER_SETTINGS=JSON.stringify({...SETTINGS,views:{byType:"44444444-4444-4444-8444-444444444444",byTag:"55555555-5555-4555-8555-555555555555"}});
+    env.NEWSLETTER_SETTINGS=JSON.stringify({...SETTINGS,businessAddress:"123 Example Street, Example City, NM 87000",views:{byType:"44444444-4444-4444-8444-444444444444",byTag:"55555555-5555-4555-8555-555555555555"}});
     const built=await buildNewsletter(env,NOW);
     expect(built.newsletter.browseViews).toEqual({types:"https://www.notion.so/11111111111141118111111111111111?v=44444444444444448444444444444444",tags:"https://www.notion.so/11111111111141118111111111111111?v=55555555555545558555555555555555"});
     expect(built.rendered.html).toContain(built.newsletter.browseViews!.tags);
+    expect(built.newsletter.businessAddress).toBe("123 Example Street, Example City, NM 87000");
   });
   it("fails on invalid AI output and on oversized body",async()=>{
     const {env}=setup();vi.mocked(env.AI.run).mockResolvedValue({response:"invented format"} as never);
