@@ -3,7 +3,7 @@ import { assertConsumerPin } from "@dustwave/test-core/consumer-pin";
 
 it("pins the characterized shared packages and lockfile", () => {
   assertConsumerPin({ root: process.cwd(),
-  "expectedCommit": "01630b1a132ab88f0e1972d1985e1a0cf860df76",
+  "expectedCommit": "30b1cf9c1154b6f38e3da34fc7b2ed3b6d312088",
   "packages": {
     "worker-core": "0.14.0",
     "test-core": "0.2.0"
