@@ -36,7 +36,9 @@ export async function buildNewsletter(env: Env, now: Date): Promise<FrozenEditio
     const markdown = await readOpportunityBody(env, item.id);
     Object.assign(item, await summarizeOpportunity(env, item, markdown));
   }
-  const newsletter: Newsletter = { day: localBatchSlot(now, env.TIMEZONE).dateLabel, timezone: env.TIMEZONE, intro, contact, opportunities };
+  const viewUrl = (id: string) => `https://www.notion.so/${settings.databaseId.replaceAll("-", "")}?v=${id.replaceAll("-", "")}`;
+  const browseViews = settings.views ? { types: viewUrl(settings.views.byType), tags: viewUrl(settings.views.byTag) } : undefined;
+  const newsletter: Newsletter = { day: localBatchSlot(now, env.TIMEZONE).dateLabel, timezone: env.TIMEZONE, intro, contact, opportunities, browseViews };
   return { newsletter, recipients, rendered: renderNewsletter(newsletter) };
 }
 export async function freezeEdition(env: Env, edition: FrozenEdition): Promise<void> {

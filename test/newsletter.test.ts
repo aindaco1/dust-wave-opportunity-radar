@@ -102,6 +102,26 @@ describe("newsletter content and recipient reads",()=>{
     const r=renderNewsletter(n);expect(r.html).toContain("Grant 79");expect(r.text).toContain("No description is saved");expect(r.text).toContain("Applications open: Not listed");
     expect(renderNewsletter({...n,opportunities:[]}).html).toContain("No opportunities meet");
   });
+  it("preserves Notion option colors and links labels to the configured grouped views",()=>{
+    const page:NotionPage={id:"one",properties:{Type:{select:{name:"Grant",color:"pink"}},Tags:{multi_select:[{name:"Film",color:"red"},{name:"Other"}]}}};
+    const converted=opportunityFromPage(page);
+    expect(converted).toMatchObject({type:"Grant",typeColor:"pink",tags:["Film","Other"],tagColors:{Film:"red",Other:"default"}});
+    const n=newsletter();n.opportunities=[item(converted)];n.browseViews={types:"https://notion.so/database?v=types",tags:"https://notion.so/database?v=tags"};
+    const r=renderNewsletter(n);
+    expect(r.html).toContain('href="https://notion.so/database?v=types" title="Browse opportunities grouped by type"');
+    expect(r.html).toContain('href="https://notion.so/database?v=tags" title="Browse opportunities grouped by tag"');
+    expect(r.html).toContain("background:#f3dfe8;color:#873a60");expect(r.html).toContain("background:#f7dfdc;color:#963e36");
+    expect(r.text).toContain("Browse by type: https://notion.so/database?v=types");
+    expect(r.text).toContain("Browse by tag: https://notion.so/database?v=tags");
+  });
+  it("treats option colors and labels as untrusted data and omits unsafe view links",()=>{
+    const n=newsletter();n.opportunities=[item({type:'<img src=x>',typeColor:'red;position:fixed',tags:['<b>Film</b>'],tagColors:{'<b>Film</b>':'constructor'}})];
+    n.browseViews={types:"javascript:alert(1)",tags:"https://user:password@notion.so"};
+    const r=renderNewsletter(n);
+    expect(r.html).toContain("&lt;img src=x&gt;");expect(r.html).toContain("&lt;b&gt;Film&lt;/b&gt;");
+    expect(r.html).toContain("background:#f1f1ef;color:#454541");
+    expect(r.html).not.toMatch(/javascript:|password|position:fixed|<img/);expect(r.text).not.toContain("Browse by");
+  });
   it("extracts only member names, not social links or other headings",()=>{
     expect(parseMemberNames('<h3>Ignore</h3><article class="x member-card"><h3>Artist &amp; Name</h3><h3>Social</h3></article>')).toEqual(["Artist & Name"]);
     expect(()=>parseMemberNames("login")).toThrow();expect(()=>parseMemberNames('<article class="member-card"><h3></h3></article>')).toThrow();
@@ -132,6 +152,13 @@ describe("newsletter generation and delivery",()=>{
     expect(first.newsletter.opportunities[0]!.summary).toContain("independent artists");expect(second.recipients).toHaveLength(1);expect(env.AI.run).toHaveBeenCalledTimes(1);
     await summarizeOpportunity(env,item({due:"2026-10-02"}),"Changed body");expect(env.AI.run).toHaveBeenCalledTimes(2);
     expect((await summarizeOpportunity(env,item(),"")).summary).toContain("No description");
+  });
+  it("builds database view URLs from the private saved view IDs",async()=>{
+    const {env}=setup();mockSources();
+    env.NEWSLETTER_SETTINGS=JSON.stringify({...SETTINGS,views:{byType:"44444444-4444-4444-8444-444444444444",byTag:"55555555-5555-4555-8555-555555555555"}});
+    const built=await buildNewsletter(env,NOW);
+    expect(built.newsletter.browseViews).toEqual({types:"https://www.notion.so/11111111111141118111111111111111?v=44444444444444448444444444444444",tags:"https://www.notion.so/11111111111141118111111111111111?v=55555555555545558555555555555555"});
+    expect(built.rendered.html).toContain(built.newsletter.browseViews!.tags);
   });
   it("fails on invalid AI output and on oversized body",async()=>{
     const {env}=setup();vi.mocked(env.AI.run).mockResolvedValue({response:"invented format"} as never);

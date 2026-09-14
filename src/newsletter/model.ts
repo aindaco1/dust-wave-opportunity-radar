@@ -6,12 +6,14 @@ export interface RichText { plain_text?: string; text?: { content: string; link?
 export interface Opportunity {
   id: string; name: string; website: string | null; notionUrl: string;
   type: string; tags: string[]; due: string | null; opens: string | null;
+  typeColor?: string; tagColors?: Record<string, string>;
   archived?: boolean; summary?: string; note?: string;
 }
 export interface Contact { name: string; email: string; phone?: string }
 export interface Newsletter {
   day: string; timezone: string; intro: RichText[]; contact: Contact;
   opportunities: Opportunity[];
+  browseViews?: { types: string; tags: string };
 }
 export const plainText = (items: RichText[]) => items.map(item => item.plain_text ?? item.text?.content ?? "").join("");
 export function safeUrl(value: string | null | undefined): string | null {
@@ -136,6 +138,28 @@ function renderBusinessInfo(description: RichText[]): { html: string; text: stri
   };
 }
 
+// Follow Notion's option color names, with darker text for readable email labels.
+const optionPalette: Record<string, { background: string; color: string }> = {
+  default: { background: "#f1f1ef", color: "#454541" },
+  gray: { background: "#eae9e7", color: "#50504c" },
+  brown: { background: "#eee0da", color: "#704b39" },
+  orange: { background: "#fae3cd", color: "#874416" },
+  yellow: { background: "#f8edc9", color: "#735b16" },
+  green: { background: "#dcebdd", color: "#315f43" },
+  blue: { background: "#dceaf5", color: "#265779" },
+  purple: { background: "#e9e0f1", color: "#654284" },
+  pink: { background: "#f3dfe8", color: "#873a60" },
+  red: { background: "#f7dfdc", color: "#963e36" }
+};
+function optionBadge(label: string, colorName: string | undefined, view: string | undefined, property: string): string {
+  const colors = optionPalette[colorName && Object.hasOwn(optionPalette, colorName) ? colorName : "default"]!;
+  const url = safeUrl(view);
+  const style = `display:inline-block;padding:2px 8px;margin:2px 5px 2px 0;border-radius:4px;background:${colors.background};color:${colors.color};font-size:14px;line-height:1.5;${url ? "text-decoration:underline;text-underline-offset:2px" : ""}`;
+  return url
+    ? `<a href="${escapeHtml(url)}" title="Browse opportunities grouped by ${escapeHtml(property)}" style="${style}">${escapeHtml(label)}</a>`
+    : `<span style="${style}">${escapeHtml(label)}</span>`;
+}
+
 export function renderNewsletter(newsletter: Newsletter) {
   const e = escapeHtml;
   const link = (label: string, url: string | null) => url ? `<a href="${e(url)}">${e(label)}</a>` : e(label);
@@ -147,16 +171,23 @@ export function renderNewsletter(newsletter: Newsletter) {
   const subject = `Dust Wave Opportunities — ${newsletter.day}`;
   const date = dateLabel(newsletter.day, newsletter.timezone);
   const items = newsletter.opportunities.map(item => {
-    const dates = `Applications open: ${dateLabel(item.opens, newsletter.timezone)} · Due: ${dateLabel(item.due, newsletter.timezone)}`;
+    const due = dateLabel(item.due, newsletter.timezone);
+    const opens = dateLabel(item.opens, newsletter.timezone);
+    const dates = `Due: ${due}\nApplications open: ${opens}`;
     const tags = item.tags.join(", ") || "None listed";
     const summary = item.summary || "No description is saved in Notion yet. Check the website for details.";
+    const typeBadge = item.type ? optionBadge(item.type, item.typeColor, newsletter.browseViews?.types, "type") : "Not listed";
+    const tagBadges = item.tags.map(tag => optionBadge(tag, item.tagColors?.[tag], newsletter.browseViews?.tags, "tag")).join(" ") || "None listed";
+    const row = (label: string, value: string) => `<tr><th scope="row" style="width:126px;padding:3px 12px 3px 0;vertical-align:top;text-align:left;font-size:14px;font-weight:400;color:#5f6368">${label}</th><td style="padding:3px 0;vertical-align:top">${value}</td></tr>`;
+    const metadata = `<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:15px;line-height:1.6">${row("Due", `<strong style="display:inline-block;padding:2px 8px;border-radius:4px;background:#f7dfdc;color:#963e36">${e(due)}</strong>`)}${row("Applications open", e(opens))}${row("Type", typeBadge)}${row("Tags", tagBadges)}</table>`;
     return {
-      html: `<li><h3>${link(item.name, safeUrl(item.website))}</h3><p><strong>${e(item.type || "Type not listed")}</strong><br>${e(dates)}<br>Tags: ${e(tags)}<br>${item.website ? link("Website", safeUrl(item.website)) + " · " : "Website not listed · "}${link("Notion details", safeUrl(item.notionUrl))}</p><p>${e(summary)}</p>${item.note ? `<p><strong>Check before applying:</strong> ${e(item.note)}</p>` : ""}</li>`,
+      html: `<li><h3>${link(item.name, safeUrl(item.website))}</h3>${metadata}<p>${item.website ? link("Website", safeUrl(item.website)) + " · " : "Website not listed · "}${link("Notion details", safeUrl(item.notionUrl))}</p><p>${e(summary)}</p>${item.note ? `<p><strong>Check before applying:</strong> ${e(item.note)}</p>` : ""}</li>`,
       text: `${item.name}\nType: ${item.type || "Not listed"}\nWebsite: ${item.website || "Not listed"}\n${dates}\nTags: ${tags}\n${summary}${item.note ? `\nCheck before applying: ${item.note}` : ""}\nNotion details: ${item.notionUrl}`
     };
   });
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${e(subject)}</title><style>a{color:#185abc;text-decoration:underline}h3{font-size:18px;margin:0}li{margin:0 0 26px}p{margin:8px 0}ul{padding-left:24px}</style></head><body style="margin:0;background:#fff;color:#202124;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6"><main style="max-width:720px;margin:0 auto;padding:28px 22px;overflow-wrap:anywhere"><h1 style="font-size:28px;line-height:1.2;margin:0 0 8px">Dust Wave Opportunities</h1><p style="color:#5f6368">${e(date)} · ${count} opportunit${count === 1 ? "y" : "ies"}</p><p><strong>${e(MEMBER_NOTICE)}</strong></p><p>${helpHtml}</p><section style="margin:24px 0 30px;padding:22px 0;border-top:1px solid #dadce0;border-bottom:1px solid #dadce0">${intro.html}</section><h2 style="font-size:21px">Upcoming deadlines</h2><p>Open calls due within 31 days, soonest first.</p>${count ? `<ul>${items.map(item => item.html).join("")}</ul>` : "<p>No opportunities meet the deadline window today.</p>"}<p style="font-size:14px;color:#5f6368">Dates and details come from the Opportunities database. Check the application website before submitting.</p></main></body></html>`;
-  const text = [subject, MEMBER_NOTICE, helpText, intro.text, "UPCOMING DEADLINES", ...items.map(item => item.text)].join("\n\n");
+  const browseText = newsletter.browseViews ? [safeUrl(newsletter.browseViews.types) ? `Browse by type: ${newsletter.browseViews.types}` : "", safeUrl(newsletter.browseViews.tags) ? `Browse by tag: ${newsletter.browseViews.tags}` : ""].filter(Boolean).join("\n") : "";
+  const text = [subject, MEMBER_NOTICE, helpText, intro.text, "UPCOMING DEADLINES", ...items.map(item => item.text), browseText].filter(Boolean).join("\n\n");
   if (new TextEncoder().encode(html + text).length > 4_000_000) throw new Error("newsletter_email_too_large");
   return { subject, html, text };
 }

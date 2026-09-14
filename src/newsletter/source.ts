@@ -8,13 +8,14 @@ import { localBatchSlot } from "../util/dates";
 export const settingsSchema = z.object({
   databaseId: z.string().uuid(), peopleDataSourceId: z.string().uuid(), helpContactPageId: z.string().uuid(),
   helpEmail: z.email(),
+  views: z.object({ byType: z.string().uuid(), byTag: z.string().uuid() }).optional(),
   aliases: z.record(z.string(), z.string()).default({})
 });
 export type NewsletterSettings = z.infer<typeof settingsSchema>;
 export function loadNewsletterSettings(env: Env): NewsletterSettings {
   return settingsSchema.parse(JSON.parse(env.NEWSLETTER_SETTINGS || "{}"));
 }
-type Property = { type?: string; title?: RichText[]; rich_text?: RichText[]; email?: string; phone_number?: string; url?: string; date?: { start?: string }; select?: { name: string }; multi_select?: { name: string }[] };
+type Property = { type?: string; title?: RichText[]; rich_text?: RichText[]; email?: string; phone_number?: string; url?: string; date?: { start?: string }; select?: { name: string; color?: string }; multi_select?: { name: string; color?: string }[] };
 export function property(page: NotionPage, name: string): Property { return (page.properties?.[name] ?? {}) as Property; }
 export function propertyText(page: NotionPage, name: string): string {
   const p = property(page, name);
@@ -38,9 +39,12 @@ export function opportunityFromPage(page: NotionPage): Opportunity {
   const web = property(page, "Website");
   const richUrl = (web.rich_text ?? []).map(item => item.href ?? item.text?.link?.url).find(Boolean);
   const website = safeUrl(propertyText(page, "Website")) ?? safeUrl(richUrl);
+  const type = property(page, "Type").select;
+  const tags = property(page, "Tags").multi_select ?? [];
   return { id: page.id, name: propertyText(page, "Name"), website,
     notionUrl: page.url ?? `https://www.notion.so/${page.id.replaceAll("-", "")}`,
-    type: property(page, "Type").select?.name ?? "", tags: (property(page, "Tags").multi_select ?? []).map(tag => tag.name),
+    type: type?.name ?? "", typeColor: type?.color, tags: tags.map(tag => tag.name),
+    tagColors: Object.fromEntries(tags.map(tag => [tag.name, tag.color ?? "default"])),
     due: property(page, "Due Date").date?.start ?? null, opens: property(page, "Application open").date?.start ?? null,
     archived: page.archived || page.in_trash };
 }
