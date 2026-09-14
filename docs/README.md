@@ -43,3 +43,5 @@ Source runbooks own publisher-specific details and acceptance records. Shared po
 - [Notices](../NOTICE.md) — attribution for adapted material; kept at root.
 
 Run `npm run docs:check` after changing Markdown. It verifies required current documents, inline local links, and ATX heading anchors, including archived documents. See [Contributing](CONTRIBUTING.md#documentation-changes) for placement and maintenance rules.
+
+- [Platform reuse migration](platform-reuse-2026-09-14.md): source candidate, characterization, validation limits and independent rollback.
