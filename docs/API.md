@@ -184,7 +184,3 @@ The response includes the selected newest message ID, opaque page fingerprint, a
 | `500` | Unhandled route failure; response omits internal details |
 
 External API adapters include their endpoint and status in bounded internal error messages, which appear in structured logs or relevant D1 error fields.
-
-## Newsletter preview and status
-
-Authenticated `GET /admin/newsletter/preview` builds current HTML without delivery, and `GET /admin/newsletter/status` returns receipt metadata. Preview may update the summary cache. See [newsletter operations](NEWSLETTER.md#preview-and-operations).

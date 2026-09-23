@@ -4,6 +4,8 @@
 
 Dust Wave Opportunity Radar converts two private mail sources, public Creative West listings, optional Colossal and Hyperallergic roundups, and the optional Artwork Archive guide into one controlled creative-opportunity workflow. Cloudflare hosts every persistent and scheduled component. GitHub provides CI and explicitly dispatched operational workflows; it is not in the steady-state message path.
 
+The member newsletter runs in the separate `dust-wave-opportunity-internal-email` service. Radar's email responsibility is the human-review digest; see [newsletter ownership](NEWSLETTER.md) for the retired prototype and service boundary.
+
 ## Components
 
 | Component | Responsibility | Persistent content |
@@ -133,7 +135,3 @@ The digest HTML shell and display formatting use `@dustwave/digest-core` 0.1.0, 
 Rollback is independent: restore the prior local digest adapter and remove the package/gitlink adoption together; no database or email-routing change is involved.
 
 The [reuse migration](platform-reuse-2026-09-14.md) also adopts Worker Core response/crypto entries and optional Test Core documentation/SQLite mechanics. Source selection, documentation discovery, schema migrations and all deployment authority remain here.
-
-## Internal opportunities newsletter
-
-The [newsletter](NEWSLETTER.md) reads existing Notion entries through the shared client, uses a separate weekday-selected Workflow, and sends a private deadline list through its own restricted email binding. It does not run the source ingestion batch. D1 freezes each local-date edition and prevents repeated provider attempts.

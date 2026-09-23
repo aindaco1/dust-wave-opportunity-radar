@@ -55,6 +55,12 @@ describe("Worker HTTP routes", () => {
     expect((await worker.fetch(admin("/admin/nope"), env)).status).toBe(404);
   });
 
+  it.each(["preview", "status"])("does not expose the separate newsletter's %s route", async (route) => {
+    const { env } = setup();
+    const response = await worker.fetch(admin(`/admin/newsletter/${route}`), env);
+    expect(response.status).toBe(404);
+  });
+
   it.each([
     [undefined, 401],
     ["Bearer wrong", 401],
@@ -140,6 +146,23 @@ describe("Worker HTTP routes", () => {
 });
 
 describe("Worker schedule routing", () => {
+  it.each(["2026-09-21T14:00:00Z", "2026-12-03T15:00:00Z"])(
+    "leaves the Monday/Thursday 08:00 member newsletter to its own service (%s)",
+    async (scheduledFor) => {
+      const newsletterCreate = vi.fn();
+      // Stale draft bindings must not revive a duplicate sender in Radar.
+      const { env, create } = setup({
+        NEWSLETTER_ENABLED: "true",
+        NEWSLETTER_HOUR: "8",
+        NEWSLETTER_DAYS: "1,4",
+        NEWSLETTER_WORKFLOW: { create: newsletterCreate }
+      });
+      await worker.scheduled({ scheduledTime: new Date(scheduledFor).valueOf() } as ScheduledController, env);
+      expect(newsletterCreate).not.toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
+    }
+  );
+
   it("starts one workflow for a configured Mountain-time slot", async () => {
     const { env, create } = setup();
     await worker.scheduled({ scheduledTime: new Date("2026-08-05T13:00:00Z").valueOf() } as ScheduledController, env);

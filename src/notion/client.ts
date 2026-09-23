@@ -10,11 +10,9 @@ const NOTION_VERSION = "2026-03-11";
 const LEGACY_MANAGED_START = "**Opportunity Radar managed section — do not edit below this line**";
 const LEGACY_MANAGED_END = "**End Opportunity Radar managed section**";
 
-export interface NotionPage {
+interface NotionPage {
   id: string;
   url?: string;
-  archived?: boolean;
-  in_trash?: boolean;
   created_time?: string;
   properties?: Record<string, unknown>;
 }
@@ -718,7 +716,7 @@ function extractLegacyManagedBlock(markdown: string): string | null {
   return markdown.slice(start, end + LEGACY_MANAGED_END.length);
 }
 
-export async function notionJson<T = Record<string, unknown>>(
+async function notionJson<T = Record<string, unknown>>(
   token: string,
   path: string,
   init: RequestInit = {}
