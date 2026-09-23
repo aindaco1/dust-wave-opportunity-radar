@@ -14,7 +14,8 @@ export const settingsSchema = z.object({
 });
 export type NewsletterSettings = z.infer<typeof settingsSchema>;
 export function loadNewsletterSettings(env: Env): NewsletterSettings {
-  return settingsSchema.parse(JSON.parse(env.NEWSLETTER_SETTINGS || "{}"));
+  try { return settingsSchema.parse(JSON.parse(env.NEWSLETTER_SETTINGS || "{}")); }
+  catch { throw new Error("newsletter_settings_invalid"); }
 }
 type Property = { type?: string; title?: RichText[]; rich_text?: RichText[]; email?: string; phone_number?: string; url?: string; date?: { start?: string }; select?: { name: string; color?: string }; multi_select?: { name: string; color?: string }[] };
 export function property(page: NotionPage, name: string): Property { return (page.properties?.[name] ?? {}) as Property; }

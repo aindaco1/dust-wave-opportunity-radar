@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { addDays, businessIntro, dayOf, MEMBER_NOTICE, renderNewsletter, selectOpportunities, shouldStartNewsletter, type Newsletter, type Opportunity } from "../src/newsletter/model";
-import { opportunityFromPage, parseMemberNames, queryPages, readAudience, readIntroAndContact, readOpportunityBody, resolveRecipients } from "../src/newsletter/source";
+import { loadNewsletterSettings, opportunityFromPage, parseMemberNames, queryPages, readAudience, readIntroAndContact, readOpportunityBody, resolveRecipients } from "../src/newsletter/source";
 import { buildNewsletter, deliverNewsletter, expireNewsletterContent, freezeEdition, readEdition, summarizeOpportunity, type FrozenEdition } from "../src/newsletter/service";
 import { OpportunityNewsletterWorkflow } from "../src/workflow/newsletter";
 import worker from "../src/index";
@@ -86,11 +86,29 @@ describe("newsletter schedule",()=>{
   });
 });
 describe("newsletter content and recipient reads",()=>{
+  it("redacts malformed private settings from error diagnostics",()=>{
+    const {env}=setup();env.NEWSLETTER_SETTINGS="private-settings-example";
+    expect(()=>loadNewsletterSettings(env)).toThrow("newsletter_settings_invalid");
+  });
   it("removes the license link and omits the rolling-view instruction",()=>{
     const intro=businessIntro([{plain_text:"Rolling submissions listed at the top\nDust Wave Biz Info\n"},{text:{content:"Biz license",link:{url:"https://notion.so/license"}}}]);
     const rendered=renderNewsletter({...newsletter(),intro});
     expect(rendered.html).toContain(MEMBER_NOTICE);expect(rendered.text).not.toContain("Biz license");expect(rendered.html).not.toContain("https://notion.so/license");
     expect(rendered.html).not.toContain("Rolling submissions");expect(()=>businessIntro([])).toThrow();
+  });
+  it.each([false,true])("omits a business-license resource on the next line (linked=%s)",linked=>{
+    const license="https://example.org/private-license";
+    const intro=businessIntro([
+      {plain_text:"Dust Wave Biz Info\nExample LLC\nBiz Lic"},
+      {plain_text:"ense:\n"},
+      linked ? {text:{content:"View license",link:{url:license}}} : {plain_text:license},
+      {plain_text:"\nGrants: https://example.org/grants\nAddress: 123 Example Street"}
+    ]);
+    const rendered=renderNewsletter({...newsletter(),intro});
+    for(const output of [rendered.html,rendered.text]) {
+      expect(output).not.toContain(license);expect(output).not.toContain("View license");
+      expect(output).toContain("https://example.org/grants");expect(output).toContain("123 Example Street");
+    }
   });
   it("escapes untrusted values and rejects unsafe link protocols",()=>{
     const n=newsletter();n.opportunities=[item({name:"<script>x</script>",website:"javascript:alert(1)",summary:"<b>hello</b>",note:"Dates differ"})];
@@ -172,7 +190,7 @@ describe("newsletter generation and delivery",()=>{
   });
   it("fails on invalid AI output and on oversized body",async()=>{
     const {env}=setup();vi.mocked(env.AI.run).mockResolvedValue({response:"invented format"} as never);
-    await expect(summarizeOpportunity(env,item(),"body")).rejects.toThrow();await expect(summarizeOpportunity(env,item(),"x".repeat(50001))).rejects.toThrow("too_large");
+    await expect(summarizeOpportunity(env,item(),"body")).rejects.toThrow("newsletter_summary_invalid");await expect(summarizeOpportunity(env,item(),"x".repeat(50001))).rejects.toThrow("too_large");
   });
   it("freezes once; sends recipients privately; duplicate deliveries do not resend",async()=>{
     vi.useFakeTimers();vi.setSystemTime(NOW);const {env,send}=setup();mockSources();const frozen=edition();await freezeEdition(env,frozen);

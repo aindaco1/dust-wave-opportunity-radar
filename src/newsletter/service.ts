@@ -19,8 +19,11 @@ export async function summarizeOpportunity(env: Env, item: Opportunity, markdown
     ], response_format: { type: "json_schema", json_schema: z.toJSONSchema(summarySchema, { target: "draft-7" }) },
     temperature: 0.1, max_tokens: 500
   });
-  const result = response as { response?: unknown };
-  const parsed = summarySchema.parse(typeof result.response === "string" ? JSON.parse(result.response) : result.response);
+  let parsed: z.infer<typeof summarySchema>;
+  try {
+    const result = response as { response?: unknown };
+    parsed = summarySchema.parse(typeof result.response === "string" ? JSON.parse(result.response) : result.response);
+  } catch { throw new Error("newsletter_summary_invalid"); }
   const summary = { summary: parsed.summary.replace(/\s+/g, " ").trim(), note: parsed.note.replace(/\s+/g, " ").trim() };
   await env.DB.prepare("INSERT INTO newsletter_summaries(page_id,content_hash,summary_json,updated_at) VALUES(?,?,?,?) ON CONFLICT(page_id) DO UPDATE SET content_hash=excluded.content_hash,summary_json=excluded.summary_json,updated_at=excluded.updated_at")
     .bind(item.id, cacheKey, JSON.stringify(summary), new Date().toISOString()).run();

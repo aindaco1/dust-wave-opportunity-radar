@@ -94,10 +94,23 @@ function renderBusinessInfo(description: RichText[], businessAddress?: string): 
       lines.at(-1)!.push({ ...run, plain_text: content });
     });
   }
-  const visible = lines.filter(line => {
+  const visible: RichText[][] = [];
+  let omitLicenseResource = false;
+  for (const line of lines) {
     const text = plainText(line).trim();
-    return text && text !== "Dust Wave Biz Info" && !/^(?:biz|business)\s+licen[cs]e\b/i.test(text);
-  });
+    if (!text) continue;
+    if (/^(?:biz|business)\s+licen[cs]e\b/i.test(text)) {
+      omitLicenseResource = /^(?:biz|business)\s+licen[cs]e\s*:?$/i.test(text)
+        && !line.some(run => safeUrl(run.href ?? run.text?.link?.url));
+      continue;
+    }
+    if (omitLicenseResource) {
+      omitLicenseResource = false;
+      // A standalone label may put its linked resource on the following line.
+      if (line.every(run => !plainText([run]).trim() || safeUrl(run.href ?? run.text?.link?.url) || safeUrl(plainText([run]).trim()))) continue;
+    }
+    if (text !== "Dust Wave Biz Info") visible.push(line);
+  }
   const paragraphs: string[] = [];
   const fields: Array<{ label: string; value: string }> = [];
   const resources: Array<{ label: string; url: string }> = [];

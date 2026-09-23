@@ -25,6 +25,7 @@ Start with the entry points below, then use the document that owns the subject. 
 | Tables, status transitions, retention, and migration procedure | [Data model](DATA-MODEL.md) |
 | Notion schema, entity matching, body ownership, and reconciliation | [Notion integration](NOTION.md) |
 | Test layers, fixtures, regression procedure, and quality gates | [Testing](TESTING.md) |
+| Live semantic regression evaluation and shared Jev adoption | [Jev evaluation](JEV-EVALUATION.md) |
 
 ## Source runbooks
 
@@ -45,3 +46,7 @@ Source runbooks own publisher-specific details and acceptance records. Shared po
 Run `npm run docs:check` after changing Markdown. It verifies required current documents, inline local links, and ATX heading anchors, including archived documents. See [Contributing](CONTRIBUTING.md#documentation-changes) for placement and maintenance rules.
 
 - [Opportunities newsletter](NEWSLETTER.md): member audience, deadline selection, Monday/Thursday schedule, private preview and activation.
+
+- [Platform reuse migration](platform-reuse-2026-09-14.md): source candidate, characterization, validation limits and independent rollback.
+
+- [Platform reuse batch 2](platform-reuse-batch2-2026-09-14.md): shared primitives, characterization and independent rollback.

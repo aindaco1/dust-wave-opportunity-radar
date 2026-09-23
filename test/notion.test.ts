@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildOpportunityMarkdown,
   ensureNotionSchema,
   inspectNotionReview,
   inspectNotionReviewQueue,
@@ -128,6 +129,30 @@ describe("Notion schema management", () => {
 });
 
 describe("Notion publishing", () => {
+  it("separates collapsed generated section headings from their paragraphs", async () => {
+    const { env, config } = setup();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json({ results: [], has_more: false }))
+      .mockResolvedValueOnce(json({ id: "11111111-1111-1111-1111-111111111111" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const value = classification({ bodyMarkdown: "## Overview: A fictional festival accepts films. ## Eligibility: Artists worldwide. ## Deadline / application window: October 1. ## How to apply: Submit online. ## Materials / requirements: A screener and synopsis." });
+    const result = await publishOpportunity(env, config, messageRecord(), value, "fictional-festival");
+    const body = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(body.markdown).toContain("## Overview\n\nA fictional festival accepts films.\n\n## Eligibility\n\nArtists worldwide.");
+    expect(body.markdown).toContain("## Materials / requirements\n\nA screener and synopsis.");
+    expect(body.markdown).not.toContain("films. ## Eligibility");
+    expect(result.managedMarkdown).toBe(body.markdown);
+  });
+
+  it("normalizes generated HTML breaks and plain section labels without changing valid Markdown", () => {
+    const malformed = classification({ bodyMarkdown: "Overview: A grant.<br><br>## Eligibility: Artists worldwide.<br />- Film<br>- Photography" });
+    const normalized = buildOpportunityMarkdown(malformed);
+    expect(normalized).toContain("## Overview\n\nA grant.\n\n## Eligibility\n\nArtists worldwide.\n- Film\n- Photography");
+    expect(normalized).not.toContain("<br");
+    const valid = "## Overview\n\nA **film** grant for C# projects. See [details](https://example.org/#eligibility).\n\n## Eligibility\n\n- Film\n- Photography";
+    expect(buildOpportunityMarkdown(classification({ bodyMarkdown: valid })).startsWith(valid)).toBe(true);
+  });
+
   it("creates a clean page when no equivalent opportunity exists", async () => {
     const { env, config } = setup();
     const pageId = "11111111-1111-1111-1111-111111111111";
@@ -141,10 +166,9 @@ describe("Notion publishing", () => {
     const [url, request] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(url).toBe("https://api.notion.com/v1/pages");
     expect(request.method).toBe("POST");
-    expect(request.headers).toMatchObject({
-      Authorization: "Bearer test-notion-token",
-      "Notion-Version": "2026-03-11"
-    });
+    const headers = new Headers(request.headers);
+    expect(headers.get("authorization")).toBe("Bearer test-notion-token");
+    expect(headers.get("notion-version")).toBe("2026-03-11");
     const body = JSON.parse(String(request.body));
     expect(body.properties.Name.title[0].text.content).toBe("Dust Wave Film Grant");
     expect(body.properties.Source.select.name).toBe("Zoho");
@@ -309,11 +333,12 @@ describe("Notion publishing", () => {
     )).toHaveLength(1);
   });
 
-  it("refreshes an exact managed block without replacing surrounding manual notes", async () => {
+  it.each(["Original managed text", "## Overview: Old details. ## Eligibility: Artists worldwide."])(
+    "refreshes exact managed text %j without replacing surrounding manual notes", async (previousMarkdown) => {
     const { env, config } = setup();
     const pageId = "11111111-1111-1111-1111-111111111111";
-    const previousMarkdown = "Original managed text";
-    const automationKey = await seedNotionReview(env, pageId, previousMarkdown);
+    const value = classification({ bodyMarkdown: "## Overview: New details. ## Eligibility: Artists worldwide." });
+    const automationKey = await seedNotionReview(env, pageId, previousMarkdown, value);
     let markdown = `Manual introduction.\n\n${previousMarkdown}\n\nManual follow-up.`;
     const fetchMock = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
       const url = String(urlValue);
@@ -343,6 +368,7 @@ describe("Notion publishing", () => {
     await reconcileNotionReview(env, config, "a".repeat(64), "refresh_managed");
     expect(markdown).toMatch(/^Manual introduction\./);
     expect(markdown).toContain("## Key dates and application");
+    expect(markdown).toContain("## Overview\n\nNew details.\n\n## Eligibility\n\nArtists worldwide.");
     expect(markdown).toMatch(/Manual follow-up\.$/);
     const markdownPatch = fetchMock.mock.calls.find(([url, init]) =>
       String(url).endsWith(`/pages/${pageId}/markdown`) && (init as RequestInit | undefined)?.method === "PATCH"

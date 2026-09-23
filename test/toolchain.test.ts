@@ -23,6 +23,15 @@ describe("locked toolchain compatibility", () => {
     expect(manifest.allowScripts[`workerd@${runtime!.version}`]).toBe(true);
   });
 
+  it("does not retain stale or broad workerd installer allowances", () => {
+    const runtime = lock.packages["node_modules/workerd"];
+    expect(runtime).toBeDefined();
+    const allowedInstallers = Object.entries(manifest.allowScripts)
+      .filter(([name, allowed]) => allowed && (name === "workerd" || name.startsWith("workerd@")))
+      .map(([name]) => name);
+    expect(allowedInstallers).toEqual([`workerd@${runtime!.version}`]);
+  });
+
   it("keeps the Vitest runner and coverage provider on the same version", () => {
     const runner = lock.packages["node_modules/vitest"];
     const coverage = lock.packages["node_modules/@vitest/coverage-v8"];

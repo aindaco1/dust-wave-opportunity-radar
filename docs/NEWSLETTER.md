@@ -19,7 +19,7 @@ Each entry includes name, linked website, type, opening date, deadline, all tags
 
 Dates occupy separate labeled rows, with the deadline first and emphasized. Types and tags use the current Notion option color names with an accessible email palette; missing or unknown colors use neutral gray. Colored labels link to the existing database's saved `By type` and `By tag` grouped views when private view IDs are configured. Each link opens the full grouped view, rather than filtering to the clicked label. The views sort by Due Date ascending and leave the database's original views intact. Plain-text mail includes the same two browsing links once at the end. The newsletter never creates views during a scheduled run.
 
-The beginning includes the database description starting at `Dust Wave Biz Info`, with a heading, company name, labeled business details, and concise resource links, followed by the opportunities list. The Biz License line and link are omitted from both HTML and plain text; the source database remains unchanged. Business identifiers, contact details and private resource links must never appear in source fixtures, public previews, logs, or commits. The introductory database-view instruction about rolling submissions is omitted. Linked resources are linked, not fetched or copied into the email.
+The beginning includes the database description starting at `Dust Wave Biz Info`, with a heading, company name, labeled business details, and concise resource links, followed by the opportunities list. The Biz License line and link are omitted from both HTML and plain text, including a resource placed on the line after a standalone label; the source database remains unchanged. Business identifiers, contact details and private resource links must never appear in source fixtures, public previews, logs, or commits. Invalid settings or AI summary output produces generic error diagnostics without echoing private values. The introductory database-view instruction about rolling submissions is omitted. Linked resources are linked, not fetched or copied into the email.
 
 An optional private `businessAddress` setting replaces the displayed Address value in both HTML and plain text, without changing the Notion description. It supplies the user-approved complete mailing address; absent an override, the current source value is used.
 
@@ -76,3 +76,16 @@ After authorization: confirm the existing Notion integration can read Opportunit
 ## Validation
 
 `test/newsletter.test.ts` covers the 31-day boundaries, opening dates/times, expired timestamps, Rolling and Done, film preference on deadline ties, date-only time zone handling, Monday/Thursday DST scheduling, faithful links, escaping, missing descriptions, roster parsing and exact matching, pagination failures, summary caching, private addressing, immutable editions, duplicate/ambiguous delivery prevention, retention and durable replay. Run the repository's full `npm run check` before commit.
+
+
+### Integration verification — September 23, 2026
+
+The integrated branch passes 444 offline tests across 35 files, including 41
+newsletter tests, generated types, TypeScript, documentation and the dry Worker
+bundle. Coverage is 91.08% statements, 82.95% branches, 96.13% functions and
+93.56% lines. Regression tests reproduced and fixed next-line business-license
+link leakage and private values appearing in settings/AI parsing diagnostics.
+The current Radar classifier additionally passed 24 Jev controls and 12 combined
+cases in `.jev-results/run-OESf0a/report.json`; that corpus does not evaluate the
+separate newsletter summarizer. The newsletter remains disabled pending its
+private production configuration and explicit sending authorization.

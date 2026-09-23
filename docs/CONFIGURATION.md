@@ -83,6 +83,15 @@ GitHub Actions reads Node from `.nvmrc`, installs through one local composite ac
 
 The official-CLI recovery command uses `HEY_RECOVERY_MESSAGE_ID` (existing D1 hash), `HEY_RECOVERY_MODE` (`preview` by default, or explicitly authorized `import`), and `HEY_CLI_BINARY` (qualified binary path). It requires `HEY_TOKEN` without stored-login fallback plus Cloudflare D1 credentials; only import mode receives `ADMIN_TOKEN`. The existing production Worker URL and DB binding are fixed by the command/repository, not supplied by source mail. No Worker binding, secret, migration, or deployment is added. See [HEY CLI](HEY-CLI.md#scoped-historical-recovery).
 
+## Development evaluation credentials
+
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` can be supplied through the
+environment or local `.dev.vars` for default live Jev testing. These are
+development-runner settings, not new Worker bindings or deployed secrets. The
+token requires Workers AI inference access. Local runs may use an existing
+Wrangler login; hosted runs require explicit credentials. See
+[Jev evaluation](JEV-EVALUATION.md) for the offline command and CI boundary.
+
 ## Supported Zoho data centers
 
 `us`, `eu`, `in`, `au`, `jp`, `ca`, `sa`, and `uk` are mapped to explicit account/mail hosts. Any other value fails before OAuth traffic.
