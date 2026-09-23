@@ -72,6 +72,8 @@ If the primary pass fails, or returns `ignore` with confidence below the configu
 - recovered `digest` → selected digest category;
 - recovered `ignore` → ignored.
 
+When geographic exclusion drives a recovered ignore, its summary retains the source's actual applicant eligibility restriction. Naming the target states as excluded alone may omit the original residency rule.
+
 If both passes fail, the Workflow creates a generic human-review digest record identifying the source email. This is the final fallback and should be investigated if it repeats. See [Troubleshooting](TROUBLESHOOTING.md#automatic-classification-could-not-produce-a-reliable-structured-result).
 
 ## Structured fields

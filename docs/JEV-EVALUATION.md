@@ -188,3 +188,19 @@ cases using 15 classifier calls and 36 Jev calls. It preserved the explicit
 opening date, retained the unverified fellowship for review, and ignored the
 realistic personal-acceptance notice. These are bounded synthetic regression
 results, not production or existing-Notion-page acceptance.
+
+
+## Toolchain revalidation — September 23, 2026
+
+Revalidation on Wrangler 4.135.0 and Vitest 5.0.1 passed the offline gates but
+`.jev-results/run-wM4THY/report.json` caught a recovery-summary omission: the
+California-only grant was correctly ignored, but the summary named only the
+excluded target states and omitted the original residency rule. The existing
+semantic requirement rejected that incomplete description. The recovery prompt
+now asks for the source's actual applicant eligibility restriction when geographic
+exclusion drives an ignore. Judge policy, labels and expectations are unchanged.
+
+The follow-up full check passed 403 offline tests and all 24 controls / 12 combined
+live cases in `.jev-results/run-PBbOIG/report.json` (15 classifier and 36 Jev
+requests). The corrected recovery description retains the original residency
+rule. This remains synthetic evidence, not scheduled production acceptance.
