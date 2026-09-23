@@ -404,7 +404,7 @@ Return exactly one JSON object with these fields:
 - confidence: number from 0 to 1.
 - title: a useful human title, not an automation error.
 - organization: string or null.
-- summary: 1-3 concise sentences stating what the email actually contains and why Alonso might care.
+- summary: 1-3 concise sentences stating what the email actually contains and why Alonso might care. Include the source's actual applicant eligibility restriction whenever geographic exclusion drives an ignore decision.
 - primaryUrl: an official source URL from SOURCE LINKS or FETCHED PAGE TEXT, or null. Never invent a URL.
 - digestCategory: one of "Possible Opportunities", "Jobs & Commissions", "Workshops & Training", "Events & Conferences", "Games & Interactive", "Industry News", "Other Useful Finds", or null.
 - rationale: concise reason for the decision.
