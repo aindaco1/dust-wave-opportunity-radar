@@ -1,6 +1,6 @@
 # Testing
 
-The test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Creative West, Notion, or public websites.
+The offline test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Creative West, Notion, or public websites. The default `npm run check` additionally runs live Cloudflare classifier and Jev inference on committed fictional examples; see [Jev evaluation](JEV-EVALUATION.md).
 
 Vitest and its V8 coverage provider are locked together at 5.0.0. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
 
@@ -13,7 +13,10 @@ npm run test:coverage    # tests plus enforced coverage floors
 npm run docs:check       # required docs, local links, and ATX heading anchors
 npm run typecheck        # Cloudflare generated-type check + TypeScript
 npm run deploy:dry       # production bundle without upload
-npm run check            # complete required quality gate
+npm run check            # offline quality gate plus live classifier/Jev
+npm run check:offline    # credential-free quality gate used by hosted CI
+npm run test:jev         # live semantic evaluation only
+npm run test:jev:preview # zero-inference preview, not semantic acceptance
 ```
 
 Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functions, and 75% lines. The thresholds are a regression floor, not a substitute for risk-based assertions.
@@ -22,7 +25,8 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 
 | Area | Files | What is verified |
 |---|---|---|
-| Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, recovery, tags/URLs, model pin, invalid config |
+| Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, uncertain-ignore recovery, source-grounded opening dates, tags/URLs, model pin, invalid config |
+| Jev evaluation contracts | `jev-evaluation.test.ts` | exact/semantic/calibration result composition, negative controls, uncertainty, partial failures, credential boundaries and bounded classifier transport; fully mocked |
 | Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
 | Shared public sources | `public-source-helpers.test.ts` | Snapshot identity, terminal preservation, expired-failure recovery, partial-write cleanup, bounded MIME and conditional RSS fetch |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
@@ -35,7 +39,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | HEY CLI qualification | `hey-cli-fidelity.test.ts`, `hey-cli-verify.test.ts`, `email-worker.test.ts` | exact topic/posting identity separation; legacy repeat import and expired-row recovery; forwarded identity boundary; fail-closed attachment reconciliation and nonempty sample requirement; redacted subprocess failures and cache cleanup, using synthetic fixtures only |
 | HEY CLI recovery | `hey-cli-recovery.test.ts`, `parse.test.ts` | failed-expired-only guard; historical cutoff using zoned original timestamps; incomplete/edited-content refusal; per-message attachment ownership, size and PDF signatures; Unicode MIME; real D1/R2 importer and DOCX parsing; PDF parsing with PDF or generic MIME types; downstream preservation and no-write repeat; secret-free CLI help/errors |
 | Persistence | `database.test.ts` | real migrations, uniqueness, state machine, stale claims, retention, runs |
-| Notion | `notion.test.ts` | schema, find-before-create, manual-page preference, safe body update, explicit body ownership, guarded newest-message page-group reconciliation, duplicate trash ownership |
+| Notion | `notion.test.ts` | schema, generated heading/line-break normalization, find-before-create, manual-page preference, safe body update, exact old-body matching, explicit body ownership, guarded newest-message page-group reconciliation, duplicate trash ownership |
 | Rendering/delivery | `digest.test.ts` | copy, escaping, category order, compaction, binding request |
 | Entrypoints/orchestration | `index.test.ts`, `workflow.test.ts`, `hyperallergic.test.ts` | Colossal/Hyperallergic source-only routing and multiple extracted entries through Notion/digest/ignore with empty repeat suppression; auth/routes, scheduling, content-free durable step outputs, complete outcome accounting, bounded message-preparation concurrency |
 
@@ -52,6 +56,11 @@ Vitest aliases `cloudflare:workers` to `test/support/cloudflare-workers.ts`. The
 `email-runtime.test.ts` closes the most important gap in that shim. Wrangler's local integration harness dispatches a real `email()` event to the production ingestion function with local R2 and D1 bindings. The test verifies fixed-length streaming, durable object size, D1 queue state, idempotent redelivery, privacy-safe logs, and a five-second local responsiveness budget. Its dedicated `test/wrangler.email.jsonc` intentionally omits remote AI, Workflow, email-sending, and production credentials.
 
 ## External API tests
+
+The separately selected `jev.live.ts` suite is the deliberate exception: it calls
+Cloudflare using only the fixed synthetic corpus. It reuses the production
+classifier and shared Platform Jev adapter. See [commands, credentials and result
+interpretation](JEV-EVALUATION.md). It never runs under `npm test` or coverage.
 
 Stub global `fetch` and respond at the HTTP boundary. Assert the meaningful contract:
 

@@ -70,7 +70,7 @@ sequenceDiagram
   Note over Flow,AI: Prepare MIME and classify in bounded groups of up to four
   Flow->>R2: load MIME, store parsed JSON
   Flow->>AI: strict JSON-schema classification
-  alt primary result invalid
+  alt primary result invalid or low-confidence ignore
     Flow->>AI: smaller recovery JSON classification
   end
   alt qualifying call
@@ -120,6 +120,7 @@ Each message is processed independently inside the batch. MIME preparation, enri
 - Parsing and web evidence: `src/email/parse.ts`, `src/ingest/web-enrichment.ts`
 - AI and deterministic policy: `src/ai/classify.ts`
 - Notion reconciliation: `src/notion/client.ts`
+- Generated opportunity Markdown: `src/opportunity-markdown.ts` (template sections shared with the classifier; applied by the Notion body builder)
 - State persistence: `src/storage/database.ts`
 - Digest: `src/email/digest.ts`
 
@@ -127,7 +128,7 @@ See [Data model](DATA-MODEL.md), [Notion integration](NOTION.md), and [Security]
 
 ## Shared digest presentation
 
-The digest HTML shell and display formatting use `@dustwave/digest-core` 0.1.0 at Platform commit `30b1cf9c1154b6f38e3da34fc7b2ed3b6d312088`, pinned through `shared/dust-wave-platform`. Opportunity grouping, full plain text, sender/recipient, schedule and Cloudflare Email Sending remain here. The extraction preserves the existing HTML and text byte for byte in `test/digest.test.ts`. GitHub Repo Scan consumes the same presentation with its own labels and report model.
+The digest HTML shell and display formatting use `@dustwave/digest-core` 0.1.0, pinned through `shared/dust-wave-platform`. The [current Platform adoption record](JEV-EVALUATION.md#scope-and-implementation) identifies the immutable commit and package boundary. Opportunity grouping, full plain text, sender/recipient, schedule and Cloudflare Email Sending remain here. The extraction preserves the existing HTML and text byte for byte in `test/digest.test.ts`. GitHub Repo Scan consumes the same presentation with its own labels and report model.
 
 Rollback is independent: restore the prior local digest adapter and remove the package/gitlink adoption together; no database or email-routing change is involved.
 

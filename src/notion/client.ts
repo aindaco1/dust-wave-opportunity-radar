@@ -4,6 +4,7 @@ import { canonicalizeUrl } from "../email/parse";
 import { markNotionReviewGroupReconciled, saveClassification, upsertOpportunity } from "../storage/database";
 import { sha256Hex } from "../util/crypto";
 import { notionRequest, NotionResponseError } from "@dustwave/worker-core/notion";
+import { normalizeOpportunityMarkdown } from "../opportunity-markdown";
 
 const NOTION_VERSION = "2026-03-11";
 const LEGACY_MANAGED_START = "**Opportunity Radar managed section — do not edit below this line**";
@@ -694,7 +695,7 @@ export function buildOpportunityMarkdown(classification: Classification): string
   const applicationLine = classification.applicationUrl
     ? `- [Apply or submit here](${classification.applicationUrl})`
     : "- Use the official opportunity page linked above.";
-  return `${classification.bodyMarkdown.trim()}
+  return `${normalizeOpportunityMarkdown(classification.bodyMarkdown)}
 
 ## Key dates and application
 
