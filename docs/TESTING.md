@@ -2,7 +2,7 @@
 
 The offline test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Creative West, Notion, or public websites. The default `npm run check` additionally runs live Cloudflare classifier and Jev inference on committed fictional examples; see [Jev evaluation](JEV-EVALUATION.md).
 
-Vitest and its V8 coverage provider are locked together at 5.0.0. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
+Vitest and its V8 coverage provider are locked together at 5.0.1. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
 
 ## Commands
 
