@@ -18,4 +18,4 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: ./.github/actions/setup-project
-      - run: npm run check
+      - run: npm run check:offline

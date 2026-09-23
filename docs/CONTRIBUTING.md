@@ -10,6 +10,10 @@
 6. Run `npm run check` and, for core pipeline changes, `npm run test:coverage`.
 7. Review `git diff` for credentials, real email data, generated coverage output, and unrelated edits before commit.
 
+The default check includes live synthetic classifier/Jev evaluation. Hosted CI
+uses the explicit `check:offline` command; report that boundary separately from
+live semantic results. See [Jev evaluation](JEV-EVALUATION.md) for setup and limits.
+
 ## Tests and migrations
 
 Follow [Testing](TESTING.md) for test layers, privacy-safe fixtures, quality gates, and the regression-test procedure. Follow the [migration procedure](DATA-MODEL.md#migration-procedure) for append-only schema changes and local validation. Production authorization boundaries are defined in [AGENTS.md](../AGENTS.md).

@@ -53,7 +53,7 @@ npm run migrate:local
 npm run dev
 ```
 
-`npm run check` validates documentation links, checks generated Cloudflare types, type-checks TypeScript, runs the automated suite with enforced coverage floors, and builds a dry-run Worker bundle. `npm run test:coverage` runs the test/coverage portion alone and writes `coverage/coverage-summary.json`.
+`npm run check` validates documentation links, checks generated Cloudflare types, type-checks TypeScript, runs the automated suite with enforced coverage floors, builds a dry-run Worker bundle, then runs live classifier/Jev evaluation on fictional examples. See [Jev setup and interpretation](docs/JEV-EVALUATION.md). `npm run check:offline` is the explicit credential-free gate used by hosted CI. `npm run test:coverage` runs the offline test/coverage portion alone and writes `coverage/coverage-summary.json`.
 
 For a fresh Codex task, open this repository as the project folder and start with [Codex handoff](docs/CODEX-HANDOFF.md) and [AGENTS.md](AGENTS.md).
 

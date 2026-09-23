@@ -29,7 +29,8 @@ This repository is the complete project context for Dust Wave Opportunity Radar.
 
 | Command | Purpose |
 |---|---|
-| `npm run check` | Required local/CI quality gate |
+| `npm run check` | Default development gate, including live classifier/Jev evaluation |
+| `npm run check:offline` | Explicit credential-free gate used by hosted CI |
 | `npm test` | Run the fast automated suite |
 | `npm run test:coverage` | Run suite with enforced coverage floors |
 | `npm run docs:check` | Validate required docs and local links |

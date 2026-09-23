@@ -45,6 +45,7 @@ The initial disposable GitHub qualification used a temporary branch-restricted e
 - `.dev.vars`, HEY cookie files, Wrangler state, coverage output, and downloaded mail must remain untracked.
 - Logs may include IDs, source/folder labels, counts, titles for successful Notion publication, and bounded error messages. Do not add bodies, extracted attachment text, auth headers, or token-bearing URLs.
 - Tests and docs use synthetic content and `example.org`; production messages are not fixtures.
+- Default development [classifier/Jev evaluation](JEV-EVALUATION.md) sends only fixed fictional fixtures for remote inference and has no production-mail or Notion access. Its live/explicit-offline boundary is separate from Worker operation.
 - `/health` is public by design but exposes only service name, timezone, batch hours, and six feature flags. All stateful/read-through routes use the admin bearer token.
 
 See [Configuration](CONFIGURATION.md) for secret locations and [Data model](DATA-MODEL.md) for retained fields.

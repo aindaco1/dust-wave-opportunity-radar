@@ -29,7 +29,7 @@ jobs:
         with:
           cache-dependencies: "false"
       - name: Validate Radar before accessing HEY
-        run: npm run check
+        run: npm run check:offline
       - uses: ./.github/actions/setup-hey-cli
       - name: Create disposable live-check directories
         run: node -e 'require("node:fs").mkdirSync(require("node:path").join(process.env.RUNNER_TEMP,"hey-cli-qualification","tmp"),{recursive:true,mode:0o700})'

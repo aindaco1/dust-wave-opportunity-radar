@@ -25,6 +25,7 @@ Start with the entry points below, then use the document that owns the subject. 
 | Tables, status transitions, retention, and migration procedure | [Data model](DATA-MODEL.md) |
 | Notion schema, entity matching, body ownership, and reconciliation | [Notion integration](NOTION.md) |
 | Test layers, fixtures, regression procedure, and quality gates | [Testing](TESTING.md) |
+| Live semantic regression evaluation and shared Jev adoption | [Jev evaluation](JEV-EVALUATION.md) |
 
 ## Source runbooks
 

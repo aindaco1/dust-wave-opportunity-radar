@@ -3,6 +3,7 @@ import type { RuntimeConfig } from "../config";
 import { canonicalizeUrl } from "../email/parse";
 import type { EnrichedPage } from "../ingest/web-enrichment";
 import { classificationSchema, type Classification, type DiscoveryContext, type ParsedMessage } from "../types";
+import { OPPORTUNITY_SECTIONS } from "../opportunity-markdown";
 
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_EVIDENCE_CHARACTERS = 60_000;
@@ -114,7 +115,10 @@ export async function classifyMessage(
     throw new Error(`Configured AI model ${config.aiModel} is not supported by this release; expected ${MODEL}`);
   }
 
-  const schema = z.toJSONSchema(classificationSchema, { target: "draft-7" });
+  const schema = z.toJSONSchema(classificationSchema.extend({
+    // Extraction-only support: not persisted or added to the public Classification shape.
+    applicationOpenStartEvidence: z.string().min(1).max(400).nullable()
+  }), { target: "draft-7" });
   const messages = [
     { role: "system" as const, content: systemPrompt(config.aiConfidenceThreshold) },
     { role: "user" as const, content: buildEvidencePacket(message, pages) }
@@ -134,8 +138,13 @@ export async function classifyMessage(
       },
       { tags: ["dustwave", "opportunity-classifier"] }
     );
-    const parsed = parseClassificationResponse(response);
-    return enforceClassificationPolicy(parsed, config.aiConfidenceThreshold, message.discoveryContext, pages, message.asOfDate);
+    const candidate = unwrapAiValue(response);
+    const parsed = groundApplicationOpeningDate(parseClassificationResponse(candidate),
+      (candidate as Record<string, unknown>).applicationOpenStartEvidence, message, pages);
+    if (parsed.decision !== "ignore" || parsed.confidence >= config.aiConfidenceThreshold) {
+      return enforceClassificationPolicy(parsed, config.aiConfidenceThreshold, message.discoveryContext, pages, message.asOfDate);
+    }
+    primaryError = new Error("Low-confidence ignore requires recovery triage");
   } catch (error) {
     primaryError = error;
   }
@@ -165,6 +174,18 @@ export async function classifyMessage(
       `Workers AI primary and recovery classification both failed: ${errorSummary(primaryError)}; ${errorSummary(recoveryError)}`
     );
   }
+}
+
+function groundApplicationOpeningDate(
+  value: Classification, quote: unknown, message: ParsedMessage, pages: EnrichedPage[]
+): Classification {
+  if (!value.applicationOpenStart) return value;
+  const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
+  const evidence = typeof quote === "string" ? normalize(quote) : "";
+  // Processing timestamps and sender metadata are not evidence of an opening date.
+  const sources = [message.subject, message.text, ...message.attachments.map((item) => item.text ?? ""), ...pages.map((page) => page.text)];
+  return evidence.length > 10 && evidence.length <= 400 && sources.some((source) => normalize(source).includes(evidence))
+    ? value : { ...value, applicationOpenStart: null };
 }
 
 export function buildManualReviewClassification(message: ParsedMessage, error: unknown): Classification {
@@ -342,6 +363,11 @@ DECISIONS:
 2. "digest" for relevant creative-industry items that are useful but not qualifying calls: jobs, commissions, workshops, training, conferences, events, game jams, announcements, industry programs, and uncertain possible opportunities.
 3. "ignore" for advertising, receipts, transactional mail, irrelevant newsletters, social notifications, or anything without practical creative relevance.
 
+RELEVANCE BEFORE PUBLICATION:
+- A relevant possible call without an official link, verified organizer, complete terms, or sufficient publication confidence is "digest" / "Possible Opportunities", never "ignore" merely because its evidence is incomplete.
+- confidence expresses confidence in the selected routing decision, not just whether a call can be auto-published.
+- A personal acceptance/selection notice or delivery instructions for work already selected are transactional follow-up, not a new open call. Ignore them unless the source separately offers an actionable new call or useful industry item. A requested screening copy or press still is not an application for selection.
+
 AUTO-PUBLISH STANDARD:
 - Use "notion" only when confidence is at least ${confidenceThreshold} and a primary official URL is present.
 - Quote short evidence snippets establishing the call, eligibility, and deadline/open window.
@@ -359,9 +385,11 @@ GEOGRAPHY:
 NOTION:
 - type must be one of the schema values and should match the call mechanism.
 - tags should use this vocabulary when appropriate: ${EXISTING_TAGS.join(", ")}.
-- bodyMarkdown should contain: Overview, Eligibility, Deadline / application window, How to apply, Materials / requirements, and Notes / watch-outs. Omit sections with no reliable information.
+- bodyMarkdown should contain: ${OPPORTUNITY_SECTIONS.join(", ")}. Omit sections with no reliable information.
+- Write each section as a standalone Markdown heading, for example "## Overview", then a blank line and ordinary paragraph text. Never put paragraph text on a heading line or place another ## heading mid-paragraph. Use real newline characters in the JSON string, not HTML <br> tags; each list item belongs on its own line.
 - dueDate is the final hard application/submission deadline in YYYY-MM-DD. When multiple fee tiers or deadlines are listed (early-bird, regular, late, final), use the last date on which a valid application can still be submitted—not an early-bird or discounted-fee date. List the intermediate dates in bodyMarkdown.
-- applicationOpenStart/applicationOpenEnd are the application window dates, not booleans.
+- applicationOpenStart/applicationOpenEnd are the application window dates, not booleans. applicationOpenStart must be null unless the source explicitly states the opening date. "Applications are open" or "rolling" alone does not supply an opening date. Never use the batch date, received date or publication date as the opening date.
+- applicationOpenStartEvidence must be an exact short quote from source text stating when applications open; return null when that evidence is absent. It must support the opening date, not just quote a deadline. Processing metadata is not source evidence.
 
 DIGEST:
 - Pick the most useful digest category.
@@ -381,7 +409,7 @@ Return exactly one JSON object with these fields:
 - digestCategory: one of "Possible Opportunities", "Jobs & Commissions", "Workshops & Training", "Events & Conferences", "Games & Interactive", "Industry News", "Other Useful Finds", or null.
 - rationale: concise reason for the decision.
 
-This recovery pass does not auto-publish calls. Label a possible call as "call" so it can be held for human review.`;
+This recovery pass does not auto-publish calls. A relevant possible call with a missing official URL, unverified organizer or incomplete terms is "call", never "ignore" solely for lack of verification. Confidence measures the triage decision, not publication eligibility. Confirmed closed calls, explicit exclusion of all three target states, receipts and personal acceptance/delivery instructions for already-selected work can be ignored. A screening copy requested after selection is not a new application. Label a possible call as "call" so it can be held for human review.`;
 }
 
 export function buildEvidencePacket(message: ParsedMessage, pages: EnrichedPage[]): string {
