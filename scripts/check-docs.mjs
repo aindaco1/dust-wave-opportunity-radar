@@ -20,6 +20,7 @@ const required = [
   "docs/DECISIONS.md",
   "docs/HEY-CLI.md",
   "docs/HYPERALLERGIC.md",
+  "docs/NEWSLETTER.md",
   "docs/NOTION.md",
   "docs/JEV-EVALUATION.md",
   "docs/OPERATIONS.md",

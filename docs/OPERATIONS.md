@@ -118,3 +118,7 @@ See [Admin API](API.md) for response shapes and boundary errors.
 - Configuration/secrets and deploy/migrate/run/sync/trash operations are distinct production changes. Record which ones were performed in the handoff.
 - The manual batch Action waits for the matching D1 run, verifies every queued item is counted, and fails on retryable Notion or message failures. `notion_review` is a counted terminal outcome and does not make an otherwise complete batch fail.
 - Use [Troubleshooting](TROUBLESHOOTING.md) for symptom-driven recovery rather than repeatedly forcing batches.
+
+## Internal newsletter
+
+See [newsletter activation and recovery](NEWSLETTER.md) before enabling the Monday/Thursday member newsletter. It is disabled in the reviewed configuration; local validation does not establish deployment, Point People integration access, provider acceptance or mailbox arrival.

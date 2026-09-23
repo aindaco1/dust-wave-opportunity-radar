@@ -133,3 +133,7 @@ The digest HTML shell and display formatting use `@dustwave/digest-core` 0.1.0, 
 Rollback is independent: restore the prior local digest adapter and remove the package/gitlink adoption together; no database or email-routing change is involved.
 
 The [reuse migration](platform-reuse-2026-09-14.md) also adopts Worker Core response/crypto entries and optional Test Core documentation/SQLite mechanics. Source selection, documentation discovery, schema migrations and all deployment authority remain here.
+
+## Internal opportunities newsletter
+
+The [newsletter](NEWSLETTER.md) reads existing Notion entries through the shared client, uses a separate weekday-selected Workflow, and sends a private deadline list through its own restricted email binding. It does not run the source ingestion batch. D1 freezes each local-date edition and prevents repeated provider attempts.

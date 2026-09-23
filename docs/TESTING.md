@@ -40,6 +40,7 @@ Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functi
 | HEY CLI recovery | `hey-cli-recovery.test.ts`, `parse.test.ts` | failed-expired-only guard; historical cutoff using zoned original timestamps; incomplete/edited-content refusal; per-message attachment ownership, size and PDF signatures; Unicode MIME; real D1/R2 importer and DOCX parsing; PDF parsing with PDF or generic MIME types; downstream preservation and no-write repeat; secret-free CLI help/errors |
 | Persistence | `database.test.ts` | real migrations, uniqueness, state machine, stale claims, retention, runs |
 | Notion | `notion.test.ts` | schema, generated heading/line-break normalization, find-before-create, manual-page preference, safe body update, exact old-body matching, explicit body ownership, guarded newest-message page-group reconciliation, duplicate trash ownership |
+| Internal newsletter | `newsletter.test.ts` | Deadline windows, roster resolution, private rendering and license-link omission, cached summaries, frozen editions, ambiguous-send protection, retention and durable replay |
 | Rendering/delivery | `digest.test.ts` | copy, escaping, category order, compaction, binding request |
 | Entrypoints/orchestration | `index.test.ts`, `workflow.test.ts`, `hyperallergic.test.ts` | Colossal/Hyperallergic source-only routing and multiple extracted entries through Notion/digest/ignore with empty repeat suppression; auth/routes, scheduling, content-free durable step outputs, complete outcome accounting, bounded message-preparation concurrency |
 

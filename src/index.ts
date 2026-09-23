@@ -17,6 +17,9 @@ import { readBoundedJson } from "./util/http";
 import { timingSafeEqualText } from "./util/crypto";
 import { localBatchSlot, shouldStartBatch } from "./util/dates";
 import { logError, logInfo } from "./util/log";
+import { shouldStartNewsletter } from "./newsletter/model";
+import { buildNewsletter } from "./newsletter/service";
+export { OpportunityNewsletterWorkflow } from "./workflow/newsletter";
 export { OpportunityBatchWorkflow } from "./workflow/batch";
 
 const worker = {
@@ -27,6 +30,10 @@ const worker = {
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     const config = loadRuntimeConfig(env);
     const scheduledAt = new Date(controller.scheduledTime);
+    if (String(env.NEWSLETTER_ENABLED) === "true" && shouldStartNewsletter(scheduledAt, config.timezone, env.NEWSLETTER_HOUR, env.NEWSLETTER_DAYS)) {
+      const newsletterSlot = localBatchSlot(scheduledAt, config.timezone);
+      await env.NEWSLETTER_WORKFLOW.create({ id: `newsletter-${newsletterSlot.dateLabel}`, params: { scheduledFor: scheduledAt.toISOString() } });
+    }
     if (!shouldStartBatch(scheduledAt, config.timezone, config.batchHours)) {
       logInfo("scheduled_tick_skipped", { scheduledAt: scheduledAt.toISOString() });
       return;
@@ -60,6 +67,14 @@ const worker = {
 
       if (url.pathname.startsWith("/admin/")) {
         if (!(await isAuthorized(request, env))) return Response.json({ error: "Unauthorized" }, { status: 401 });
+        if (request.method === "GET" && url.pathname === "/admin/newsletter/preview") {
+          const edition = await buildNewsletter(env, new Date());
+          return new Response(edition.rendered.html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+        }
+        if (request.method === "GET" && url.pathname === "/admin/newsletter/status") {
+          const editions = await env.DB.prepare("SELECT day,state,created_at,attempted_at,message_id FROM newsletter_editions ORDER BY day DESC LIMIT 7").all();
+          return Response.json({ enabled: String(env.NEWSLETTER_ENABLED) === "true", hour: Number(env.NEWSLETTER_HOUR), weekdays: env.NEWSLETTER_DAYS, editions: editions.results });
+        }
         if (request.method === "POST" && url.pathname === "/admin/run") {
           const scheduledFor = new Date().toISOString();
           const instance = await env.BATCH_WORKFLOW.create({

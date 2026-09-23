@@ -92,3 +92,5 @@ For a fresh Codex task, open this repository as the project folder and start wit
 - Digest visual reference: [`aindaco1/rss-feed-digest`](https://github.com/aindaco1/rss-feed-digest), credited in [Notices](NOTICE.md).
 
 Public source repository. Never commit email content, session cookies, OAuth credentials, API tokens, or `.dev.vars`.
+
+An internal [Opportunities newsletter](docs/NEWSLETTER.md) is implemented behind a disabled flag. Its reviewed rhythm is Monday and Thursday mornings, with open calls due within 31 days, the database business information, and recipients resolved from the active website roster and Notion Point People. Production setup and delivery are pending.
