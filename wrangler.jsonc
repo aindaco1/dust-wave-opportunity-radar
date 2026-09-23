@@ -3,13 +3,9 @@
   "name": "dustwave-opportunity-radar",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-04",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
-  "addresses": [
-    "hey@ingest.dustwave.xyz"
-  ],
+  "addresses": ["hey@ingest.dustwave.xyz"],
   "ai": {
     "binding": "AI",
     "remote": true
@@ -33,37 +29,17 @@
       "binding": "BATCH_WORKFLOW",
       "name": "dustwave-opportunity-radar-batch",
       "class_name": "OpportunityBatchWorkflow"
-    },
-    {
-      "binding": "NEWSLETTER_WORKFLOW",
-      "name": "dustwave-opportunities-newsletter",
-      "class_name": "OpportunityNewsletterWorkflow"
     }
   ],
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_destination_addresses": [
-        "alonso@hey.com"
-      ],
-      "allowed_sender_addresses": [
-        "opportunities@digest.dustwave.xyz"
-      ]
-    },
-    {
-      "name": "NEWSLETTER_EMAIL",
-      "allowed_destination_addresses": [
-        "alonso@hey.com"
-      ],
-      "allowed_sender_addresses": [
-        "opportunities@digest.dustwave.xyz"
-      ]
+      "allowed_destination_addresses": ["alonso@hey.com"],
+      "allowed_sender_addresses": ["opportunities@digest.dustwave.xyz"]
     }
   ],
   "triggers": {
-    "crons": [
-      "0 * * * *"
-    ]
+    "crons": ["0 * * * *"]
   },
   "vars": {
     "ENVIRONMENT": "production",
@@ -86,10 +62,7 @@
     "ZOHO_FOLDERS": "Inbox,Dust Wave,Newsletter,Notification",
     "INITIAL_BACKFILL_DAYS": "7",
     "ATTACHMENT_MAX_BYTES": "20971520",
-    "R2_RETENTION_HOURS": "24",
-    "NEWSLETTER_ENABLED": "false",
-    "NEWSLETTER_HOUR": "8",
-    "NEWSLETTER_DAYS": "1,4"
+    "R2_RETENTION_HOURS": "24"
   },
   "observability": {
     "enabled": true,

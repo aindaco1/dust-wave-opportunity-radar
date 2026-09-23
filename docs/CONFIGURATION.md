@@ -104,7 +104,3 @@ Wrangler login; hosted runs require explicit credentials. See
 4. Confirm Email Sending allowlists and external-resource IDs before deployment.
 5. Treat enabling a source, changing retention, or changing the AI threshold as a production behavior change requiring an explicit deployment.
 6. Treat `npm run deploy:email-routing` as a separate privileged production action; routine deployment must not require Email Routing access.
-
-## Newsletter settings
-
-[Newsletter configuration](NEWSLETTER.md#configuration-and-activation) owns NEWSLETTER_ENABLED, NEWSLETTER_HOUR, NEWSLETTER_DAYS, the private NEWSLETTER_SETTINGS JSON, and the separate workflow/email bindings. Disabled by default.

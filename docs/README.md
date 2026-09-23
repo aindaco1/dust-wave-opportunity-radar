@@ -45,7 +45,7 @@ Source runbooks own publisher-specific details and acceptance records. Shared po
 
 Run `npm run docs:check` after changing Markdown. It verifies required current documents, inline local links, and ATX heading anchors, including archived documents. See [Contributing](CONTRIBUTING.md#documentation-changes) for placement and maintenance rules.
 
-- [Opportunities newsletter](NEWSLETTER.md): member audience, deadline selection, Monday/Thursday schedule, private preview and activation.
+- [Newsletter ownership](NEWSLETTER.md): the live standalone service, retired Radar prototype, and regression coverage for the service boundary.
 
 - [Platform reuse migration](platform-reuse-2026-09-14.md): source candidate, characterization, validation limits and independent rollback.
 

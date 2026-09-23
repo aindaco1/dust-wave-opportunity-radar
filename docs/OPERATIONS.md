@@ -1,5 +1,7 @@
 # Operations
 
+Member newsletter delivery is operated in the separate `dust-wave-opportunity-internal-email` project. Use that service's runbook and receipts; Radar's digest and former newsletter prototype do not describe its delivery status. See [newsletter ownership](NEWSLETTER.md).
+
 ## Schedule and flow
 
 Cloudflare invokes an hourly cron. The Worker starts a batch only when Mountain time is 07:00 or 19:00, which handles daylight-saving changes without changing UTC cron expressions. Workflow instance IDs contain the local time slot, so duplicate cron delivery is harmless.
@@ -118,7 +120,3 @@ See [Admin API](API.md) for response shapes and boundary errors.
 - Configuration/secrets and deploy/migrate/run/sync/trash operations are distinct production changes. Record which ones were performed in the handoff.
 - The manual batch Action waits for the matching D1 run, verifies every queued item is counted, and fails on retryable Notion or message failures. `notion_review` is a counted terminal outcome and does not make an otherwise complete batch fail.
 - Use [Troubleshooting](TROUBLESHOOTING.md) for symptom-driven recovery rather than repeatedly forcing batches.
-
-## Internal newsletter
-
-See [newsletter activation and recovery](NEWSLETTER.md) before enabling the Monday/Thursday member newsletter. It is disabled in the reviewed configuration; local validation does not establish deployment, Point People integration access, provider acceptance or mailbox arrival.
