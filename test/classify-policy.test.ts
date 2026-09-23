@@ -102,6 +102,57 @@ describe("Workers AI classification response parsing", () => {
 });
 
 describe("Workers AI execution", () => {
+  it("clears a hallucinated opening date when only processing metadata contains it", async () => {
+    const run = vi.fn().mockResolvedValue({ ...baseClassification({ applicationOpenStart: "2026-09-23" }),
+      applicationOpenStartEvidence: "Batch date: 2026-09-23" });
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage({
+      asOfDate: "2026-09-23", text: "Applications are open. The final deadline is October 1, 2026."
+    }), []);
+    expect(result.applicationOpenStart).toBeNull();
+    expect(result.applicationOpenEnd).toBe("2026-10-01");
+  });
+
+  it("retains an explicitly quoted opening date even when it equals the batch date", async () => {
+    const run = vi.fn().mockResolvedValue({ ...baseClassification({ applicationOpenStart: "2026-09-23" }),
+      applicationOpenStartEvidence: "Applications open September 23, 2026." });
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage({
+      asOfDate: "2026-09-23", text: "Applications open\nSeptember 23, 2026. Apply by October 1, 2026."
+    }), []);
+    expect(result.applicationOpenStart).toBe("2026-09-23");
+    expect(result).not.toHaveProperty("applicationOpenStartEvidence");
+  });
+
+  it("accepts opening-date evidence from attachments and fetched official pages", async () => {
+    const quote = "Applications open September 1, 2026.";
+    for (const fromPage of [false, true]) {
+      const run = vi.fn().mockResolvedValue({ ...baseClassification(), applicationOpenStartEvidence: quote });
+      const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage({
+        attachments: fromPage ? [] : [{ filename: "rules.txt", mimeType: "text/plain", size: 40, text: quote }]
+      }), fromPage ? [{ requestedUrl: "https://example.org/grant", finalUrl: "https://example.org/grant", text: quote }] : []);
+      expect(result.applicationOpenStart).toBe("2026-09-01");
+    }
+  });
+
+  it("recovers an uncertain ignore decision as a possible call without an official URL", async () => {
+    const run = vi.fn()
+      .mockResolvedValueOnce(baseClassification({ decision: "ignore", confidence: 0, primaryUrl: null }))
+      .mockResolvedValueOnce({ decision: "call", confidence: 0.7, title: "Unverified film fellowship", organization: null,
+        summary: "A possible mentoring fellowship whose official link is missing.", primaryUrl: null,
+        digestCategory: null, rationale: "Relevant possible call with incomplete evidence." });
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage({
+      text: "A film fellowship is mentioned, but no official application link is provided.", urls: []
+    }), []);
+    expect(result).toMatchObject({ decision: "digest", digestCategory: "Possible Opportunities", primaryUrl: null });
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a confidently irrelevant receipt ignored without a second model call", async () => {
+    const run = vi.fn().mockResolvedValue(baseClassification({ decision: "ignore", confidence: 0.99, primaryUrl: null }));
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage({ text: "Receipt for an existing ticket purchase." }), []);
+    expect(result.decision).toBe("ignore");
+    expect(run).toHaveBeenCalledOnce();
+  });
+
   it("returns the policy-enforced primary structured result", async () => {
     const run = vi.fn().mockResolvedValue({ response: JSON.stringify(baseClassification({
       primaryUrl: "https://example.org/grant/?utm_source=email",

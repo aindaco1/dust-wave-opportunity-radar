@@ -17,6 +17,8 @@ Automatic publication also requires:
 
 A rolling call can publish without a due date and should use the `Rolling` tag. When several fee/deadline tiers exist, `dueDate` is the last date on which a valid submission is accepted; earlier tiers belong in the page body.
 
+An application opening date requires an explicit source date. The primary model supplies an extraction-only `applicationOpenStartEvidence` quote; code clears the opening date unless that quote appears in the subject, source text, attachment text or fetched page text (allowing whitespace differences). Processing timestamps do not qualify. The quote is not persisted or added to the public classification schema. Source matching confirms provenance; semantic evaluation still checks whether the quote actually supports an opening date. “Applications are open” or “rolling” alone leaves `applicationOpenStart` null.
+
 The batch supplies its Mountain calendar date as classification evidence. After the confidence check, a call whose final `dueDate` is before that date is ignored; date-only deadlines remain eligible on the deadline day, and rolling calls can omit a date. This shared check applies to every source.
 
 Colossal, Hyperallergic, and Artwork Archive candidates also carry trusted discovery metadata outside their MIME. Primary URLs must be evidenced organizer/application links or safe redirect destinations. Known shorteners cannot serve as official primary URLs; their destination must be established by safe enrichment. Link labels never establish destinations. The discovery domain, unknown URLs, shared landing pages that do not distinguish programs, and unresolved groups cannot auto-publish. These cases use the existing Possible Opportunities digest; Notion reconciliation is unchanged. See [Colossal](COLOSSAL.md), [Hyperallergic](HYPERALLERGIC.md), and [Artwork Archive](ARTWORK-ARCHIVE.md).
@@ -35,9 +37,13 @@ Use `digest` for:
 
 Possible calls are categorized as `Possible Opportunities`. The digest header is “Dust Wave Opportunity Radar” with the deck “Relevant creative-industry calls that need a human look.” Empty digests are suppressed.
 
+Missing an official link, verified organizer or complete terms does not make a relevant possible call irrelevant. Confidence measures confidence in the routing decision, not just eligibility for automatic publication.
+
 ### Ignore
 
 Use `ignore` for irrelevant promotions, receipts, transactional messages, social notifications, routine account notices, closed notices with no continuing value, and material without practical creative relevance.
+
+Personal acceptance notices and delivery instructions for already-selected work are transactional follow-up. A request for a screening copy, press still or synopsis after selection is not a new call. A separately offered new opportunity or useful industry item still receives normal classification.
 
 ## Geography rule
 
@@ -60,7 +66,7 @@ The model has no Notion, email, storage, secret, or general tool access. Determi
 
 The primary pass uses the pinned Workers AI model and a generated JSON Schema for the complete `Classification` object. A malformed, empty, nested, or schema-invalid result does not get partially accepted.
 
-If the primary pass fails, a smaller recovery prompt requests only a safe triage object:
+If the primary pass fails, or returns `ignore` with confidence below the configured threshold, the existing smaller recovery prompt requests only a safe triage object. A confident irrelevant/transactional decision does not incur another call:
 
 - recovered `call` → digest as `Possible Opportunities`; never auto-published;
 - recovered `digest` → selected digest category;

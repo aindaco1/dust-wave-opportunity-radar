@@ -62,6 +62,8 @@ Manual duplicates are never automatically trashed. Notion trash is recoverable, 
 
 New pages receive only useful opportunity Markdown: the classified overview/details, key dates and application links, and short classification evidence. Visible automation banners, last-checked sentences, end markers, and automation change histories are not written.
 
+The shared body builder separates generated template headings from prose, repairs collapsed inline section markers, and converts HTML line breaks to real newlines. The section vocabulary is shared with the classifier prompt. This prevents a whole overview and later sections from appearing as one oversized heading. It runs only on newly generated opportunity content, for both creates and guarded updates; fetched page content and the previous exact D1 baseline are never normalized by this helper. Existing malformed pages are not bulk-rewritten.
+
 For an existing page, the adapter reads its Markdown and follows this order:
 
 1. If the exact new generated body already exists, do nothing.

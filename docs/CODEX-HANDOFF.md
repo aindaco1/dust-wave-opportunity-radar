@@ -25,7 +25,7 @@ Then read:
 3. [Classification](CLASSIFICATION.md)
 4. the document matching the task in the [documentation index](README.md)
 
-`npm run check` is offline with respect to production services. It validates docs/types/tests and builds a dry-run Worker bundle but does not deploy.
+`npm run check` validates docs/types/tests, builds a dry-run Worker bundle, and runs live classifier/Jev evaluation on fictional fixtures. It does not deploy. Use `npm run check:offline` for the explicit credential-free portion, as hosted CI does. Read [Jev evaluation](JEV-EVALUATION.md) for authentication and evidence limits.
 
 ## Current state and authoritative references
 

@@ -21,13 +21,14 @@ const required = [
   "docs/HEY-CLI.md",
   "docs/HYPERALLERGIC.md",
   "docs/NOTION.md",
+  "docs/JEV-EVALUATION.md",
   "docs/OPERATIONS.md",
   "docs/SECURITY.md",
   "docs/SETUP.md",
   "docs/TESTING.md",
   "docs/TROUBLESHOOTING.md"
 ];
-const ignoredDirectories = new Set([".git", "coverage", "node_modules"]);
+const ignoredDirectories = new Set([".git", "coverage", "node_modules", ".jev-results"]);
 
 export function checkDocumentation(root, requiredFiles = required) {
   const files = walk(root).filter(file => extname(file).toLowerCase() === ".md");

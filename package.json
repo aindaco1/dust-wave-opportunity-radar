@@ -9,7 +9,7 @@
     "node": "^24.0.0 || >=26.0.0"
   },
   "scripts": {
-    "check": "npm run docs:check && npm run typecheck && npm run test:coverage && npm run deploy:dry",
+    "check": "npm run check:offline && npm run test:jev",
     "backfill:hey": "node scripts/hey-backfill.mjs",
     "recover:hey-cli": "node scripts/hey-cli-recover.mjs",
     "verify:hey-cli": "node scripts/hey-cli-verify.mjs",
@@ -25,7 +25,10 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "typecheck": "wrangler types --env-file .env.example --check && tsc --noEmit"
+    "typecheck": "wrangler types --env-file .env.example --check && tsc --noEmit",
+    "check:offline": "npm run docs:check && npm run typecheck && npm run test:coverage && npm run deploy:dry",
+    "test:jev": "vitest run --config vitest.jev.config.ts",
+    "test:jev:preview": "JEV_MODE=preview npm run test:jev"
   },
   "dependencies": {
     "@dustwave/digest-core": "file:shared/dust-wave-platform/packages/digest-core",
