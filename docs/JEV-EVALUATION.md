@@ -21,7 +21,7 @@ evidence collection. No shared source was copied or modified.
 ## Commands and credentials
 
 ```bash
-npm run check              # offline gates, then live classifier + Jev
+npm run check              # offline gates, dependency audit, live classifier + Jev
 npm run check:offline      # docs, types, coverage, local runtime, dry bundle
 npm run test:jev           # live evaluation alone
 npm run test:jev:preview   # preview synthetic judge controls; zero inference
@@ -38,7 +38,7 @@ to reports. The preview does not read `.dev.vars` or acquire credentials.
 
 Existing PR CI and deployment/HEY qualification workflows explicitly run
 `check:offline`, preserving their credential and production-operation boundaries.
-They do not claim live semantic acceptance. Live hosted evaluation is not
+PR CI additionally runs the credential-free online dependency audit. They do not claim live semantic acceptance. Live hosted evaluation is not
 provisioned by this change. In CI, both account and inference token must be
 supplied explicitly; local-login fallback is disabled. Before a release, retain
 a complete live report in addition to the offline CI result.

@@ -19,3 +19,5 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-project
       - run: npm run check:offline
+      - name: Audit locked dependencies
+        run: npm run security:audit

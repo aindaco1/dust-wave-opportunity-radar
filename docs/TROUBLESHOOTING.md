@@ -24,6 +24,22 @@ npm run check
 
 Review and commit `worker-configuration.d.ts` and the exact installer allowance together. The toolchain regression test verifies the generated runtime version and installer allowance against the lockfile; the full gate also checks declaration freshness, coverage, local email ingestion, and dry bundling. Rerunning an unchanged dependency PR cannot repair these files. Keep the generated-type check enabled and the installer allowlist exact. See [Toolchain updates](CONTRIBUTING.md#toolchain-updates).
 
+## Dependabot cannot apply a security update
+
+Inspect the failed update's `security_update_not_possible` details and the root
+manifest's `overrides`, then run `npm run security:audit`. Repeated retries cannot
+repair an override that forces the vulnerable version. On October 4, 2026, six
+failed updates were traced to `undici: 7.29.0`; the corrected compatible range
+`^7.29.1` resolves to a tested, patched version in the lockfile. A separate
+`fast-uri` advisory required a targeted lockfile refresh. See the full
+[Actions review](ACTIONS-REVIEW-2026-10-04.md).
+
+Update only the affected dependency constraints, refresh the lockfile, run
+`npm ci`, and run the audit and full gate. For an incomplete audit, fix the
+reported network/configuration condition; do not treat it as zero findings.
+The audit includes development dependencies because Wrangler and the local
+runtime are used during builds and deployment.
+
 ## Schedule and run
 
 ### No batch at the expected time
