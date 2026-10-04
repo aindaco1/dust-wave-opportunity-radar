@@ -1,37 +1,18 @@
-import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
 import { callCloudflareJev, type JevRequest } from "@dustwave/test-core/jev";
 import { readBoundedJson } from "@dustwave/worker-core/response-body";
 import { classifierModel, corpus } from "./jev-evaluation";
 
 interface Credentials { accountId: string; token: string }
 
-function wranglerJson(args: string[]): unknown {
-  try {
-    return JSON.parse(execFileSync(process.execPath, [resolve("node_modules/wrangler/bin/wrangler.js"), ...args, "--json"], {
-      encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 45_000, maxBuffer: 1_000_000,
-      env: { ...process.env, CI: "true", WRANGLER_LOG: "log", WRANGLER_LOG_PATH: "/dev/null", CLOUDFLARE_SEND_METRICS: "false" }
-    }));
-  } catch {
-    throw new Error("Existing Wrangler authentication unavailable; configure local Cloudflare evaluation credentials");
-  }
-}
-
 export function evaluationCredentials(
-  environment: Readonly<Record<string, string | undefined>> = process.env,
-  readAuth: (args: string[]) => unknown = wranglerJson
+  environment: Readonly<Record<string, string | undefined>> = process.env
 ): Credentials {
-  // Token values stay inside the process. CI must supply a dedicated inference-only token.
-  let accountId = environment.CLOUDFLARE_ACCOUNT_ID;
-  let token = environment.CLOUDFLARE_API_TOKEN;
-  if (environment.CI && (!accountId || !token)) throw new Error("Live evaluation requires Cloudflare account and inference credentials in CI");
-  if (!accountId) {
-    const identity = readAuth(["whoami"]) as { accounts?: Array<{ id?: string }> };
-    if (identity?.accounts?.length === 1) accountId = identity.accounts[0]?.id;
-  }
+  // Prefer a dedicated account-owned inference token over a deployment credential.
+  // Never depend on the permissions or expiry of a personal Wrangler login.
+  const accountId = environment.CLOUDFLARE_ACCOUNT_ID;
+  const token = environment.CLOUDFLARE_AI_API_TOKEN ?? environment.CLOUDFLARE_API_TOKEN;
   if (!/^[a-fA-F0-9]{32}$/.test(accountId ?? "")) throw new Error("Set CLOUDFLARE_ACCOUNT_ID to select one evaluation account");
-  if (!token) token = (readAuth(["auth", "token"]) as { token?: string })?.token;
-  if (typeof token !== "string" || !token.trim()) throw new Error("Set CLOUDFLARE_API_TOKEN or authenticate Wrangler for live evaluation");
+  if (typeof token !== "string" || !token.trim()) throw new Error("Set CLOUDFLARE_AI_API_TOKEN to an account-owned token with Workers AI Read and Edit permissions for live evaluation");
   return { accountId: accountId!, token };
 }
 

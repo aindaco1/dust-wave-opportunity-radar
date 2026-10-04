@@ -133,14 +133,25 @@ describe("Radar Jev evaluation", () => {
 describe("evaluation Cloudflare adapter", () => {
   const credentials = { accountId: "a".repeat(32), token: "synthetic-token" };
 
-  it("uses explicit credentials or an unambiguous existing login without printing them", () => {
-    const auth = vi.fn((args: string[]) => args[0] === "whoami" ? { accounts: [{ id: credentials.accountId }] } : { token: credentials.token });
-    expect(evaluationCredentials({}, auth)).toEqual(credentials);
-    auth.mockClear();
-    expect(evaluationCredentials({ CLOUDFLARE_ACCOUNT_ID: credentials.accountId, CLOUDFLARE_API_TOKEN: credentials.token }, auth)).toEqual(credentials);
-    expect(auth).not.toHaveBeenCalled();
-    expect(() => evaluationCredentials({ CI: "true" }, auth)).toThrow("requires Cloudflare");
-    expect(() => evaluationCredentials({}, () => ({ accounts: [{ id: "a" }, { id: "b" }] }))).toThrow("select one");
+  it.each([undefined, "true"])("prefers the inference token over deployment credentials (CI=%s)", (CI) => {
+    expect(evaluationCredentials({ CI, CLOUDFLARE_ACCOUNT_ID: credentials.accountId,
+      CLOUDFLARE_AI_API_TOKEN: credentials.token, CLOUDFLARE_API_TOKEN: "deployment-only" })).toEqual(credentials);
+  });
+
+  it("retains explicitly configured legacy inference credentials", () => {
+    expect(evaluationCredentials({ CLOUDFLARE_ACCOUNT_ID: credentials.accountId,
+      CLOUDFLARE_API_TOKEN: credentials.token })).toEqual(credentials);
+  });
+
+  it.each([undefined, "true"])("requires explicit credentials without personal-login fallback (CI=%s)", (CI) => {
+    expect(() => evaluationCredentials({ CI })).toThrow("select one evaluation account");
+    expect(() => evaluationCredentials({ CI, CLOUDFLARE_ACCOUNT_ID: "invalid", CLOUDFLARE_AI_API_TOKEN: credentials.token })).toThrow("select one evaluation account");
+    expect(() => evaluationCredentials({ CI, CLOUDFLARE_ACCOUNT_ID: credentials.accountId })).toThrow("Set CLOUDFLARE_AI_API_TOKEN");
+  });
+
+  it.each(["", "   "])("rejects an empty dedicated token instead of switching credentials", (token) => {
+    expect(() => evaluationCredentials({ CLOUDFLARE_ACCOUNT_ID: credentials.accountId,
+      CLOUDFLARE_AI_API_TOKEN: token, CLOUDFLARE_API_TOKEN: "deployment-only" })).toThrow("Workers AI Read and Edit");
   });
 
   it("bounds classifier transport and rejects redirects without retry or provider-body leakage", async () => {

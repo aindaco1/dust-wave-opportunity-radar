@@ -28,19 +28,47 @@ npm run test:jev:preview   # preview synthetic judge controls; zero inference
 ```
 
 Missing authentication is an error, not a skip. Locally, set
-`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in the environment or the
-ignored `.dev.vars`. The token needs Workers AI inference permission; deployment
-credentials may not have that permission. With no token set, the runner captures
-the existing locked Wrangler login in memory. It selects an account automatically
-only when Wrangler reports exactly one; otherwise set the account ID explicitly.
-It never prints credential values, starts an interactive login, or saves tokens
-to reports. The preview does not read `.dev.vars` or acquire credentials.
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_AI_API_TOKEN` in the environment or the
+ignored `.dev.vars`. Use a dedicated account-owned token with Workers AI Read
+and Edit permissions on the evaluation account. The dedicated token takes
+precedence over `CLOUDFLARE_API_TOKEN`; the latter remains accepted for existing
+explicit inference-token setups. An empty dedicated token fails rather than
+switching to a deployment token. There is no personal Wrangler-login fallback:
+its OAuth permissions and expiry are unsuitable for a durable evaluation gate.
+The runner never prints credential values or saves tokens to reports. The
+preview does not read `.dev.vars` or acquire credentials.
+
+### Provisioning and rotation
+
+[Account-owned tokens](https://developers.cloudflare.com/fundamentals/api/get-started/account-owned-tokens/)
+are service credentials independent of a person's login and support Workers AI.
+An account Super Administrator or a member with API Token Provisioning capability
+must create the token under **Manage account → Account API tokens**:
+
+1. Name it `dust-wave-radar-inference` and scope it to the Radar evaluation account.
+2. Select **Workers AI: Read** and **Workers AI: Edit**, as required by the
+   [Workers AI REST API setup](https://developers.cloudflare.com/workers-ai/get-started/rest-api/).
+   Do not add Workers Scripts, D1, Email Routing, or token-provisioning permissions.
+3. Leave expiration unset for a durable unattended credential, or record and
+   renew a chosen expiry before it interrupts the gate. It remains revocable.
+4. Save the value privately as `CLOUDFLARE_AI_API_TOKEN` in ignored `.dev.vars`
+   (file mode `0600`), with the account ID in `CLOUDFLARE_ACCOUNT_ID`. Do not paste
+   tokens into chat, commit them, or reuse the deployment secret.
+5. Run `npm run test:jev`, then `npm run check`. Token creation, local storage,
+   successful inference, and a passing evaluation are separate checks. A valid
+   token does not guarantee model availability, quota, or passing classifications.
+
+Rotate by creating a replacement with the same narrow permissions, replacing
+the local value, and verifying live inference before revoking the old token.
+Use separate tokens for other projects so their rotation does not interrupt
+Radar. The same account-owned pattern applies to other Platform consumers;
+the shared Jev transport already accepts a token and needs no code change.
 
 Existing PR CI and deployment/HEY qualification workflows explicitly run
 `check:offline`, preserving their credential and production-operation boundaries.
 PR CI additionally runs the credential-free online dependency audit. They do not claim live semantic acceptance. Live hosted evaluation is not
-provisioned by this change. In CI, both account and inference token must be
-supplied explicitly; local-login fallback is disabled. Before a release, retain
+provisioned by this change. A future trusted hosted run must receive the account
+ID and a separate inference secret explicitly. Before a release, retain
 a complete live report in addition to the offline CI result.
 
 ## What the gate checks

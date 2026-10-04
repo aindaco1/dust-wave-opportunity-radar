@@ -10,6 +10,16 @@ Start with the least invasive evidence:
 
 Do not retrieve or print raw R2 MIME unless the investigation explicitly requires private content and the user has authorized that handling.
 
+## Live Jev authentication fails
+
+Use an account-owned inference token in `CLOUDFLARE_AI_API_TOKEN` with the matching
+`CLOUDFLARE_ACCOUNT_ID`, as described in [Jev provisioning](JEV-EVALUATION.md#provisioning-and-rotation).
+The personal Wrangler login can have working deployment permissions while
+Workers AI requests return HTTP 401 / code 10000. Repeated login or inference
+retries do not add the missing Workers AI Read and Edit permissions. The runner
+requires explicit credentials and keeps authentication values out of diagnostics.
+Do not broaden the production deployment token to repair development inference.
+
 ## Wrangler dependency PR fails CI
 
 If `npm run typecheck` reports `Types at worker-configuration.d.ts are out of date`, the new Wrangler/workerd lock no longer matches the committed generated declarations. `npm ci` can also warn that the new workerd installer is not covered by `allowScripts`; installation can succeed while that required script remains blocked.
