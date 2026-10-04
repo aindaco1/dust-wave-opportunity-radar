@@ -85,12 +85,15 @@ The official-CLI recovery command uses `HEY_RECOVERY_MESSAGE_ID` (existing D1 ha
 
 ## Development evaluation credentials
 
-`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` can be supplied through the
-environment or local `.dev.vars` for default live Jev testing. These are
-development-runner settings, not new Worker bindings or deployed secrets. The
-token requires Workers AI inference access. Local runs may use an existing
-Wrangler login; hosted runs require explicit credentials. See
-[Jev evaluation](JEV-EVALUATION.md) for the offline command and CI boundary.
+Supply `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_AI_API_TOKEN` through the environment
+or ignored local `.dev.vars` for default live Jev testing. Use a dedicated
+account-owned token scoped to this account with Workers AI Read and Edit.
+These are development-runner settings, not Worker bindings or deployed secrets.
+The dedicated AI token takes precedence over the legacy `CLOUDFLARE_API_TOKEN`
+input, which remains supported for explicit inference credentials. The runner
+never falls back to a personal Wrangler login. Keep the deployment token's
+existing permissions unchanged. See [Jev evaluation](JEV-EVALUATION.md#provisioning-and-rotation)
+for provisioning, rotation, the offline command, and the hosted-CI boundary.
 
 ## Supported Zoho data centers
 
