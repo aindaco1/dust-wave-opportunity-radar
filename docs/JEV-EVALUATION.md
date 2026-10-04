@@ -232,3 +232,20 @@ The follow-up full check passed 403 offline tests and all 24 controls / 12 combi
 live cases in `.jev-results/run-PBbOIG/report.json` (15 classifier and 36 Jev
 requests). The corrected recovery description retains the original residency
 rule. This remains synthetic evidence, not scheduled production acceptance.
+
+## Account-owned credential verification — October 4, 2026
+
+A dedicated account-owned token with Workers AI Read/Write and no expiration
+was provisioned for local evaluation. Its value remains only in ignored
+`.dev.vars` with mode `0600`; the deployment credential was not changed.
+The live run `.jev-results/run-xemtpo/report.json` passed all 24 judge controls
+and 12 exact/semantic cases using the dedicated credential. No personal Wrangler
+login was used. Offline validation passed 418 tests with coverage floors, and
+the dependency audit reported zero vulnerabilities. The existing shared Jev
+transport works with the account-owned token without a Platform change.
+
+The final `npm run check` also passed, including a second complete live report
+at `.jev-results/run-7lG7dh/report.json` with all 24 controls and 12 cases passing.
+
+This verifies local authentication and the synthetic evaluation. Hosted live
+evaluation remains unprovisioned, and no production deployment was performed.
