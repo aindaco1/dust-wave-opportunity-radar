@@ -2,7 +2,7 @@
 
 The offline test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Creative West, Notion, or public websites. The default `npm run check` additionally runs live Cloudflare classifier and Jev inference on committed fictional examples; see [Jev evaluation](JEV-EVALUATION.md).
 
-Vitest and its V8 coverage provider are locked together at 5.0.1. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
+Vitest and its V8 coverage provider are locked together at 5.0.2. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
 
 ## Commands
 
@@ -13,13 +13,37 @@ npm run test:coverage    # tests plus enforced coverage floors
 npm run docs:check       # required docs, local links, and ATX heading anchors
 npm run typecheck        # Cloudflare generated-type check + TypeScript
 npm run deploy:dry       # production bundle without upload
-npm run check            # offline quality gate plus live classifier/Jev
+npm run check            # offline gate, dependency audit, live classifier/Jev
 npm run check:offline    # credential-free quality gate used by hosted CI
+npm run security:audit   # online npm audit of all locked dependencies
 npm run test:jev         # live semantic evaluation only
 npm run test:jev:preview # zero-inference preview, not semantic acceptance
 ```
 
 Coverage floors apply to `src/**/*.ts`: 75% statements, 65% branches, 75% functions, and 75% lines. The thresholds are a regression floor, not a substitute for risk-based assertions.
+
+## Dependency audit
+
+`npm run security:audit` queries npm's public advisory service without application
+credentials or source mail. Both `npm run check` and the required CI job run it;
+`check:offline` remains independent of that service. Moderate, high and critical
+findings fail. Missing or contradictory evidence fails as incomplete, never as a
+clean audit. Exit codes are 0 for passed, 1 for findings and 2 for incomplete.
+
+The adapter reuses `@dustwave/release-core/dependency-audit` 0.4.0 at the existing
+Platform commit `816da7b52ed346025f5bbe3a7a420e9ad7c4a815`. No Platform source or
+pointer changes are needed. Radar owns the full-dependency scope and moderate
+threshold; the shared helper owns report validation and bounded retries. Each
+process has a 45-second deadline; only transient failures retry, at most three
+attempts with 5/10-second backoff. Installer scripts are disabled for audit.
+`dependency-audit.test.ts` characterizes blocked transitive findings, complete
+clean reports, incomplete results, retry limits and private-error suppression.
+The [Actions review](ACTIONS-REVIEW-2026-10-04.md) records the original failures.
+
+Rollback removes the local adapter, audit commands/CI step, Release Core
+dependency and pin assertions together, then runs `npm ci` and the prior checks.
+Other consumers and the Platform pointer remain unchanged. Security dependency
+fixes can be retained independently.
 
 ## Test layers
 

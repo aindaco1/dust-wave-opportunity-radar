@@ -38,6 +38,8 @@ Source runbooks own publisher-specific details and acceptance records. Shared po
 
 ## History and repository guidance
 
+- [Actions and dependency review, October 4, 2026](ACTIONS-REVIEW-2026-10-04.md) — complete failed-run inventory, resolutions and shared audit adoption.
+
 - [Archived Colossal implementation plan](archive/COLOSSAL-INTEGRATION-PLAN.md) — completed plan and original September 4, 2026 investigation; use the source runbook for current instructions.
 - [HEY qualification and acceptance history](HEY-CLI.md#qualification-and-acceptance-history) and [Hyperallergic production acceptance](HYPERALLERGIC.md#production-acceptance--september-4-2026) — dated evidence, separate from current deployed state or later scheduled outcomes.
 - [AGENTS.md](../AGENTS.md) — repository-wide Codex instructions, product invariants, and production authorization boundaries; kept at root.

@@ -122,8 +122,10 @@ describe("Radar Jev evaluation", () => {
 
   it("keeps default checks live and names offline hosted checks explicitly", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(pkg.scripts.check).toBe("npm run check:offline && npm run test:jev");
+    expect(pkg.scripts.check).toBe("npm run check:offline && npm run security:audit && npm run test:jev");
     expect(pkg.scripts["check:offline"]).not.toContain("test:jev");
+    expect(pkg.scripts["check:offline"]).not.toContain("security:audit");
+    expect(readFileSync(".github/workflows/ci.yml", "utf8")).toContain("npm run security:audit");
     expect(readFileSync(".github/workflows/ci.yml", "utf8")).toContain("npm run check:offline");
   });
 });
