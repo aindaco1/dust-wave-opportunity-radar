@@ -2,7 +2,7 @@
 
 The offline test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Creative West, Notion, or public websites. The default `npm run check` additionally runs live Cloudflare classifier and Jev inference on committed fictional examples; see [Jev evaluation](JEV-EVALUATION.md).
 
-Vitest and its V8 coverage provider are locked together at 5.0.2. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
+Vitest and its V8 coverage provider are locked together at 5.0.3. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
 
 ## Commands
 
@@ -40,6 +40,12 @@ attempts with 5/10-second backoff. Installer scripts are disabled for audit.
 clean reports, incomplete results, retry limits and private-error suppression.
 The [Actions review](ACTIONS-REVIEW-2026-10-04.md) records the original failures.
 
+Radar overrides `smol-toml` to `^1.9.1` because the immutable Release Core 0.4.0
+package pins vulnerable 1.7.1. The lockfile selects the tested patched version;
+the Platform gitlink and shared audit implementation remain unchanged. Remove
+this override when an independently reviewed Platform update supplies a patched
+dependency and the full audit still passes. See the [October 13 repair](ACTIONS-REVIEW-2026-10-13.md).
+
 Rollback removes the local adapter, audit commands/CI step, Release Core
 dependency and pin assertions together, then runs `npm ci` and the prior checks.
 Other consumers and the Platform pointer remain unchanged. Security dependency
@@ -54,7 +60,7 @@ fixes can be retained independently.
 | Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
 | Shared public sources | `public-source-helpers.test.ts` | Snapshot identity, terminal preservation, expired-failure recovery, partial-write cleanup, bounded MIME and conditional RSS fetch |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
-| Toolchain | `toolchain.test.ts` | Generated runtime types match locked workerd, only the exact locked workerd installer is allowed (no stale or broad workerd entries), and matching Vitest/coverage versions |
+| Toolchain | `toolchain.test.ts` | Generated runtime types match locked workerd, only exact locked workerd/esbuild installers are allowed (no stale or broad entries), and matching Vitest/coverage versions |
 | Documentation | `docs.test.ts` | Stale local heading anchors fail; valid cross-file/same-page anchors and code examples are handled; missing files and required current documents remain checked |
 | Colossal | `colossal-parser.test.ts`, `colossal.test.ts`, `discovery-policy.test.ts` | Named-month discovery, featured/individual entries, safe official evidence, cross-month dedupe/shared URLs, source caps/cursors, archive fallback, conditional requests, expired payload recovery, and closed-call dates |
 | Artwork Archive | `artwork-archive-parser.test.ts`, `artwork-archive.test.ts`, `workflow.test.ts`, `database.test.ts` | Exact guide/filter, complete card evidence, snapshot stability, access/layout failures, resumable caps, expired recovery, collision-safety interruption, migration preservation, disabled/route boundaries, and shared publication outcomes |

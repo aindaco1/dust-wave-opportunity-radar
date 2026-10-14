@@ -24,7 +24,7 @@ Do not broaden the production deployment token to repair development inference.
 
 If `npm run typecheck` reports `Types at worker-configuration.d.ts are out of date`, the new Wrangler/workerd lock no longer matches the committed generated declarations. `npm ci` can also warn that the new workerd installer is not covered by `allowScripts`; installation can succeed while that required script remains blocked.
 
-On the failing PR branch, use Node from `.nvmrc`, inspect the locked `node_modules/workerd` version, and replace only the old exact workerd entry in `package.json`'s `allowScripts`. Then run:
+On the failing PR branch, use Node from `.nvmrc`, inspect the locked `node_modules/workerd` and `node_modules/esbuild` versions, and replace their old exact entries in `package.json`'s `allowScripts`. Then run:
 
 ```bash
 npm ci
@@ -49,6 +49,12 @@ Update only the affected dependency constraints, refresh the lockfile, run
 reported network/configuration condition; do not treat it as zero findings.
 The audit includes development dependencies because Wrangler and the local
 runtime are used during builds and deployment.
+
+An older green run does not establish a current clean audit: new advisories can
+affect an unchanged lockfile. On October 13, the full audit found seven affected
+packages; four October 6 dependency PRs had passed their offline checks before
+failing on three audit findings. The [October 13 repair](ACTIONS-REVIEW-2026-10-13.md)
+records the compatible updates and the retained shared audit boundary.
 
 ## Schedule and run
 
