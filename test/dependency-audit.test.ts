@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { auditRadar } from "../scripts/audit-dependencies";
 
-function report(severity?: "moderate" | "high") {
+function report(severity?: "moderate" | "high" | "critical") {
   const counts = { info: 0, low: 0, moderate: 0, high: 0, critical: 0, total: severity ? 1 : 0 };
   if (severity) counts[severity] = 1;
   return { status: severity ? 1 : 0, stdout: JSON.stringify({ auditReportVersion: 2,
@@ -10,7 +10,7 @@ function report(severity?: "moderate" | "high") {
 }
 
 describe("Radar dependency audit", () => {
-  it.each(["moderate", "high"] as const)("blocks %s transitive toolchain vulnerabilities", async severity => {
+  it.each(["moderate", "high", "critical"] as const)("blocks %s transitive toolchain vulnerabilities", async severity => {
     const runCommandFn = vi.fn(() => report(severity));
     const result = await auditRadar({ runCommandFn, log: vi.fn() });
     expect(result.state).toBe("findings");

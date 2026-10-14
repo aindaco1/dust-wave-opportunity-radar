@@ -38,6 +38,7 @@ Source runbooks own publisher-specific details and acceptance records. Shared po
 
 ## History and repository guidance
 
+- [Actions and dependency repair, October 13, 2026](ACTIONS-REVIEW-2026-10-13.md) — consolidation of PRs #66–#70, current advisory fixes and Wrangler runtime alignment.
 - [Actions and dependency review, October 4, 2026](ACTIONS-REVIEW-2026-10-04.md) — complete failed-run inventory, resolutions and shared audit adoption.
 
 - [Archived Colossal implementation plan](archive/COLOSSAL-INTEGRATION-PLAN.md) — completed plan and original September 4, 2026 investigation; use the source runbook for current instructions.

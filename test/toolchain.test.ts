@@ -17,19 +17,19 @@ describe("locked toolchain compatibility", () => {
     expect(generatedVersion).toBe(runtime!.version);
   });
 
-  it("allows the exact locked workerd installer needed by local runtime tests", () => {
-    const runtime = lock.packages["node_modules/workerd"];
-    expect(runtime).toBeDefined();
-    expect(manifest.allowScripts[`workerd@${runtime!.version}`]).toBe(true);
+  it.each(["workerd", "esbuild"])("allows the exact locked %s installer needed by runtime tests and builds", (name) => {
+    const dependency = lock.packages[`node_modules/${name}`];
+    expect(dependency).toBeDefined();
+    expect(manifest.allowScripts[`${name}@${dependency!.version}`]).toBe(true);
   });
 
-  it("does not retain stale or broad workerd installer allowances", () => {
-    const runtime = lock.packages["node_modules/workerd"];
-    expect(runtime).toBeDefined();
+  it.each(["workerd", "esbuild"])("does not retain stale or broad %s installer allowances", (name) => {
+    const dependency = lock.packages[`node_modules/${name}`];
+    expect(dependency).toBeDefined();
     const allowedInstallers = Object.entries(manifest.allowScripts)
-      .filter(([name, allowed]) => allowed && (name === "workerd" || name.startsWith("workerd@")))
+      .filter(([key, allowed]) => allowed && (key === name || key.startsWith(`${name}@`)))
       .map(([name]) => name);
-    expect(allowedInstallers).toEqual([`workerd@${runtime!.version}`]);
+    expect(allowedInstallers).toEqual([`${name}@${dependency!.version}`]);
   });
 
   it("keeps the Vitest runner and coverage provider on the same version", () => {
