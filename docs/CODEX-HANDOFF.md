@@ -31,7 +31,7 @@ Then read:
 
 The active member newsletter belongs to the separate `dust-wave-opportunity-internal-email` project. Radar sends the human-review digest. The old Radar newsletter branch was a retired prototype; its disabled flag did not describe the live service. See [newsletter ownership](NEWSLETTER.md) before investigating newsletter status or old unmerged work.
 
-The reviewed [Worker configuration](../wrangler.jsonc) enables Zoho, Creative West, Colossal, Hyperallergic, and Notion. HEY forwarding remains the ongoing inbound path; the official CLI is limited to supervised historical recovery. Artwork Archive is enabled after migration 0008 and successful Cloudflare access verification on September 8; see [Artwork Archive](ARTWORK-ARCHIVE.md). Use these documents for details:
+The reviewed [Worker configuration](../wrangler.jsonc) enables Zoho, Creative West, Colossal, Hyperallergic, and Notion. HEY forwarding remains the ongoing inbound path; the official CLI is limited to supervised historical recovery. Artwork Archive is paused after October 18 production 403 responses, pending publisher-approved access. Migration 0008 and existing source data remain intact; see [Artwork Archive](ARTWORK-ARCHIVE.md). Use these documents for details:
 
 - [Configuration](CONFIGURATION.md) owns bindings, runtime values, source flags, and secret locations. Production secrets are outside the repository; local quality gates do not need them.
 - [Operations](OPERATIONS.md) owns the schedule, monitoring, recovery, and rollout procedures. Deployed state must be checked separately from reviewed configuration.

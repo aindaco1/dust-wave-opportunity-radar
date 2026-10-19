@@ -67,6 +67,21 @@ export interface PublicTextResponse {
   lastModified: string | null;
 }
 
+/** Bounded response metadata for operators; never retain a response body or arbitrary headers. */
+export class PublicFetchError extends Error {
+  readonly diagnostics: { httpStatus: number; accessChallenge: boolean; rayId: string | null };
+
+  constructor(response: Response) {
+    const accessChallenge = response.headers.get("cf-mitigated") === "challenge";
+    super(accessChallenge ? "public_fetch_access_challenge" : `public_fetch_http_${response.status}`);
+    const ray = response.headers.get("cf-ray") ?? "";
+    this.diagnostics = {
+      httpStatus: response.status, accessChallenge,
+      rayId: /^[a-f0-9]{16,32}-[A-Z]{3}$/i.test(ray) ? ray : null
+    };
+  }
+}
+
 export async function fetchPublicText(
   url: string,
   options: { contentTypes: readonly string[]; etag?: string; lastModified?: string; maxBytes?: number }
@@ -79,6 +94,11 @@ export async function fetchPublicText(
     await response.body?.cancel();
     throw new Error("public_fetch_unsafe_url");
   }
+  // Challenge pages are access failures even if an upstream response uses a successful status.
+  if (response.headers.get("cf-mitigated") === "challenge" || (!response.ok && response.status !== 304)) {
+    await response.body?.cancel();
+    throw new PublicFetchError(response);
+  }
   const metadata = {
     status: response.status, finalUrl: response.url,
     etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified")
@@ -86,10 +106,6 @@ export async function fetchPublicText(
   if (response.status === 304) {
     await response.body?.cancel();
     return { ...metadata, text: "" };
-  }
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new Error(`public_fetch_http_${response.status}`);
   }
   const contentType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
   if (!contentType || !options.contentTypes.includes(contentType)) {

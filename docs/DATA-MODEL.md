@@ -14,6 +14,8 @@ One row per source item, unique on `(source, external_id)`. Sources are `hey`, `
 
 These shared tables persist Colossal and Hyperallergic article month/URL/publication metadata, HTTP validators, a content hash, next-entry cursor, pending/retry state, checked time, and links to message snapshots. State is scoped by source. Artwork Archive reuses these tables for a fixed evergreen guide with an empty `roundup_month` and unknown publication date. They hold no guide/article/feed bodies. Pending documents and documents linked to expired queued/failed snapshots remain eligible beyond the normal month window. Feed validators advance only after discovered work is durable. Shared document processing persists pending state before entry writes, ensuring interruption or safety-check failure cannot be hidden by a later 304. See [Colossal](COLOSSAL.md) and [Hyperallergic](HYPERALLERGIC.md).
 
+Artwork Archive records a detected Cloudflare challenge as `last_error_code='document_access_challenged'`; other document-level failures retain `document_sync_failed`. Both keep the existing content hash/cursor, set `pending=1`, and clear validators so recovery requests a fresh body. This uses the existing error column and requires no migration. Request IDs stay in authenticated inspection responses, not D1.
+
 ### `opportunities`
 
 Maps a stable automation key to a Notion page, latest source item, canonical URL, title/organization, observation/publish timestamps, the last `managed_markdown`, and `body_management`. The managed Markdown is not a visible marker; it is the exact prior generated body text used to replace only automation-owned content safely. `body_management='manual'` means automation may update properties but never the page body.

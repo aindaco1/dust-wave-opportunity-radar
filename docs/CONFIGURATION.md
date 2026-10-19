@@ -37,7 +37,7 @@ The inbound Worker address is `hey@ingest.dustwave.xyz`. Email Sending is allowl
 | `ZOHO_ENABLED` | `true` | Zoho batch synchronization switch |
 | `CREATIVE_WEST_ENABLED` | `true` | Creative West filtered-feed synchronization switch |
 | `COLOSSAL_ENABLED` | `true` | Colossal monthly-roundup synchronization switch |
-| `ARTWORK_ARCHIVE_ENABLED` | `true` | Artwork Archive Western Film/Video/New Media guide; Cloudflare access verified September 8, 2026 |
+| `ARTWORK_ARCHIVE_ENABLED` | `false` | Paused pending publisher-approved access; [October 18 incident](ARTWORK-ARCHIVE.md#access-incident--october-18-2026) supersedes historical September acceptance |
 | `HYPERALLERGIC_ENABLED` | `true` | Hyperallergic monthly-roundup synchronization switch |
 | `ZOHO_ACCOUNT_EMAIL` | `alonso@dustwave.xyz` | Required account/alias |
 | `ZOHO_DATACENTER` | `us` | API endpoint family |

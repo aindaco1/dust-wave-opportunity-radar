@@ -54,6 +54,8 @@ curl --fail-with-body "$WORKER_URL/admin/runs" \
 
 Performs live, read-only Notion, Zoho, Creative West, and optional Colossal/Hyperallergic/Artwork Archive access/schema/query checks. Returns `200` only when all checks succeed and `502` with per-integration error text otherwise. It does not return tokens or source content. Disabled roundup sources return `skipped: true` without network access.
 
+Public-source HTTP failures also include bounded `diagnostics`: `httpStatus`, `accessChallenge`, and `rayId` (a format-validated Cloudflare request ID, otherwise `null`). A response with `cf-mitigated: challenge` produces `public_fetch_access_challenge` even with a 200/304 status. Other HTTP failures retain `public_fetch_http_<status>`. Challenge/error bodies are canceled without parsing or logging; arbitrary header values are excluded. An access challenge remains a failed integration, never an empty or skipped success.
+
 ```json
 {
   "ok": true,
@@ -107,7 +109,7 @@ Source-only imports can be consumed by the next normal batch; they are not an is
 
 ## `POST /admin/sync/artwork-archive`
 
-Queues new/changed entries from the Western guide filtered to Film/Video/New Media. `ARTWORK_ARCHIVE_ENABLED` must be the exact literal `true`; the reviewed setting is `true` after successful Cloudflare automated-access verification on September 8, 2026. Returns `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, and `skipped`. HTTP 200 can include document failures; inspect `failed` and `deferred`. The integration inspection adds `artworkArchive` with `matchingEntries` and `skipped`; errors produce the existing 502 inspection response. See [Artwork Archive](ARTWORK-ARCHIVE.md).
+Queues new/changed entries from the Western guide filtered to Film/Video/New Media. `ARTWORK_ARCHIVE_ENABLED` must be the exact literal `true`; the reviewed setting is `false` while publisher-approved access is pending after October 18 failures. Returns `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, and `skipped`. HTTP 200 can include document failures; inspect `failed` and `deferred`. The integration inspection adds `artworkArchive` with `matchingEntries` and `skipped`; errors produce the existing 502 inspection response. See [Artwork Archive](ARTWORK-ARCHIVE.md).
 
 ## `POST /admin/import/hey`
 

@@ -5,6 +5,7 @@ import { inspectArtworkArchiveConnection, syncArtworkArchive } from "./ingest/ar
 import { inspectHyperallergicConnection, syncHyperallergic } from "./ingest/hyperallergic";
 import { inspectCreativeWestConnection, syncCreativeWest } from "./ingest/creative-west";
 import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
+import { PublicFetchError } from "./ingest/public-fetch";
 import {
   inspectNotionReviewQueue,
   inspectNotionSchema,
@@ -173,11 +174,14 @@ async function isAuthorized(request: Request, env: Env): Promise<boolean> {
 }
 
 async function inspectIntegration<T>(operation: () => Promise<T>): Promise<
-  { ok: true; value: T } | { ok: false; error: string }
+  { ok: true; value: T } | { ok: false; error: string; diagnostics?: PublicFetchError["diagnostics"] }
 > {
   try {
     return { ok: true, value: await operation() };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      ok: false, error: error instanceof Error ? error.message : String(error),
+      ...(error instanceof PublicFetchError ? { diagnostics: error.diagnostics } : {})
+    };
   }
 }
