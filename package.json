@@ -39,7 +39,7 @@
     "postal-mime": "^4.0.2",
     "saxes": "6.0.0",
     "unpdf": "^1.8.1",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@dustwave/release-core": "file:shared/dust-wave-platform/packages/release-core",
