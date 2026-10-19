@@ -3,7 +3,7 @@ import { listSourceDocuments, rememberSourceDocument, saveSourceDocumentProgress
 import { logInfo } from "../util/log";
 import { ARTWORK_ARCHIVE_GUIDE, artworkArchiveGuideUrl, parseArtworkArchiveEntries } from "./artwork-archive-parser";
 import { DiscoverySafetyError, syncPublicDocument, type PublicDocumentSource, type PublicDocumentSyncCounts } from "./public-document";
-import { fetchPublicText } from "./public-fetch";
+import { fetchPublicText, PublicFetchError } from "./public-fetch";
 
 const source: PublicDocumentSource = {
   id: "artwork_archive", label: "Artwork Archive", senderEmail: "opportunities@artworkarchive.com",
@@ -32,7 +32,9 @@ export async function syncArtworkArchive(env: Env, config: RuntimeConfig, runAt:
     result.failed++;
     await saveSourceDocumentProgress(env.DB, document, {
       hash: document.content_hash, nextEntry: document.next_entry, pending: true,
-      error: "document_sync_failed", checkedAt: runAt.toISOString()
+      error: error instanceof PublicFetchError && error.diagnostics.accessChallenge
+        ? "document_access_challenged" : "document_sync_failed",
+      checkedAt: runAt.toISOString()
     });
   }
   logInfo("artwork_archive_sync_completed", { ...result });

@@ -124,7 +124,7 @@ Colossal is enabled in the reviewed configuration with `COLOSSAL_ENABLED=true` a
 
 ## Artwork Archive optional source
 
-The Western Film/Video/New Media adapter is configured with `ARTWORK_ARCHIVE_ENABLED=true`; absence or any other value disables it. Migration 0008 and Cloudflare access verification succeeded on September 8, 2026, with two parsed entries. A local direct HTTP request returned browser-verification 403 during development; this did not reproduce from the deployed Worker. No new secret or binding is needed for the adapter. Follow [Artwork Archive](ARTWORK-ARCHIVE.md#operations-and-rollout) for the explicit production rollout and acceptance sequence.
+The Western Film/Video/New Media adapter is paused with `ARTWORK_ARCHIVE_ENABLED=false` after the [October 18 access incident](ARTWORK-ARCHIVE.md#access-incident--october-18-2026). Only the exact value `true` enables it. Migration 0008 and Cloudflare access verification succeeded on September 8, 2026, with two parsed entries, but that historical acceptance does not establish current access. No new secret or binding is needed for the existing adapter. Obtain publisher-approved access before reactivation, then follow [Artwork Archive](ARTWORK-ARCHIVE.md#operations-and-rollout) for the explicit production rollout and acceptance sequence.
 
 ## 8. Activation verification
 

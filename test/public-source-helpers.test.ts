@@ -54,6 +54,32 @@ function response(body: string | null, status = 200, type = "application/rss+xml
   return value;
 }
 describe("bounded public source fetching", () => {
+  it.each([403, 200, 304])("rejects a Cloudflare challenge at HTTP %s without reading or exposing its body", async (status) => {
+    const value = response(status === 304 ? null : "untrusted challenge content", status, "text/html");
+    value.headers.set("cf-mitigated", "challenge");
+    value.headers.set("cf-ray", "0123456789abcdef-DEN");
+    const read = vi.spyOn(value, "text");
+    const cancel = value.body && vi.spyOn(value.body, "cancel");
+    const fetch = vi.fn().mockResolvedValue(value);
+    vi.stubGlobal("fetch", fetch);
+    await expect(fetchPublicText("https://example.org/feed/", { contentTypes: ["text/html"] })).rejects.toMatchObject({
+      message: "public_fetch_access_challenge",
+      diagnostics: { httpStatus: status, accessChallenge: true, rayId: "0123456789abcdef-DEN" }
+    });
+    expect(read).not.toHaveBeenCalled();
+    if (cancel) expect(cancel).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  it.each([403, 503])("preserves HTTP %s errors and excludes untrusted diagnostic headers", async (status) => {
+    const value = response("untrusted error content", status);
+    value.headers.set("cf-ray", "private-looking arbitrary header text");
+    value.headers.set("cf-mitigated", "unrecognized value");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(value));
+    await expect(fetchPublicText("https://example.org/feed/", { contentTypes: ["text/html"] })).rejects.toMatchObject({
+      message: `public_fetch_http_${status}`,
+      diagnostics: { httpStatus: status, accessChallenge: false, rayId: null }
+    });
+  });
   it("supports RSS and a conditional 304 without treating it as a redirect", async () => {
     const fetch = vi.fn().mockResolvedValueOnce(response("<rss/>"))
       .mockResolvedValueOnce(response(null, 304));

@@ -4,7 +4,7 @@ Dust Wave Opportunity Radar is a Cloudflare-hosted source triage service for cre
 
 Hyperallergic monthly Opportunities roundups also use the shared pipeline and are enabled in the reviewed configuration. Migration 0007 must precede deployment. See [Hyperallergic](docs/HYPERALLERGIC.md) for scope, rollout, and live acceptance evidence.
 
-An optional [Artwork Archive adapter](docs/ARTWORK-ARCHIVE.md) covers the Western guide filtered to Film/Video/New Media. It is enabled after the authorized September 8 deployment and successful Cloudflare access check, which found two entries. Migration 0008 is applied. Scheduled ingestion and publication remain separate acceptance checks.
+An optional [Artwork Archive adapter](docs/ARTWORK-ARCHIVE.md) covers the Western guide filtered to Film/Video/New Media. It is paused after October 18 production access failures, pending a publisher-approved retrieval method; the September 8 successful access check is historical. Migration 0008 is applied. Scheduled ingestion and publication remain separate acceptance checks.
 
 Qualifying apply-or-submit calls are created or updated in the Notion Opportunities data source. Useful items that need a person’s judgment are grouped into one styled email digest. Irrelevant mail is recorded as ignored. The service does not run on a personal machine.
 

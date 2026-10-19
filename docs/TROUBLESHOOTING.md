@@ -121,7 +121,9 @@ Check `hyperallergicEnabled` first: it should be true after the reviewed rollout
 
 ## Artwork Archive
 
-Check `artworkArchiveEnabled`; the source is enabled following the successful September 8 Cloudflare access check. The earlier local direct HTTP 403 did not reproduce from the deployed Worker. Browser access does not establish Worker access. A 403, unexpected redirect, unsupported layout/filter, pagination, or empty guide fails inspection or increments source `failed`, retaining pending work. Read the [Artwork Archive runbook](ARTWORK-ARCHIVE.md) before enabling. Check sync counters even on HTTP 200; do not log HTML or transfer browser cookies to work around the access requirement.
+Check `artworkArchiveEnabled` and the latest authenticated integration result; September 8 acceptance is historical and production checks failed with 403 on October 18. Browser access does not establish Worker access. `public_fetch_access_challenge` identifies `cf-mitigated: challenge`; its bounded `diagnostics` contain the HTTP status and a validated Cloudflare Ray ID for publisher support. An ordinary rejection remains `public_fetch_http_403`. No challenge/error body is logged or parsed.
+
+A challenge, unexpected redirect, unsupported layout/filter, pagination, or empty guide fails inspection or increments source `failed`, retaining pending work. A detected challenge uses D1 error code `document_access_challenged` and preserves the cursor/content hash and terminal snapshots. Read the [Artwork Archive runbook](ARTWORK-ARCHIVE.md#access-incident--october-18-2026) before enabling. Obtain publisher-approved access if challenged; do not transfer browser cookies or broaden the guide scope. Check source counters even on HTTP 200, and never count `skipped: true` as restored access.
 
 ## Classification
 

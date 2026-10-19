@@ -8,6 +8,8 @@ import { env as baseEnv, runtimeConfig } from "./support/fixtures";
 import { createTestDatabase, type TestDatabase } from "./support/d1";
 import { responseAt } from "./support/colossal";
 import { entryHtml, guideHtml } from "./support/artwork-archive";
+import * as notion from "../src/notion/client";
+import * as zoho from "../src/ingest/zoho";
 
 const databases: TestDatabase[] = [];
 const at = new Date("2026-09-08T13:00:00Z");
@@ -40,6 +42,49 @@ function network(html: () => string = guideHtml) {
 }
 
 describe("Artwork Archive source integration", () => {
+  it("reports challenge diagnostics in the read-only integration check and keeps HTTP 502", async () => {
+    const { env, database, bucket } = setup();
+    vi.spyOn(notion, "inspectNotionSchema").mockResolvedValue({ dataSourceId: "test-source", properties: [] });
+    vi.spyOn(zoho, "inspectZohoConnection").mockResolvedValue({ accountEmail: "test@example.org", configuredFolders: [], matchedFolders: [] });
+    const challenged = responseAt(ARTWORK_ARCHIVE_GUIDE, "untrusted challenge content", 403);
+    challenged.headers.set("cf-mitigated", "challenge");
+    challenged.headers.set("cf-ray", "0123456789abcdef-DEN");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(challenged));
+    const result = await worker.fetch(new Request("https://radar.example/admin/integrations", {
+      headers: { authorization: "Bearer test-admin-token" }
+    }), baseEnv({ ...env, CREATIVE_WEST_ENABLED: "false" }));
+    expect(result.status).toBe(502);
+    const report = await result.json();
+    expect(report).toMatchObject({ ok: false, artworkArchive: {
+      ok: false, error: "public_fetch_access_challenge",
+      diagnostics: { httpStatus: 403, accessChallenge: true, rayId: "0123456789abcdef-DEN" }
+    } });
+    expect(JSON.stringify(report)).not.toContain("untrusted challenge content");
+    expect(database.sqlite.prepare("SELECT COUNT(*) AS n FROM source_documents").get()).toEqual({ n: 0 });
+    expect(bucket.put).not.toHaveBeenCalled();
+  });
+  it("records access challenges while preserving progress and terminal snapshots for recovery", async () => {
+    const { env, database, bucket } = setup(); const fetch = network();
+    await syncArtworkArchive(env, config(), at);
+    database.sqlite.exec("UPDATE messages SET status = 'notion'; UPDATE source_documents SET next_entry = 1");
+    const before = database.sqlite.prepare("SELECT content_hash, next_entry FROM source_documents").get();
+    const challenged = responseAt(ARTWORK_ARCHIVE_GUIDE, "untrusted challenge content", 403);
+    challenged.headers.set("cf-mitigated", "challenge");
+    fetch.mockResolvedValueOnce(challenged);
+    const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ failed: 1, ingested: 0, cached: 0 });
+    expect(database.sqlite.prepare("SELECT content_hash, next_entry FROM source_documents").get()).toEqual(before);
+    expect(database.sqlite.prepare("SELECT pending, etag, last_error_code FROM source_documents").get())
+      .toEqual({ pending: 1, etag: null, last_error_code: "document_access_challenged" });
+    expect(bucket.put).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(logs.mock.calls)).not.toContain("untrusted challenge content");
+    expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ failed: 0, ingested: 0 });
+    // Existing cursor recovery completes the partial pass, then verifies a full pass.
+    expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ failed: 0, ingested: 0, unchanged: 1 });
+    expect(database.sqlite.prepare("SELECT status FROM messages").get()).toEqual({ status: "notion" });
+    expect(database.sqlite.prepare("SELECT pending, last_error_code FROM source_documents").get())
+      .toEqual({ pending: 0, last_error_code: null });
+  });
   it("imports each listing with discovery context and caches a completed guide on 304", async () => {
     const { env, database, bucket } = setup();
     const fetch = network(() => guideHtml(entryHtml() + entryHtml("Rolling Residency", "https://example.org/rolling", "Ongoing")));
