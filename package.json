@@ -36,7 +36,7 @@
     "@dustwave/worker-core": "file:shared/dust-wave-platform/packages/worker-core",
     "fflate": "^0.8.3",
     "htmlparser2": "12.0.0",
-    "postal-mime": "^4.0.2",
+    "postal-mime": "^4.0.5",
     "saxes": "6.0.0",
     "unpdf": "^1.8.1",
     "zod": "^4.6.6"
