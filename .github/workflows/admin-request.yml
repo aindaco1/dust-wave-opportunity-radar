@@ -73,6 +73,11 @@ jobs:
               folder_query="$(jq -rn --arg folder "$FOLDER" '$folder | @uri')"
               admin_request GET "/admin/zoho/message?messageId=$MESSAGE_ID&folder=$folder_query" | jq .
               ;;
+            recover-zoho-message)
+              [[ "$MESSAGE_ID" =~ ^[0-9]{1,30}$ ]]
+              payload="$(jq -nc --arg messageId "$MESSAGE_ID" --arg folder "$FOLDER" '{messageId: $messageId, folder: $folder}')"
+              admin_request POST /admin/zoho/recover "$payload" | jq .
+              ;;
             sync-creative-west)
               admin_request POST /admin/sync/creative-west | jq .
               ;;

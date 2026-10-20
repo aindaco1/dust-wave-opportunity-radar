@@ -4,7 +4,7 @@ import { inspectColossalConnection, syncColossal } from "./ingest/colossal";
 import { inspectArtworkArchiveConnection, syncArtworkArchive } from "./ingest/artwork-archive";
 import { inspectHyperallergicConnection, syncHyperallergic } from "./ingest/hyperallergic";
 import { inspectCreativeWestConnection, syncCreativeWest } from "./ingest/creative-west";
-import { inspectZohoConnection, inspectZohoMessage, syncZoho } from "./ingest/zoho";
+import { inspectZohoConnection, inspectZohoMessage, recoverZohoMessage, syncZoho } from "./ingest/zoho";
 import { PublicFetchError } from "./ingest/public-fetch";
 import {
   inspectNotionReviewQueue,
@@ -97,6 +97,15 @@ const worker = {
             return Response.json({ error: "A numeric messageId and configured folder are required" }, { status: 400 });
           }
           return Response.json(await inspectZohoMessage(env, config, messageId, folder));
+        }
+        if (request.method === "POST" && url.pathname === "/admin/zoho/recover") {
+          const config = loadRuntimeConfig(env);
+          const input = await readBoundedJson<{ messageId?: string; folder?: string }>(request, 2_000);
+          if (typeof input.messageId !== "string" || !/^\d{1,30}$/.test(input.messageId)
+            || typeof input.folder !== "string" || !config.zohoFolders.includes(input.folder)) {
+            return Response.json({ error: "A numeric messageId and configured folder are required" }, { status: 400 });
+          }
+          return Response.json(await recoverZohoMessage(env, config, input.messageId, input.folder));
         }
         if (request.method === "POST" && url.pathname === "/admin/sync/zoho") {
           const config = loadRuntimeConfig(env);

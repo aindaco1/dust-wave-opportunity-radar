@@ -81,6 +81,14 @@ describe("Worker HTTP routes", () => {
     }
   });
 
+  it("authenticates and validates targeted Zoho recovery", async () => {
+    const { env } = setup();
+    expect((await worker.fetch(new Request("https://radar.example/admin/zoho/recover", { method: "POST" }), env)).status).toBe(401);
+    for (const input of [{}, { messageId: "../123", folder: "Inbox" }, { messageId: "123", folder: "Other" }]) {
+      expect((await worker.fetch(admin("/admin/zoho/recover", { method: "POST", body: JSON.stringify(input) }), env)).status).toBe(400);
+    }
+  });
+
   it("starts a manual forced batch", async () => {
     const { env, create } = setup();
     const response = await worker.fetch(admin("/admin/run", { method: "POST" }), env);

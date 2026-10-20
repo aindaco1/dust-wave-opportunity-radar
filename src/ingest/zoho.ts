@@ -1,5 +1,5 @@
 import type { RuntimeConfig } from "../config";
-import { getCheckpoint, setCheckpoint, upsertMessage } from "../storage/database";
+import { getCheckpoint, getMessage, setCheckpoint, upsertMessage } from "../storage/database";
 import { parseDate, subtractDays, subtractHours } from "../util/dates";
 import { sha256Hex } from "../util/crypto";
 import { readBoundedBytes, readBoundedJson } from "../util/http";
@@ -97,6 +97,25 @@ export async function inspectZohoMessage(env: Env, config: RuntimeConfig, messag
     inlineCount: info.inline?.length ?? 0,
     inlineBytes: (info.inline ?? []).reduce((total, item) => total + (size(item.attachmentSize) ?? 0), 0)
   };
+}
+
+/** Explicit source-only recovery for one identity that may be absent from list results. */
+export async function recoverZohoMessage(env: Env, config: RuntimeConfig, messageId: string, folderName: string) {
+  if (!/^\d{1,30}$/.test(messageId)) throw new Error("Invalid Zoho message ID");
+  if (!config.zohoFolders.includes(folderName)) throw new Error("Zoho folder is not configured");
+  const messageKey = await sha256Hex(`zoho:${messageId}`);
+  const existing = await getMessage(env.DB, messageKey);
+  if (existing) return { messageKey, status: existing.status, ingested: false, reviewRequired: false };
+  const connection = await connectZoho(env, config);
+  const folder = connection.selectedFolders.find((value) => value.folderName.toLowerCase() === folderName.toLowerCase())!;
+  const email = await zohoData<ZohoEmailSummary>(connection.mailBase,
+    `/accounts/${connection.account.accountId}/folders/${folder.folderId}/messages/${messageId}/details`, connection.accessToken);
+  if (String(email.messageId) !== messageId || String(email.folderId) !== String(folder.folderId)) {
+    throw new Error("Zoho recovery identity or folder did not match the requested scope");
+  }
+  const receivedAt = zohoDate(email.sentDateInGMT ?? email.receivedTime, new Date());
+  const result = await storeZohoMessage(env, connection.mailBase, connection.accessToken, connection.account.accountId, folder, email, receivedAt);
+  return { ...result, status: "queued", ingested: true };
 }
 
 export async function inspectZohoConnection(env: Env, config: RuntimeConfig): Promise<ZohoConnectionInspection> {
@@ -212,8 +231,7 @@ async function syncZohoFolder(
       limit: "200",
       start: String(start),
       sortBy: "date",
-      sortorder: "false",
-      includearchive: "true"
+      sortorder: "false"
     });
     const emails = await zohoData<ZohoEmailSummary[]>(
       mailBase,
@@ -232,34 +250,9 @@ async function syncZohoFolder(
       if (!newestSeen || receivedAt > newestSeen) newestSeen = receivedAt;
 
       try {
-        const externalId = String(email.messageId);
-        const { raw, ingestionWarning } = await fetchZohoRawMessage(mailBase, accessToken, accountId, folder.folderId, email);
-        const id = await sha256Hex(`zoho:${externalId}`);
-        const rawR2Key = `raw/zoho/${receivedAt.toISOString().slice(0, 10)}/${id}.eml`;
-        await env.MAIL_BUCKET.put(rawR2Key, raw, {
-          httpMetadata: { contentType: "message/rfc822" },
-          customMetadata: {
-            source: "zoho",
-            ...(ingestionWarning ? { ingestionWarning } : {}),
-            externalId,
-            receivedAt: receivedAt.toISOString(),
-            folder: folder.folderName
-          }
-        });
-        await upsertMessage(env.DB, {
-          id,
-          source: "zoho",
-          externalId,
-          mailbox: folder.folderName,
-          subject: email.subject?.trim() || "(No subject)",
-          senderName: email.sender?.trim(),
-          senderEmail: email.fromAddress?.trim(),
-          receivedAt: receivedAt.toISOString(),
-          rawR2Key,
-          rawSize: raw.byteLength
-        });
+        const result = await storeZohoMessage(env, mailBase, accessToken, accountId, folder, email, receivedAt);
         ingested += 1;
-        if (ingestionWarning) reviewRequired += 1;
+        if (result.reviewRequired) reviewRequired += 1;
       } catch (error) {
         failed += 1;
         const detail = error instanceof Error ? error.message : String(error);
@@ -279,6 +272,27 @@ async function syncZohoFolder(
   const nextCheckpoint = retryFrom ?? newestSeen;
   if (nextCheckpoint) await setCheckpoint(env.DB, "zoho", folder.folderName, nextCheckpoint.toISOString());
   return { fetched, ingested, failed, reviewRequired, sampleErrors };
+}
+
+async function storeZohoMessage(
+  env: Env, mailBase: string, accessToken: string, accountId: string,
+  folder: ZohoFolder, email: ZohoEmailSummary, receivedAt: Date
+): Promise<{ messageKey: string; reviewRequired: boolean }> {
+  const externalId = String(email.messageId);
+  const { raw, ingestionWarning } = await fetchZohoRawMessage(mailBase, accessToken, accountId, folder.folderId, email);
+  const id = await sha256Hex(`zoho:${externalId}`);
+  const rawR2Key = `raw/zoho/${receivedAt.toISOString().slice(0, 10)}/${id}.eml`;
+  await env.MAIL_BUCKET.put(rawR2Key, raw, {
+    httpMetadata: { contentType: "message/rfc822" },
+    customMetadata: { source: "zoho", ...(ingestionWarning ? { ingestionWarning } : {}),
+      externalId, receivedAt: receivedAt.toISOString(), folder: folder.folderName }
+  });
+  await upsertMessage(env.DB, {
+    id, source: "zoho", externalId, mailbox: folder.folderName,
+    subject: email.subject?.trim() || "(No subject)", senderName: email.sender?.trim(), senderEmail: email.fromAddress?.trim(),
+    receivedAt: receivedAt.toISOString(), rawR2Key, rawSize: raw.byteLength
+  });
+  return { messageKey: id, reviewRequired: !!ingestionWarning };
 }
 
 async function fetchZohoRawMessage(
