@@ -191,6 +191,31 @@ describe("batch workflow orchestration", () => {
     expect(outputs.find((output) => output.name === "load queued message ids")?.value).toEqual(["message-1"]);
   });
 
+  it("routes incomplete Zoho recovery to one explicit human-review digest without AI, enrichment, or publication", async () => {
+    const { workflow, step, env, ai, email, bucket, objects, testDb } = setup({ NOTION_ENABLED: "true" });
+    const rawKey = "raw/zoho/2026-08-05/oversize.eml";
+    const mime = "Subject: Oversized source\r\nFrom: Arts <arts@example.org>\r\n\r\nSee https://example.org/apply";
+    objects.set(rawKey, new TextEncoder().encode(mime));
+    bucket.get.mockImplementation(async (key: string) => {
+      const value = objects.get(key);
+      return value ? { arrayBuffer: async () => value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength),
+        customMetadata: key === rawKey ? { ingestionWarning: "zoho_original_too_large" } : {} } : null;
+    });
+    await upsertMessage(env.DB, { id: "oversize", source: "zoho", externalId: "123", mailbox: "Inbox", subject: "Oversized source",
+      receivedAt: "2026-08-05T12:00:00.000Z", rawR2Key: rawKey, rawSize: mime.length });
+    const fetchMock = vi.fn(async () => json({ properties: { Source: { type: "select" }, "Automation Key": { type: "rich_text" }, "Last Checked": { type: "date" } } }));
+    vi.stubGlobal("fetch", fetchMock);
+    ai.run.mockResolvedValue({ response: JSON.stringify(classification()) });
+    await expect(workflow.run(event(), step)).resolves.toMatchObject({ queued: 1, digest: 1, notion: 0, ignored: 0, failed: 0, digestSent: true });
+    expect(ai.run).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1); // Schema inspection only; no enrichment or Notion publication.
+    expect(email.send.mock.calls[0]?.[0].text).toContain("attachments were not imported or evaluated");
+    expect((await getMessage(env.DB, "oversize"))?.status).toBe("digest");
+    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS n FROM digest_items WHERE sent_at IS NOT NULL").get()).toEqual({ n: 1 });
+    await expect(workflow.run(event("run-2"), step)).resolves.toMatchObject({ queued: 0, digestSent: false });
+    expect(email.send).toHaveBeenCalledOnce();
+  });
+
   it("prepares messages with bounded concurrency", async () => {
     const { workflow, step, env, ai, email, names, objects } = setup();
     const total = 5;

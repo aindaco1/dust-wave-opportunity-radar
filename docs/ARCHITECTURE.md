@@ -102,6 +102,7 @@ sequenceDiagram
 - Workflow instance IDs use the local date/hour slot, so duplicate cron delivery does not create duplicate scheduled batches.
 - A D1 run ID is inserted with `INSERT OR IGNORE`; non-forced duplicate runs return a no-op summary.
 - A message claim increments `attempts`. Failed work and processing claims stale for 15 minutes are eligible until four attempts.
+- Zoho originals above the 25 MiB ingestion cap use bounded body-only recovery with trusted R2 metadata. The batch routes those incomplete records directly to an explicit human-review digest; attachments remain in Zoho and are not automatically evaluated. Failed recovery retains retry state.
 - Zoho checkpoints overlap by one hour to tolerate ordering and boundary delays; the source/external unique key removes repeats.
 - Notion is queried before every create. URL variants, exact/fuzzy title evidence, title years, automation keys, and D1 ownership are used conservatively.
 - Digest items are keyed by message ID and marked sent only after the email binding succeeds.

@@ -84,7 +84,7 @@ describe("Zoho synchronization", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     await expect(syncZoho(env, runtimeConfig({ zohoEnabled: false }))).resolves.toEqual({
-      folders: [], fetched: 0, ingested: 0, failed: 0, sampleErrors: [], skipped: true
+      folders: [], fetched: 0, ingested: 0, failed: 0, reviewRequired: 0, sampleErrors: [], skipped: true
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -177,5 +177,57 @@ describe("Zoho message inspection", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(inspectZohoMessage(env, runtimeConfig(), id, folder)).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("oversized Zoho recovery", () => {
+  it.each(["declared", "streamed"])("recovers a %s oversized message for review and advances the checkpoint", async (mode) => {
+    const { env, objects, bucket } = setup();
+    const receivedAt = new Date().toISOString();
+    const cancel = vi.fn();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) { if (mode === "streamed") controller.enqueue(new Uint8Array(26_214_401)); }, cancel
+    });
+    const original = new Response(stream, { headers: mode === "declared" ? { "content-length": "33581835" } : {} });
+    const fetchMock = connectionFetch([{ folderId: "1", folderName: "Inbox" }])
+      .mockResolvedValueOnce(json({ data: [{ messageId: "123", folderId: "1", sentDateInGMT: receivedAt, subject: "Synthetic oversized message" }] }))
+      .mockResolvedValueOnce(original)
+      .mockResolvedValueOnce(json({ data: { content: "<p>Small body; attachments are in Zoho.</p>" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(syncZoho(env, runtimeConfig({ zohoFolders: ["Inbox"] }))).resolves.toMatchObject({
+      ingested: 1, failed: 0, reviewRequired: 1
+    });
+    expect(cancel).toHaveBeenCalled();
+    expect(await getCheckpoint(env.DB, "zoho", "Inbox")).toBe(receivedAt);
+    expect(new TextDecoder().decode([...objects.values()][0])).toContain("Small body");
+    expect(bucket.put).toHaveBeenCalledWith(expect.any(String), expect.any(ArrayBuffer), expect.objectContaining({
+      customMetadata: expect.objectContaining({ ingestionWarning: "zoho_original_too_large" })
+    }));
+  });
+
+  it("retains retry state if an oversized message has no recoverable body", async () => {
+    const { env, bucket } = setup();
+    const receivedAt = new Date().toISOString();
+    vi.stubGlobal("fetch", connectionFetch([{ folderId: "1", folderName: "Inbox" }])
+      .mockResolvedValueOnce(json({ data: [{ messageId: "123", folderId: "1", sentDateInGMT: receivedAt }] }))
+      .mockResolvedValueOnce(new Response(null, { headers: { "content-length": "33581835" } }))
+      .mockResolvedValueOnce(json({ data: { content: "" } })));
+    await expect(syncZoho(env, runtimeConfig({ zohoFolders: ["Inbox"] }))).resolves.toMatchObject({ ingested: 0, failed: 1, reviewRequired: 0 });
+    expect(bucket.put).not.toHaveBeenCalled();
+    expect(await getCheckpoint(env.DB, "zoho", "Inbox")).toBe(receivedAt);
+  });
+
+  it("does not reinterpret malformed originals as oversize or include their content in errors", async () => {
+    const { env, bucket } = setup();
+    const fetchMock = connectionFetch([{ folderId: "1", folderName: "Inbox" }])
+      .mockResolvedValueOnce(json({ data: [{ messageId: "123", folderId: "1", sentDateInGMT: new Date().toISOString() }] }))
+      .mockResolvedValueOnce(new Response("Private invalid JSON", { headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(syncZoho(env, runtimeConfig({ zohoFolders: ["Inbox"] }))).resolves.toMatchObject({
+      ingested: 0, failed: 1, reviewRequired: 0, sampleErrors: ["Zoho original-message response was invalid JSON"]
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(bucket.put).not.toHaveBeenCalled();
   });
 });

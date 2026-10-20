@@ -202,7 +202,9 @@ export function buildManualReviewClassification(message: ParsedMessage, error: u
     confidence: 0,
     title,
     organization: message.senderName?.trim().slice(0, 240) || null,
-    summary: `Automatic classification could not produce a reliable structured result. Review the original ${sourceDescription} from ${sender}.`,
+    summary: message.ingestionWarning
+      ? `The original Zoho message exceeded the 25 MiB ingestion limit. Only its email body was recovered; attachments were not imported or evaluated. Review the full message and attachments in Zoho (${message.mailbox}).`
+      : `Automatic classification could not produce a reliable structured result. Review the original ${sourceDescription} from ${sender}.`,
     bodyMarkdown: "",
     primaryUrl: message.urls[0] ?? null,
     applicationUrl: null,
@@ -215,7 +217,9 @@ export function buildManualReviewClassification(message: ParsedMessage, error: u
     eligibleStates: [],
     explicitlyExcludedStates: [],
     evidence: [`Source subject/title: ${title}`.slice(0, 400)],
-    rationale: `Sent for human review after automated classification exhausted its retries: ${errorMessage}`
+    rationale: message.ingestionWarning
+      ? "Incomplete source content requires human review; automated classification and Notion publication were skipped."
+      : `Sent for human review after automated classification exhausted its retries: ${errorMessage}`
   });
 }
 

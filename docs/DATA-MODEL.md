@@ -87,3 +87,7 @@ The cleanup batch lists both expired R2 keys, deletes in groups of at most 500, 
 ## Retired newsletter migration
 
 Migration `0009_add_newsletter.sql` was applied for a superseded prototype and remains unchanged in the migration history and test adapter. Radar no longer uses its `newsletter_editions` and `newsletter_summaries` tables. The active member newsletter has an independent database in the [standalone service](NEWSLETTER.md); do not confuse these unused tables with its delivery records.
+
+## Oversized Zoho recovery metadata
+
+Original-message retrieval remains capped at 25 MiB. On a declared or streamed size overflow, the adapter retrieves the bounded content endpoint and stores body-only MIME with service-owned R2 custom metadata `ingestionWarning: zoho_original_too_large`. Parsing carries that flag into the protected parsed payload; it forces an explicit human-review digest. Attachments and the full original remain in Zoho. Empty or failed body recovery remains a retryable ingestion failure and retains the checkpoint. Successful storage/upsert advances the checkpoint using the existing source identity. Retention is unchanged; no new D1 schema is required.

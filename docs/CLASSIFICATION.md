@@ -74,6 +74,8 @@ If the primary pass fails, or returns `ignore` with confidence below the configu
 
 When geographic exclusion drives a recovered ignore, its summary retains the source's actual applicant eligibility restriction. Naming the target states as excluded alone may omit the original residency rule.
 
+A Zoho message with trusted R2 metadata marking oversized-original body-only recovery bypasses URL enrichment and both AI passes. It always becomes a human-review digest item with an explicit warning that attachments were not imported or evaluated, and never publishes to Notion or becomes automatically ignored. Email headers cannot set this flag.
+
 If both passes fail, the Workflow creates a generic human-review digest record identifying the source email. This is the final fallback and should be investigated if it repeats. See [Troubleshooting](TROUBLESHOOTING.md#automatic-classification-could-not-produce-a-reliable-structured-result).
 
 ## Structured fields
