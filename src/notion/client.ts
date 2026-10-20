@@ -45,6 +45,7 @@ export interface NotionPublishResult {
 
 export type NotionReviewReason = "managed_content_changed" | "truncated_markdown";
 export type NotionReviewComparison =
+  | "page_missing"
   | "already_current"
   | "stored_exact"
   | "formatting_equivalent"
@@ -54,10 +55,10 @@ export type NotionReviewComparison =
 
 export interface NotionReviewInspection {
   messageId: string;
-  pageKey: string;
+  pageKey: string | null;
   groupSize: number;
   isLatest: boolean;
-  reason: NotionReviewReason;
+  reason: NotionReviewReason | "page_missing";
   comparison: NotionReviewComparison;
   currentLength: number;
   previousLength: number;
@@ -88,6 +89,10 @@ export class NotionReviewRequiredError extends Error {
       : `Cannot safely update Notion page ${pageId} because its managed opportunity text was edited`);
     this.name = "NotionReviewRequiredError";
   }
+}
+
+export class NotionReviewPageMissingError extends Error {
+  constructor() { super("No matching Notion page was found for the review item"); }
 }
 
 export interface NotionSchemaInspection {
@@ -213,21 +218,24 @@ export async function inspectNotionReviewQueue(
   config: RuntimeConfig
 ): Promise<NotionReviewInspection[]> {
   requireNotionToken(env);
-  const contexts = await loadNotionReviewContexts(env, config);
+  const { contexts, missing } = await loadNotionReviewContexts(env, config);
   const inspections: NotionReviewInspection[] = [];
   for (const context of contexts) {
     const group = contexts.filter((candidate) => candidate.page.id === context.page.id);
     const latest = latestNotionReviewContext(group);
     inspections.push(await publicNotionReviewInspection(context, group.length, latest.message.id === context.message.id));
   }
-  return inspections;
+  return [...inspections, ...missing.map((messageId): NotionReviewInspection => ({
+    messageId, pageKey: null, groupSize: 0, isLatest: false, reason: "page_missing", comparison: "page_missing",
+    currentLength: 0, previousLength: 0, nextLength: 0
+  }))];
 }
 
 export async function inspectNotionReview(
   env: Env,
   config: RuntimeConfig,
   messageId: string
-): Promise<NotionReviewInspection> {
+): Promise<NotionReviewInspection & { pageKey: string }> {
   const context = await loadNotionReviewContext(env, config, messageId);
   return publicNotionReviewInspection(context, 1, true);
 }
@@ -245,7 +253,8 @@ export async function reconcileNotionReview(
   action: NotionReconciliationAction;
   status: "notion";
 }> {
-  const contexts = await loadNotionReviewContexts(env, config);
+  const { contexts, missing } = await loadNotionReviewContexts(env, config);
+  if (missing.includes(messageId)) throw new NotionReviewPageMissingError();
   const requested = contexts.find((context) => context.message.id === messageId);
   if (!requested) throw new Error("Notion review item was not found");
   const group = contexts.filter((context) => context.page.id === requested.page.id);
@@ -546,13 +555,22 @@ interface NotionReviewContext {
   nextMarkdown: string;
 }
 
-async function loadNotionReviewContexts(env: Env, config: RuntimeConfig): Promise<NotionReviewContext[]> {
+async function loadNotionReviewContexts(env: Env, config: RuntimeConfig): Promise<{ contexts: NotionReviewContext[]; missing: string[] }> {
   const rows = await env.DB
     .prepare("SELECT id FROM messages WHERE status = 'notion_review' ORDER BY updated_at ASC LIMIT 100")
     .all<{ id: string }>();
   const contexts: NotionReviewContext[] = [];
-  for (const row of rows.results) contexts.push(await loadNotionReviewContext(env, config, row.id));
-  return contexts;
+  const missing: string[] = [];
+  for (const row of rows.results) {
+    try { contexts.push(await loadNotionReviewContext(env, config, row.id)); }
+    catch (error) {
+      // A successful lookup with no match cannot belong to a resolved page group.
+      // Transport/schema failures still stop reconciliation: membership is then unknown.
+      if (!(error instanceof NotionReviewPageMissingError)) throw error;
+      missing.push(row.id);
+    }
+  }
+  return { contexts, missing };
 }
 
 async function loadNotionReviewContext(
@@ -572,7 +590,7 @@ async function loadNotionReviewContext(
   const classification = classificationSchema.parse(JSON.parse(message.classification_json));
   const automationKey = await opportunityAutomationKey(classification);
   const match = await findExistingPages(env, config.notionDataSourceId, automationKey, classification);
-  if (!match) throw new Error("No matching Notion page was found for the review item");
+  if (!match) throw new NotionReviewPageMissingError();
   const current = await notionJson<NotionMarkdownResponse>(env.NOTION_TOKEN, `/pages/${match.canonical.id}/markdown`);
   const storedBody = await loadStoredBodyState(env.DB, match.canonical.id);
   const reason = message.last_error === "truncated_markdown" || message.last_error?.includes("truncated Notion page")
@@ -603,7 +621,7 @@ async function publicNotionReviewInspection(
   context: NotionReviewContext,
   groupSize: number,
   isLatest: boolean
-): Promise<NotionReviewInspection> {
+): Promise<NotionReviewInspection & { pageKey: string }> {
   let comparison: NotionReviewComparison;
   if (context.current.truncated) comparison = "truncated";
   else if (context.current.markdown.includes(context.nextMarkdown)) comparison = "already_current";

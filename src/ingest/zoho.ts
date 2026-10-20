@@ -74,6 +74,30 @@ interface ZohoConnection {
   selectedFolders: ZohoFolder[];
 }
 
+/** Operator diagnostics only: never return subjects, addresses, filenames, body text, or provider credentials. */
+export async function inspectZohoMessage(env: Env, config: RuntimeConfig, messageId: string, folderName: string) {
+  if (!/^\d{1,30}$/.test(messageId)) throw new Error("Invalid Zoho message ID");
+  if (!config.zohoFolders.includes(folderName)) throw new Error("Zoho folder is not configured");
+  const connection = await connectZoho(env, config);
+  const folder = connection.selectedFolders.find((value) => value.folderName.toLowerCase() === folderName.toLowerCase())!;
+  const path = `/accounts/${connection.account.accountId}/folders/${folder.folderId}/messages/${messageId}`;
+  const details = await zohoData<{ size?: string | number }>(connection.mailBase, `${path}/details`, connection.accessToken);
+  const info = await zohoData<{ attachments?: Array<{ attachmentSize?: number; attachmentName?: string }>; inline?: Array<{ attachmentSize?: number }> }>(
+    connection.mailBase, `${path}/attachmentinfo?includeInline=true`, connection.accessToken
+  );
+  const content = await zohoData<{ content?: string }>(connection.mailBase, `${path}/content`, connection.accessToken);
+  const size = (value: unknown) => typeof value === "number" || typeof value === "string"
+    ? Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null : null;
+  return {
+    messageKey: await sha256Hex(`zoho:${messageId}`), folder: folder.folderName,
+    reportedBytes: size(details.size), bodyBytes: typeof content.content === "string" ? new TextEncoder().encode(content.content).byteLength : null,
+    attachments: (info.attachments ?? []).map((item) => ({ bytes: size(item.attachmentSize),
+      kind: /\.pdf$/i.test(item.attachmentName ?? "") ? "pdf" : /\.docx$/i.test(item.attachmentName ?? "") ? "docx" : "other" })),
+    inlineCount: info.inline?.length ?? 0,
+    inlineBytes: (info.inline ?? []).reduce((total, item) => total + (size(item.attachmentSize) ?? 0), 0)
+  };
+}
+
 export async function inspectZohoConnection(env: Env, config: RuntimeConfig): Promise<ZohoConnectionInspection> {
   const connection = await connectZoho(env, config);
   return {

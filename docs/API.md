@@ -65,6 +65,10 @@ Public-source HTTP failures also include bounded `diagnostics`: `httpStatus`, `a
 }
 ```
 
+## `GET /admin/zoho/message?messageId=NUMERIC_ID&folder=Inbox`
+
+Authenticated, read-only size diagnostics for one message in a configured folder. Returns the opaque message hash, reported message/body byte counts, attachment byte counts and kinds (`pdf`, `docx`, `other`), and inline totals. It never returns mail text, addresses, attachment names, or credentials and does not store or classify the message. Invalid scope returns `400`. The **Inspect Zoho message sizes** workflow invokes this route.
+
 ## `POST /admin/sync/zoho`
 
 Pulls configured Zoho folders into R2/D1 without starting classification, Notion writes, digest delivery, or retention cleanup.
@@ -109,7 +113,7 @@ Source-only imports can be consumed by the next normal batch; they are not an is
 
 ## `POST /admin/sync/artwork-archive`
 
-Queues new/changed entries from the Western guide filtered to Film/Video/New Media. `ARTWORK_ARCHIVE_ENABLED` must be the exact literal `true`; the reviewed setting is `false` while publisher-approved access is pending after October 18 failures. Returns `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, and `skipped`. HTTP 200 can include document failures; inspect `failed` and `deferred`. The integration inspection adds `artworkArchive` with `matchingEntries` and `skipped`; errors produce the existing 502 inspection response. See [Artwork Archive](ARTWORK-ARCHIVE.md).
+Queues new/changed entries from the Western guide filtered to Film/Video/New Media. `ARTWORK_ARCHIVE_ENABLED` must be the exact literal `true`; the reviewed setting is `true` after the October 20 Cloudflare-hosted browser rollout. Returns `extracted`, `ingested`, `unchanged`, `cached`, `unresolved`, `failed`, `deferred`, and `skipped`. HTTP 200 can include document failures; inspect `failed` and `deferred`. The integration inspection adds `artworkArchive` with `matchingEntries` and `skipped`; errors produce the existing 502 inspection response. See [Artwork Archive](ARTWORK-ARCHIVE.md).
 
 ## `POST /admin/import/hey`
 
@@ -162,9 +166,11 @@ Returns bounded, content-free comparison metadata for messages awaiting a Notion
 }
 ```
 
+A successful lookup with no matching page yields `comparison: "page_missing"`, `reason: "page_missing"`, `pageKey: null`, and zero lengths/group size. It remains in review but does not block inspection or reconciliation of other page groups. Provider/schema failures still stop reconciliation because group membership cannot be determined safely.
+
 ## `POST /admin/notion/reconcile`
 
-Selects the page group containing one exact `notion_review` message ID and reconciles that actual page once using the group's newest received message. Every review message resolving to the same page becomes terminal together, so an older message cannot overwrite a newer classification. `refresh_managed` is rejected with `409` unless the current body is exact or formatting-equivalent to the stored managed body. `preserve_manual` does not write page Markdown.
+Selects the page group containing one exact `notion_review` message ID and reconciles that actual page once using the group's newest received message. Every review message resolving to the same page becomes terminal together, so an older message cannot overwrite a newer classification. `refresh_managed` is rejected with `409` unless the current body is exact or formatting-equivalent to the stored managed body. `preserve_manual` does not write page Markdown. Selecting a missing-page item returns `409` without writes.
 
 ```json
 {

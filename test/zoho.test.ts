@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { inspectZohoConnection, syncZoho } from "../src/ingest/zoho";
+import { inspectZohoConnection, inspectZohoMessage, syncZoho } from "../src/ingest/zoho";
 import { getCheckpoint } from "../src/storage/database";
 import { env as baseEnv, runtimeConfig } from "./support/fixtures";
 import { createTestDatabase, type TestDatabase } from "./support/d1";
@@ -145,5 +145,37 @@ describe("Zoho synchronization", () => {
     expect(mime).toContain("Message-ID: <zoho-zoho-2@dustwave-opportunity-radar>");
     expect(mime).toContain("Content-Type: text/html");
     expect(mime).toContain("<p>Apply now</p>");
+  });
+});
+
+
+describe("Zoho message inspection", () => {
+  it("returns only sizes and supported attachment kinds without storing mail", async () => {
+    const { env, bucket, testDb } = setup();
+    const fetchMock = connectionFetch()
+      .mockResolvedValueOnce(json({ data: { size: "30000000", subject: "Private subject", sender: "private@example.org" } }))
+      .mockResolvedValueOnce(json({ data: { attachments: [
+        { attachmentSize: 25000000, attachmentName: "Private.PDF" },
+        { attachmentSize: "12", attachmentName: "Private.docx" },
+        { attachmentSize: -1, attachmentName: "Private.png" }
+      ], inline: [{ attachmentSize: 123 }] } }))
+      .mockResolvedValueOnce(json({ data: { content: "Private body" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await inspectZohoMessage(env, runtimeConfig(), "123456", "Inbox");
+    expect(result).toEqual({ messageKey: expect.stringMatching(/^[a-f0-9]{64}$/), folder: "Inbox",
+      reportedBytes: 30000000, bodyBytes: 12, attachments: [{ bytes: 25000000, kind: "pdf" },
+        { bytes: 12, kind: "docx" }, { bytes: null, kind: "other" }], inlineCount: 1, inlineBytes: 123 });
+    expect(JSON.stringify(result)).not.toContain("Private");
+    expect(bucket.put).not.toHaveBeenCalled();
+    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS n FROM messages").get()).toEqual({ n: 0 });
+    expect(fetchMock.mock.calls[4]?.[0]).toContain("/folders/1/messages/123456/attachmentinfo?includeInline=true");
+  });
+
+  it.each([["../123", "Inbox"], ["123", "Unconfigured"]])("rejects invalid scope before fetching (%s, %s)", async (id, folder) => {
+    const { env } = setup();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(inspectZohoMessage(env, runtimeConfig(), id, folder)).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
