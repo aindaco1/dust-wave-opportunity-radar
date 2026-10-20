@@ -12,6 +12,9 @@ on:
       message_id:
         required: false
         type: string
+      folder:
+        required: false
+        type: string
       reconciliation_action:
         required: false
         type: string
@@ -33,6 +36,7 @@ jobs:
       OPERATION: ${{ inputs.operation }}
       PAGE_ID: ${{ inputs.page_id }}
       MESSAGE_ID: ${{ inputs.message_id }}
+      FOLDER: ${{ inputs.folder }}
       RECONCILIATION_ACTION: ${{ inputs.reconciliation_action }}
     steps:
       - name: Run bounded admin operation
@@ -63,6 +67,11 @@ jobs:
               ;;
             sync-zoho)
               admin_request POST /admin/sync/zoho | jq .
+              ;;
+            inspect-zoho-message)
+              [[ "$MESSAGE_ID" =~ ^[0-9]{1,30}$ ]]
+              folder_query="$(jq -rn --arg folder "$FOLDER" '$folder | @uri')"
+              admin_request GET "/admin/zoho/message?messageId=$MESSAGE_ID&folder=$folder_query" | jq .
               ;;
             sync-creative-west)
               admin_request POST /admin/sync/creative-west | jq .

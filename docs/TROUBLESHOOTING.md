@@ -105,7 +105,7 @@ Confirm the client/refresh token belong to the configured data center and includ
 
 ### Messages fetched but not ingested
 
-Inspect `sampleErrors` from `/admin/sync/zoho` and `zoho_message_ingest_failed` logs. The sync stores the original MIME when available and builds bounded fallback MIME from the content endpoint otherwise. A failed item moves the checkpoint back to the oldest failed receive time so a later sync retries it.
+Inspect `sampleErrors` from `/admin/sync/zoho` and `zoho_message_ingest_failed` logs. The sync stores the original MIME when available and builds bounded fallback MIME from the content endpoint otherwise. A failed item moves the checkpoint back to the oldest failed receive time so a later sync retries it. For a size-cap failure, run **Inspect Zoho message sizes** with the numeric provider message ID and configured folder. Compare the content-free reported/body/attachment sizes before changing limits; never print original MIME or mail content.
 
 ### Creative West sync fails or returns unexpected counts
 
@@ -159,7 +159,7 @@ Compare title year, canonical Website, Automation Key, and D1 ownership. Add pos
 
 ### Managed opportunity text was edited
 
-The adapter found D1’s prior generated Markdown but not that exact text in the page. It moves the message to `notion_review` and refuses to overwrite possible manual edits. Use **Inspect Notion review queue**. Choose `refresh_managed` only when the report says the content is exact or formatting-equivalent; otherwise use `preserve_manual`, which leaves the body untouched and limits future automation to properties.
+The adapter found D1’s prior generated Markdown but not that exact text in the page. It moves the message to `notion_review` and refuses to overwrite possible manual edits. Use **Inspect Notion review queue**. A `page_missing` entry stays in review without blocking other page groups; inspect its identity separately before any recreation. Lookup/API errors still fail closed. Choose `refresh_managed` only when the report says the content is exact or formatting-equivalent; otherwise use `preserve_manual`, which leaves the body untouched and limits future automation to properties.
 
 ### Truncated Notion Markdown
 

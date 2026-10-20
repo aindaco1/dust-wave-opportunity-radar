@@ -297,6 +297,46 @@ describe("Notion publishing", () => {
     )).toHaveLength(0);
   });
 
+  it("isolates a missing page while preserving another review body and its complete page group", async () => {
+    const { env, config, testDb } = setup();
+    const pageId = "11111111-1111-1111-1111-111111111111";
+    const automationKey = await seedNotionReview(env, pageId, "Original managed text");
+    const missingId = "b".repeat(64);
+    const missingValue = classification({ title: "Unrelated residency", primaryUrl: "https://other.example/residency" });
+    const missingKey = await opportunityAutomationKey(missingValue);
+    await upsertMessage(env.DB, { id: missingId, source: "zoho", externalId: "missing-page", mailbox: "Inbox", subject: "Synthetic unrelated item",
+      receivedAt: "2026-08-01T00:00:00Z", rawR2Key: "", rawSize: 0 });
+    await saveClassification(env.DB, missingId, missingValue, "pending_notion", missingValue.primaryUrl);
+    await markNotionReviewRequired(env.DB, missingId, "managed_content_changed");
+    let unavailable = false;
+    const fetchMock = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
+      const url = String(urlValue);
+      if (url.endsWith("/query")) {
+        if (String(init?.body).includes(missingKey)) {
+          if (unavailable) return json({ code: "validation_error" }, 400);
+          return json({ results: [], has_more: false });
+        }
+        return json({ results: [propertyPage(pageId, "Dust Wave Film Grant", { automationKey })], has_more: false });
+      }
+      if (url.endsWith("/markdown") && !init?.method) return json({ markdown: "Manual notes", truncated: false, unknown_block_ids: [] });
+      if (url.endsWith(`/pages/${pageId}`) && init?.method === "PATCH") return json({ id: pageId });
+      throw new Error("Unexpected request");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await inspectNotionReviewQueue(env, config)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ messageId: missingId, comparison: "page_missing", pageKey: null }),
+      expect.objectContaining({ messageId: "a".repeat(64), comparison: "manual_changes", groupSize: 1 })
+    ]));
+    await expect(reconcileNotionReview(env, config, missingId, "preserve_manual")).rejects.toThrow("No matching Notion page");
+    unavailable = true;
+    await expect(reconcileNotionReview(env, config, "a".repeat(64), "preserve_manual")).rejects.toThrow();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(0);
+    unavailable = false;
+    await expect(reconcileNotionReview(env, config, "a".repeat(64), "preserve_manual")).resolves.toMatchObject({ reconciledCount: 1 });
+    expect(testDb.sqlite.prepare("SELECT status FROM messages WHERE id = ?").get(missingId)).toEqual({ status: "notion_review" });
+    expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/markdown") && init?.method === "PATCH")).toHaveLength(0);
+  });
+
   it("refreshes only formatting-equivalent managed content", async () => {
     const { env, config, testDb } = setup();
     const pageId = "11111111-1111-1111-1111-111111111111";

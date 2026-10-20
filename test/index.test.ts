@@ -73,6 +73,14 @@ describe("Worker HTTP routes", () => {
     expect(await body(response)).toEqual({ error: "Unauthorized" });
   });
 
+  it("authenticates and validates message-size inspection before provider access", async () => {
+    const { env } = setup();
+    expect((await worker.fetch(new Request("https://radar.example/admin/zoho/message?messageId=123&folder=Inbox"), env)).status).toBe(401);
+    for (const query of ["", "?messageId=abc&folder=Inbox", "?messageId=123&folder=Unknown"]) {
+      expect((await worker.fetch(admin(`/admin/zoho/message${query}`), env)).status).toBe(400);
+    }
+  });
+
   it("starts a manual forced batch", async () => {
     const { env, create } = setup();
     const response = await worker.fetch(admin("/admin/run", { method: "POST" }), env);

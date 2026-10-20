@@ -4,12 +4,13 @@ import { inspectColossalConnection, syncColossal } from "./ingest/colossal";
 import { inspectArtworkArchiveConnection, syncArtworkArchive } from "./ingest/artwork-archive";
 import { inspectHyperallergicConnection, syncHyperallergic } from "./ingest/hyperallergic";
 import { inspectCreativeWestConnection, syncCreativeWest } from "./ingest/creative-west";
-import { inspectZohoConnection, syncZoho } from "./ingest/zoho";
+import { inspectZohoConnection, inspectZohoMessage, syncZoho } from "./ingest/zoho";
 import { PublicFetchError } from "./ingest/public-fetch";
 import {
   inspectNotionReviewQueue,
   inspectNotionSchema,
   NotionReconciliationStageError,
+  NotionReviewPageMissingError,
   reconcileNotionReview,
   trashNotionPage,
   type NotionReconciliationAction
@@ -88,6 +89,15 @@ const worker = {
           const config = loadRuntimeConfig(env);
           return Response.json({ items: await inspectNotionReviewQueue(env, config) });
         }
+        if (request.method === "GET" && url.pathname === "/admin/zoho/message") {
+          const config = loadRuntimeConfig(env);
+          const messageId = url.searchParams.get("messageId") ?? "";
+          const folder = url.searchParams.get("folder") ?? "";
+          if (!/^\d{1,30}$/.test(messageId) || !config.zohoFolders.includes(folder)) {
+            return Response.json({ error: "A numeric messageId and configured folder are required" }, { status: 400 });
+          }
+          return Response.json(await inspectZohoMessage(env, config, messageId, folder));
+        }
         if (request.method === "POST" && url.pathname === "/admin/sync/zoho") {
           const config = loadRuntimeConfig(env);
           return Response.json(await syncZoho(env, config));
@@ -132,7 +142,7 @@ const worker = {
             if (detail === "Notion review item was not found") {
               return Response.json({ error: detail }, { status: 404 });
             }
-            if (detail.startsWith("Managed refresh is unsafe")) {
+            if (error instanceof NotionReviewPageMissingError || detail.startsWith("Managed refresh is unsafe")) {
               return Response.json({ error: detail }, { status: 409 });
             }
             if (error instanceof NotionReconciliationStageError) {
