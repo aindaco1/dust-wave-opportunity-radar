@@ -54,6 +54,7 @@ export interface ParsedAttachment {
 }
 
 export interface ParsedMessage {
+  ingestionWarning?: "zoho_original_too_large";
   asOfDate?: string;
   discoveryContext?: DiscoveryContext;
   source: MessageSource;

@@ -12,6 +12,17 @@ import { messageRecord } from "./support/fixtures";
 import { buildMime } from "../scripts/hey-mime.mjs";
 
 describe("message parsing", () => {
+  it("trusts only service-owned R2 metadata for incomplete Zoho body recovery", async () => {
+    const raw = new TextEncoder().encode("X-Ingestion-Warning: zoho_original_too_large\r\nSubject: Synthetic\r\n\r\nBody").buffer;
+    const bucket = (metadata?: Record<string, string>) => ({ get: async () => ({ arrayBuffer: async () => raw, customMetadata: metadata }) }) as unknown as R2Bucket;
+    const ordinary = await parseStoredMessage(bucket(), messageRecord(), 20_971_520);
+    expect(ordinary.ingestionWarning).toBeUndefined();
+    const recovered = await parseStoredMessage(bucket({ ingestionWarning: "zoho_original_too_large" }), messageRecord(), 20_971_520);
+    expect(recovered.ingestionWarning).toBe("zoho_original_too_large");
+    expect(recovered.warnings).toEqual([expect.stringContaining("attachments remain in Zoho")]);
+    expect((await parseStoredMessage(bucket({ ingestionWarning: "zoho_original_too_large" }), messageRecord({ source: "hey" }), 20_971_520)).ingestionWarning).toBeUndefined();
+  });
+
   it("converts email HTML to compact text", () => {
     expect(htmlToText("<style>x{}</style><h1>Open Call</h1><p>Apply &amp; submit.</p>"))
       .toContain("Open Call");

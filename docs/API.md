@@ -71,7 +71,7 @@ Authenticated, read-only size diagnostics for one message in a configured folder
 
 ## `POST /admin/sync/zoho`
 
-Pulls configured Zoho folders into R2/D1 without starting classification, Notion writes, digest delivery, or retention cleanup.
+Pulls configured Zoho folders into R2/D1 without starting classification, Notion writes, digest delivery, or retention cleanup. `reviewRequired` counts oversized originals recovered as body-only messages for mandatory human review in the next batch. These are included in `ingested`, not `failed`; inspect both counters. No attachments are imported on that path, and the full message remains in Zoho.
 
 ```json
 {
@@ -79,6 +79,7 @@ Pulls configured Zoho folders into R2/D1 without starting classification, Notion
   "fetched": 0,
   "ingested": 0,
   "failed": 0,
+  "reviewRequired": 0,
   "sampleErrors": [],
   "skipped": false
 }

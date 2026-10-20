@@ -25,7 +25,12 @@ export async function parseStoredMessage(
     maxHeadersSize: 256_000
   });
 
-  const warnings: string[] = [];
+  // Trust service-owned R2 metadata, never an email header claiming completeness.
+  const ingestionWarning = record.source === "zoho" && object.customMetadata?.ingestionWarning === "zoho_original_too_large"
+    ? "zoho_original_too_large" : undefined;
+  const warnings: string[] = ingestionWarning
+    ? ["Original Zoho message exceeded the 25 MiB ingestion cap. Only the body was recovered; attachments remain in Zoho and were not imported."]
+    : [];
   const attachments: ParsedAttachment[] = [];
   for (const attachment of email.attachments) {
     if (attachment.disposition === "inline" && attachment.related) continue;
@@ -36,6 +41,7 @@ export async function parseStoredMessage(
   const text = cleanText(email.text || htmlToText(email.html ?? ""));
   const combinedForUrls = `${email.html ?? ""}\n${text}\n${attachments.map((item) => item.text ?? "").join("\n")}`;
   return {
+    ...(ingestionWarning ? { ingestionWarning } : {}),
     source: record.source,
     discoveryContext: record.discovery_context_json
       ? discoveryContextSchema.parse(JSON.parse(record.discovery_context_json))

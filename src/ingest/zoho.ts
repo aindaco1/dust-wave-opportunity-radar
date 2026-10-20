@@ -57,6 +57,7 @@ export interface ZohoSyncResult {
   fetched: number;
   ingested: number;
   failed: number;
+  reviewRequired: number;
   sampleErrors: string[];
   skipped: boolean;
 }
@@ -109,7 +110,7 @@ export async function inspectZohoConnection(env: Env, config: RuntimeConfig): Pr
 
 export async function syncZoho(env: Env, config: RuntimeConfig): Promise<ZohoSyncResult> {
   if (!config.zohoEnabled) {
-    return { folders: [], fetched: 0, ingested: 0, failed: 0, sampleErrors: [], skipped: true };
+    return { folders: [], fetched: 0, ingested: 0, failed: 0, reviewRequired: 0, sampleErrors: [], skipped: true };
   }
   const connection = await connectZoho(env, config);
 
@@ -118,6 +119,7 @@ export async function syncZoho(env: Env, config: RuntimeConfig): Promise<ZohoSyn
     fetched: 0,
     ingested: 0,
     failed: 0,
+    reviewRequired: 0,
     sampleErrors: [],
     skipped: false
   };
@@ -134,6 +136,7 @@ export async function syncZoho(env: Env, config: RuntimeConfig): Promise<ZohoSyn
     result.fetched += folderResult.fetched;
     result.ingested += folderResult.ingested;
     result.failed += folderResult.failed;
+    result.reviewRequired += folderResult.reviewRequired;
     for (const error of folderResult.sampleErrors) {
       if (result.sampleErrors.length < 5 && !result.sampleErrors.includes(error)) result.sampleErrors.push(error);
     }
@@ -187,7 +190,7 @@ async function syncZohoFolder(
   accessToken: string,
   accountId: string,
   folder: ZohoFolder
-): Promise<{ fetched: number; ingested: number; failed: number; sampleErrors: string[] }> {
+): Promise<{ fetched: number; ingested: number; failed: number; reviewRequired: number; sampleErrors: string[] }> {
   const checkpoint = await getCheckpoint(env.DB, "zoho", folder.folderName);
   const now = new Date();
   const since = checkpoint
@@ -197,6 +200,7 @@ async function syncZohoFolder(
   let fetched = 0;
   let ingested = 0;
   let failed = 0;
+  let reviewRequired = 0;
   const sampleErrors: string[] = [];
   let newestSeen: Date | null = null;
   let retryFrom: Date | null = null;
@@ -228,13 +232,14 @@ async function syncZohoFolder(
 
       try {
         const externalId = String(email.messageId);
-        const raw = await fetchZohoRawMessage(mailBase, accessToken, accountId, folder.folderId, email);
+        const { raw, ingestionWarning } = await fetchZohoRawMessage(mailBase, accessToken, accountId, folder.folderId, email);
         const id = await sha256Hex(`zoho:${externalId}`);
         const rawR2Key = `raw/zoho/${receivedAt.toISOString().slice(0, 10)}/${id}.eml`;
         await env.MAIL_BUCKET.put(rawR2Key, raw, {
           httpMetadata: { contentType: "message/rfc822" },
           customMetadata: {
             source: "zoho",
+            ...(ingestionWarning ? { ingestionWarning } : {}),
             externalId,
             receivedAt: receivedAt.toISOString(),
             folder: folder.folderName
@@ -253,6 +258,7 @@ async function syncZohoFolder(
           rawSize: raw.byteLength
         });
         ingested += 1;
+        if (ingestionWarning) reviewRequired += 1;
       } catch (error) {
         failed += 1;
         const detail = error instanceof Error ? error.message : String(error);
@@ -271,7 +277,7 @@ async function syncZohoFolder(
 
   const nextCheckpoint = retryFrom ?? newestSeen;
   if (nextCheckpoint) await setCheckpoint(env.DB, "zoho", folder.folderName, nextCheckpoint.toISOString());
-  return { fetched, ingested, failed, sampleErrors };
+  return { fetched, ingested, failed, reviewRequired, sampleErrors };
 }
 
 async function fetchZohoRawMessage(
@@ -280,20 +286,30 @@ async function fetchZohoRawMessage(
   accountId: string,
   folderId: string | number,
   email: ZohoEmailSummary
-): Promise<ArrayBuffer> {
+): Promise<{ raw: ArrayBuffer; ingestionWarning?: "zoho_original_too_large" }> {
   const originalPath = `/accounts/${accountId}/messages/${email.messageId}/originalmessage`;
   const original = await zohoFetch(mailBase, originalPath, accessToken);
+  let ingestionWarning: "zoho_original_too_large" | undefined;
   if (original.ok) {
-    const bytes = await readBoundedBytes(original, MAX_RAW_BYTES);
-    const contentType = original.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const decoded = JSON.parse(new TextDecoder().decode(bytes)) as ZohoApiResponse<
-        string | { content?: string }
-      >;
-      const mime = typeof decoded.data === "string" ? decoded.data : decoded.data?.content;
-      if (mime) return new TextEncoder().encode(mime).buffer;
-    } else {
-      return new Uint8Array(bytes).buffer;
+    try {
+      const bytes = await readBoundedBytes(original, MAX_RAW_BYTES);
+      const contentType = original.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        let decoded: ZohoApiResponse<string | { content?: string }>;
+        try { decoded = JSON.parse(new TextDecoder().decode(bytes)); }
+        catch { throw new Error("Zoho original-message response was invalid JSON"); }
+        const mime = typeof decoded.data === "string" ? decoded.data : decoded.data?.content;
+        if (mime) return { raw: new TextEncoder().encode(mime).buffer };
+      } else {
+        return { raw: new Uint8Array(bytes).buffer };
+      }
+    } catch (error) {
+      // Only our bounded reader's size failures permit body-only recovery. Network,
+      // malformed JSON, and other failures must retain the retry checkpoint.
+      const detail = error instanceof Error ? error.message : "";
+      if (detail !== `Response exceeded ${MAX_RAW_BYTES} byte cap`
+        && !new RegExp(`^Response declared [0-9]+ bytes; cap is ${MAX_RAW_BYTES}$`).test(detail)) throw error;
+      ingestionWarning = "zoho_original_too_large";
     }
   }
 
@@ -303,7 +319,13 @@ async function fetchZohoRawMessage(
     `/accounts/${accountId}/folders/${folderId}/messages/${email.messageId}/content`,
     accessToken
   );
-  return new TextEncoder().encode(buildFallbackMime(email, content.content ?? email.summary ?? "")).buffer;
+  if (ingestionWarning && (typeof content.content !== "string" || !content.content.trim())) {
+    throw new Error("Oversized Zoho message has no recoverable body; original retained for retry");
+  }
+  return {
+    raw: new TextEncoder().encode(buildFallbackMime(email, content.content ?? email.summary ?? "")).buffer,
+    ...(ingestionWarning ? { ingestionWarning } : {})
+  };
 }
 
 function buildFallbackMime(email: ZohoEmailSummary, html: string): string {
