@@ -1,3 +1,12 @@
+import { ARTWORK_ARCHIVE_GUIDE } from "../../src/ingest/artwork-archive-parser";
+
+export function browserResponse(html = guideHtml(), meta: Partial<BrowserRunResponseMeta> = {}) {
+  return Response.json({ success: true, result: html, meta: {
+    status: 200, finalUrl: ARTWORK_ARCHIVE_GUIDE, title: "Synthetic guide",
+    headers: { "content-type": "text/html; charset=utf-8" }, ...meta
+  } });
+}
+
 export function entryHtml(title = "Fictional Film Residency", url = "https://example.org/residency", deadline = "November 3, 2026") {
   return `<div class="opportunity-guide-entry"><div class="row">
     <div><p class="opportunity-date">${deadline}<span class="days-left">56 days left</span></p>

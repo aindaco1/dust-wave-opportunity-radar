@@ -6,8 +6,7 @@ import { parseStoredMessage } from "../src/email/parse";
 import { getMessage } from "../src/storage/database";
 import { env as baseEnv, runtimeConfig } from "./support/fixtures";
 import { createTestDatabase, type TestDatabase } from "./support/d1";
-import { responseAt } from "./support/colossal";
-import { entryHtml, guideHtml } from "./support/artwork-archive";
+import { browserResponse, entryHtml, guideHtml } from "./support/artwork-archive";
 import * as notion from "../src/notion/client";
 import * as zoho from "../src/ingest/zoho";
 
@@ -32,13 +31,10 @@ function setup() {
   const env = baseEnv({ DB: database.db, MAIL_BUCKET: bucket, ARTWORK_ARCHIVE_ENABLED: "true" });
   return { database, objects, bucket, env };
 }
-function network(html: () => string = guideHtml) {
-  const fetch = vi.fn(async (url: string, init?: RequestInit) => {
-    expect(url).toBe(ARTWORK_ARCHIVE_GUIDE);
-    expect(init?.redirect).toBe("manual");
-    return responseAt(url, html());
-  });
-  vi.stubGlobal("fetch", fetch); return fetch;
+function network(env: Env, html: () => string = guideHtml) {
+  const browser = vi.fn(async (_action: string, _options: BrowserRunContentOptions) => browserResponse(html()));
+  env.BROWSER = { quickAction: browser } as unknown as BrowserRun;
+  return browser;
 }
 
 describe("Artwork Archive source integration", () => {
@@ -46,10 +42,10 @@ describe("Artwork Archive source integration", () => {
     const { env, database, bucket } = setup();
     vi.spyOn(notion, "inspectNotionSchema").mockResolvedValue({ dataSourceId: "test-source", properties: [] });
     vi.spyOn(zoho, "inspectZohoConnection").mockResolvedValue({ accountEmail: "test@example.org", configuredFolders: [], matchedFolders: [] });
-    const challenged = responseAt(ARTWORK_ARCHIVE_GUIDE, "untrusted challenge content", 403);
-    challenged.headers.set("cf-mitigated", "challenge");
-    challenged.headers.set("cf-ray", "0123456789abcdef-DEN");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(challenged));
+    const browser = network(env);
+    browser.mockResolvedValueOnce(browserResponse("untrusted challenge content", { status: 403,
+      headers: { "cf-mitigated": "challenge", "cf-ray": "0123456789abcdef-DEN" }
+    }));
     const result = await worker.fetch(new Request("https://radar.example/admin/integrations", {
       headers: { authorization: "Bearer test-admin-token" }
     }), baseEnv({ ...env, CREATIVE_WEST_ENABLED: "false" }));
@@ -64,12 +60,11 @@ describe("Artwork Archive source integration", () => {
     expect(bucket.put).not.toHaveBeenCalled();
   });
   it("records access challenges while preserving progress and terminal snapshots for recovery", async () => {
-    const { env, database, bucket } = setup(); const fetch = network();
+    const { env, database, bucket } = setup(); const fetch = network(env);
     await syncArtworkArchive(env, config(), at);
     database.sqlite.exec("UPDATE messages SET status = 'notion'; UPDATE source_documents SET next_entry = 1");
     const before = database.sqlite.prepare("SELECT content_hash, next_entry FROM source_documents").get();
-    const challenged = responseAt(ARTWORK_ARCHIVE_GUIDE, "untrusted challenge content", 403);
-    challenged.headers.set("cf-mitigated", "challenge");
+    const challenged = browserResponse("untrusted challenge content", { status: 403, headers: { "cf-mitigated": "challenge" } });
     fetch.mockResolvedValueOnce(challenged);
     const logs = vi.spyOn(console, "log").mockImplementation(() => {});
     expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ failed: 1, ingested: 0, cached: 0 });
@@ -85,9 +80,9 @@ describe("Artwork Archive source integration", () => {
     expect(database.sqlite.prepare("SELECT pending, last_error_code FROM source_documents").get())
       .toEqual({ pending: 0, last_error_code: null });
   });
-  it("imports each listing with discovery context and caches a completed guide on 304", async () => {
+  it("imports each listing with discovery context and deduplicates fresh renders", async () => {
     const { env, database, bucket } = setup();
-    const fetch = network(() => guideHtml(entryHtml() + entryHtml("Rolling Residency", "https://example.org/rolling", "Ongoing")));
+    const fetch = network(env, () => guideHtml(entryHtml() + entryHtml("Rolling Residency", "https://example.org/rolling", "Ongoing")));
     expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ extracted: 2, ingested: 2, failed: 0 });
     const row = database.sqlite.prepare("SELECT id FROM messages WHERE subject = 'Fictional Film Residency'").get() as { id: string };
     const parsed = await parseStoredMessage(env.MAIL_BUCKET, (await getMessage(env.DB, row.id))!, 20_971_520);
@@ -96,15 +91,14 @@ describe("Artwork Archive source integration", () => {
     expect(parsed.text).toContain("Entry Fee: $40");
     expect(parsed.text).not.toContain("Roundup month:");
     expect(database.sqlite.prepare("SELECT COUNT(*) AS n FROM source_document_messages").get()).toEqual({ n: 2 });
-    fetch.mockImplementationOnce(async (url, init) => {
-      expect(new Headers(init?.headers).get("if-none-match")).toBe('"v1"');
-      return responseAt(url, null, 304);
-    });
-    expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ ingested: 0, cached: 1, failed: 0 });
+    database.sqlite.exec("UPDATE source_documents SET etag = 'legacy-origin', last_modified = 'legacy-date'");
+    expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ ingested: 0, unchanged: 2, cached: 0, failed: 0 });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(database.sqlite.prepare("SELECT etag, last_modified FROM source_documents").get()).toEqual({ etag: null, last_modified: null });
     expect(bucket.put).toHaveBeenCalledTimes(2);
   });
   it("deduplicates countdown/formatting changes and versions deadline changes without resetting terminal state", async () => {
-    const { env, database } = setup(); let html = guideHtml(); network(() => html);
+    const { env, database } = setup(); let html = guideHtml(); network(env, () => html);
     await syncArtworkArchive(env, config(), at);
     database.sqlite.exec("UPDATE messages SET status = 'notion', raw_r2_key = ''");
     html = html.replace("56 days left", "55 days left").replace("Submit a film", "Submit   a <em>film</em>");
@@ -114,12 +108,12 @@ describe("Artwork Archive source integration", () => {
     expect(database.sqlite.prepare("SELECT COUNT(*) AS n FROM messages WHERE status = 'notion'").get()).toEqual({ n: 1 });
   });
   it.each(["queued", "failed"])("restores expired %s payloads with the same identity and without conditional requests", async (status) => {
-    const { env, database } = setup(); const fetch = network();
+    const { env, database } = setup(); const fetch = network(env);
     await syncArtworkArchive(env, config(), at);
     const before = database.sqlite.prepare("SELECT id FROM messages").get();
     database.sqlite.prepare("UPDATE messages SET status = ?, attempts = ?, raw_r2_key = ''").run(status, status === "failed" ? 4 : 0);
     expect(await syncArtworkArchive(env, config(), new Date("2027-01-04T14:00:00Z"))).toMatchObject({ ingested: 1, failed: 0 });
-    expect(new Headers(fetch.mock.calls.at(-1)?.[1]?.headers).has("if-none-match")).toBe(false);
+    expect(Boolean(fetch.mock.calls.at(-1)?.[1]?.setExtraHTTPHeaders)).toBe(false);
     expect(database.sqlite.prepare("SELECT id FROM messages").get()).toEqual(before);
     expect(database.sqlite.prepare("SELECT status, attempts, raw_r2_key FROM messages").get())
       .toMatchObject({ status: "queued", attempts: 0, raw_r2_key: expect.stringContaining("raw/artwork_archive/2027-01-04/") });
@@ -129,7 +123,7 @@ describe("Artwork Archive source integration", () => {
     const html = guideHtml(Array.from({ length: 201 }, (_, i) => `<div class="opportunity-guide-entry"><h2>Film Call ${i}</h2>
       <ul class="opportunity-info-list"><li>Submission Deadline: Ongoing</li></ul><p>Submit for selection.</p>
       <div class="external-opportunity-links"><a href="https://example.org/${i}">Apply</a></div></div>`).join(""));
-    network(() => html);
+    network(env, () => html);
     bucket.put.mockRejectedValueOnce(new Error("untrusted storage detail"));
     expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ extracted: 200, ingested: 199, failed: 1, deferred: 1 });
     expect(database.sqlite.prepare("SELECT next_entry, pending FROM source_documents").get()).toEqual({ next_entry: 200, pending: 1 });
@@ -142,19 +136,21 @@ describe("Artwork Archive source integration", () => {
   });
   it.each(["http", "layout", "redirect", "304"])("retains pending work on %s failure and logs only counters", async (kind) => {
     const { env, database } = setup();
-    vi.stubGlobal("fetch", vi.fn(async () => kind === "304" ? responseAt(ARTWORK_ARCHIVE_GUIDE, null, 304)
-      : responseAt(kind === "redirect" ? "https://www.artworkarchive.com/logins/sign_in" : ARTWORK_ARCHIVE_GUIDE,
-        kind === "layout" ? "<h1>untrusted private-looking text</h1>" : guideHtml(), kind === "http" ? 403 : 200)));
+    const browser = network(env);
+    browser.mockResolvedValueOnce(browserResponse(kind === "layout" ? "<h1>untrusted private-looking text</h1>" : guideHtml(), {
+      status: kind === "304" ? 304 : kind === "http" ? 403 : 200,
+      finalUrl: kind === "redirect" ? "https://www.artworkarchive.com/logins/sign_in" : ARTWORK_ARCHIVE_GUIDE
+    }));
     const logs = vi.spyOn(console, "log").mockImplementation(() => {});
     expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ failed: 1, ingested: 0, cached: 0 });
     expect(database.sqlite.prepare("SELECT pending, etag, last_error_code FROM source_documents").get())
       .toEqual({ pending: 1, etag: null, last_error_code: "document_sync_failed" });
     expect(JSON.stringify(logs.mock.calls)).not.toMatch(/Fictional|private-looking|example\.org/);
-    network();
+    network(env);
     expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ ingested: 1, failed: 0 });
   });
   it("marks previously queued programs sharing official links and fails closed if those guards cannot persist", async () => {
-    const { env, database } = setup(); let html = guideHtml(); network(() => html);
+    const { env, database } = setup(); let html = guideHtml(); network(env, () => html);
     await syncArtworkArchive(env, config(), at);
     html = guideHtml(entryHtml("Different Residency"));
     expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ ingested: 1, unresolved: 1 });
@@ -168,25 +164,25 @@ describe("Artwork Archive source integration", () => {
     await expect(syncArtworkArchive(env, config(), at)).rejects.toThrow("artwork_archive_discovery_safety_failed");
     expect(database.sqlite.prepare("SELECT pending FROM source_documents").get()).toEqual({ pending: 1 });
     guardFailure.mockRestore();
-    const fetch = network(() => html);
+    const fetch = network(env, () => html);
     expect(await syncArtworkArchive(env, config(), at)).toMatchObject({ failed: 0, ingested: 0 });
-    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).has("if-none-match")).toBe(false);
+    expect(Boolean(fetch.mock.calls[0]?.[1]?.setExtraHTTPHeaders)).toBe(false);
   });
   it("has a disabled no-I/O switch and read-only count inspection", async () => {
-    const { env, database, bucket } = setup(); const fetch = network();
-    expect(await inspectArtworkArchiveConnection(config())).toEqual({ matchingEntries: 1, skipped: false });
+    const { env, database, bucket } = setup(); const fetch = network(env);
+    expect(await inspectArtworkArchiveConnection(env, config())).toEqual({ matchingEntries: 1, skipped: false });
     expect(database.sqlite.prepare("SELECT COUNT(*) AS n FROM messages").get()).toEqual({ n: 0 });
     expect(bucket.put).not.toHaveBeenCalled(); fetch.mockClear();
     expect(await syncArtworkArchive({} as Env, runtimeConfig(), at)).toMatchObject({ skipped: true });
-    expect(await inspectArtworkArchiveConnection(runtimeConfig())).toMatchObject({ skipped: true });
+    expect(await inspectArtworkArchiveConnection({} as Env, runtimeConfig())).toMatchObject({ skipped: true });
     expect(fetch).not.toHaveBeenCalled();
     await expect(syncArtworkArchive(env, config(), new Date("invalid"))).rejects.toThrow("artwork_archive_invalid_run_date");
-    fetch.mockResolvedValueOnce(responseAt(ARTWORK_ARCHIVE_GUIDE, null, 304));
-    await expect(inspectArtworkArchiveConnection(config())).rejects.toThrow("artwork_archive_unverified_response");
+    fetch.mockResolvedValueOnce(browserResponse(guideHtml(), { status: 304 }));
+    await expect(inspectArtworkArchiveConnection(env, config())).rejects.toThrow("artwork_archive_unverified_response");
   });
   it("protects source-only routing and does not start AI, publication, or a batch", async () => {
     vi.useFakeTimers(); vi.setSystemTime(at);
-    const { env, database } = setup(); network();
+    const { env, database } = setup(); network(env);
     const ai = { run: vi.fn() }; const create = vi.fn(); const email = { send: vi.fn() };
     const bound = { ...env, AI: ai, BATCH_WORKFLOW: { create }, EMAIL: email } as unknown as Env;
     const request = (authorized: boolean) => new Request("https://radar.example/admin/sync/artwork-archive", {
