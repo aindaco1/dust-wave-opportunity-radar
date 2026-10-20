@@ -231,3 +231,26 @@ describe("oversized Zoho recovery", () => {
     expect(bucket.put).not.toHaveBeenCalled();
   });
 });
+
+
+describe("archived Zoho source messages", () => {
+  it("ingests an archived message in a configured folder using the existing date window and identity", async () => {
+    const { env, testDb } = setup();
+    const receivedAt = new Date().toISOString();
+    const fetchMock = connectionFetch([{ folderId: "1", folderName: "Inbox" }])
+      .mockImplementation(async (urlValue: string | URL | Request) => {
+        const url = new URL(String(urlValue));
+        if (url.pathname.endsWith("/messages/view")) {
+          expect(url.searchParams.get("folderId")).toBe("1");
+          return json({ data: url.searchParams.get("includearchive") === "true"
+            ? [{ messageId: "123", folderId: "1", sentDateInGMT: receivedAt, subject: "Archived source" }] : [] });
+        }
+        if (url.pathname.endsWith("/originalmessage")) return new Response("Subject: Archived source\r\n\r\nBody");
+        throw new Error("Unexpected request");
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(syncZoho(env, runtimeConfig({ zohoFolders: ["Inbox"] }))).resolves.toMatchObject({ ingested: 1, failed: 0 });
+    expect(testDb.sqlite.prepare("SELECT COUNT(*) AS n FROM messages WHERE source='zoho' AND external_id='123'").get()).toEqual({ n: 1 });
+    expect(await getCheckpoint(env.DB, "zoho", "Inbox")).toBe(receivedAt);
+  });
+});
