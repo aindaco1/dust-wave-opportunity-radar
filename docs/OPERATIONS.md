@@ -24,7 +24,7 @@ Colossal is enabled in the reviewed configuration and runs before the shared que
 
 Hyperallergic uses the same pipeline for monthly Opportunities roundups and is enabled in the reviewed configuration. Migration 0007 must precede deployment. The [Hyperallergic runbook](HYPERALLERGIC.md) defines initial scope, source-only verification, and rollout. No local verification imports production entries.
 
-Artwork Archive is paused following October 18 production 403 responses, pending publisher-approved access. When enabled it reads the fixed Western Film/Video/New Media guide before queue loading, using shared document recovery. See [Artwork Archive](ARTWORK-ARCHIVE.md) for the current access incident, reactivation requirements, source-only counters, and historical migration 0008 acceptance.
+Artwork Archive is enabled in reviewed configuration and uses the Cloudflare `BROWSER` binding following the October 20 hosted-browser access probe. It reads the fixed Western Film/Video/New Media guide before queue loading, using shared document recovery. See [Artwork Archive](ARTWORK-ARCHIVE.md) for the current access incident, reactivation requirements, source-only counters, and historical migration 0008 acceptance.
 
 ## Health and manual run
 

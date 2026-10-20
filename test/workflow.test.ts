@@ -1,5 +1,5 @@
 import { ARTWORK_ARCHIVE_GUIDE } from "../src/ingest/artwork-archive-parser";
-import { guideHtml, entryHtml as artworkEntryHtml } from "./support/artwork-archive";
+import { browserResponse, guideHtml, entryHtml as artworkEntryHtml } from "./support/artwork-archive";
 import { HYPERALLERGIC_FEED } from "../src/ingest/hyperallergic-parser";
 import { articleHtml as hyperArticleHtml, entryHtml as hyperEntryHtml, augustUrl as hyperAugustUrl, septemberUrl as hyperSeptemberUrl } from "./support/hyperallergic";
 import { COLOSSAL_FEED } from "../src/ingest/colossal-parser";
@@ -425,10 +425,10 @@ describe.each(["colossal", "hyperallergic", "artwork_archive"] as const)("%s thr
         dueDate: index === 3 ? "2026-09-01" : "2026-09-30"
       })) };
     });
+    if (artwork) env.BROWSER = { quickAction: vi.fn(async () => browserResponse(html)) } as unknown as BrowserRun;
     const creates: unknown[] = [];
     const fetch = vi.fn(async (urlValue: string | URL | Request, init?: RequestInit) => {
       const url = String(urlValue); const method = init?.method ?? "GET";
-      if (artwork && url === ARTWORK_ARCHIVE_GUIDE) return responseAt(url, html);
       if (url === feedUrl) return responseAt(url, rss([
         { title: hyper ? "Opportunities in August 2026" : "August 2026 Opportunities", url: sourceAugustUrl, html },
         { title: hyper ? "Opportunities in September 2026" : "September 2026 Opportunities", url: sourceSeptemberUrl, html }

@@ -80,7 +80,7 @@ const worker = {
           const creativeWest = await inspectIntegration(() => inspectCreativeWestConnection(config, new Date()));
           const colossal = await inspectIntegration(() => inspectColossalConnection(config, new Date()));
           const hyperallergic = await inspectIntegration(() => inspectHyperallergicConnection(config, new Date()));
-          const artworkArchive = await inspectIntegration(() => inspectArtworkArchiveConnection(config));
+          const artworkArchive = await inspectIntegration(() => inspectArtworkArchiveConnection(env, config));
           const ok = artworkArchive.ok && notion.ok && zoho.ok && creativeWest.ok && colossal.ok && hyperallergic.ok;
           return Response.json({ ok, notion, zoho, creativeWest, colossal, hyperallergic, artworkArchive }, { status: ok ? 200 : 502 });
         }

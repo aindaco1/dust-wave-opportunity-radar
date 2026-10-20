@@ -11,6 +11,7 @@ The reviewed Worker name is `dustwave-opportunity-radar`, with public URL `https
 | Binding | Resource | Purpose |
 |---|---|---|
 | `AI` | Workers AI remote binding | Structured classification and recovery |
+| `BROWSER` | Cloudflare Browser Run, remote binding | Fresh Artwork Archive guide render; no API token |
 | `DB` | D1 `dustwave-opportunity-radar` | Queue and operational state |
 | `MAIL_BUCKET` | R2 `dustwave-opportunity-radar-mail` | Temporary raw/parsed mail |
 | `BATCH_WORKFLOW` | Workflow `dustwave-opportunity-radar-batch` | Durable batch execution |
@@ -37,7 +38,7 @@ The inbound Worker address is `hey@ingest.dustwave.xyz`. Email Sending is allowl
 | `ZOHO_ENABLED` | `true` | Zoho batch synchronization switch |
 | `CREATIVE_WEST_ENABLED` | `true` | Creative West filtered-feed synchronization switch |
 | `COLOSSAL_ENABLED` | `true` | Colossal monthly-roundup synchronization switch |
-| `ARTWORK_ARCHIVE_ENABLED` | `false` | Paused pending publisher-approved access; [October 18 incident](ARTWORK-ARCHIVE.md#access-incident--october-18-2026) supersedes historical September acceptance |
+| `ARTWORK_ARCHIVE_ENABLED` | `true` | Fixed guide via the Cloudflare `BROWSER` binding; verify live retrieval and processing after deployment |
 | `HYPERALLERGIC_ENABLED` | `true` | Hyperallergic monthly-roundup synchronization switch |
 | `ZOHO_ACCOUNT_EMAIL` | `alonso@dustwave.xyz` | Required account/alias |
 | `ZOHO_DATACENTER` | `us` | API endpoint family |
@@ -52,7 +53,7 @@ Colossal uses fixed public RSS/article endpoints and no secret. Its source windo
 
 Hyperallergic reuses the shared roundup machinery with its own fixed feed/archive and parser. Migration 0007 extends the message-source constraint; apply it before enabling `HYPERALLERGIC_ENABLED=true` and deploying the new source. No new secret or binding is required. See [Hyperallergic](HYPERALLERGIC.md).
 
-Artwork Archive uses a fixed filtered public HTML guide. Migration 0008 extends the message-source constraint. Cloudflare access passed on September 8 with two parsed entries, despite the earlier local direct HTTP probe receiving a browser-verification 403. Migration 0008 was applied during that rollout. See [Artwork Archive](ARTWORK-ARCHIVE.md).
+Artwork Archive uses a fixed filtered public HTML guide through `BROWSER.quickAction("content", ...)`. The browser runs in Cloudflare, including local development through `remote: true`; tests mock it. No new secret or dependency is needed. Migration 0008 extends the message-source constraint. Cloudflare access passed on September 8 with two parsed entries, despite the earlier local direct HTTP probe receiving a browser-verification 403. Migration 0008 was applied during that rollout. See [Artwork Archive](ARTWORK-ARCHIVE.md).
 
 ## Cloudflare secrets
 

@@ -5,7 +5,7 @@ import {
 } from "../storage/source-documents";
 import { sha256Hex } from "../util/crypto";
 import { ingestPublicSnapshot } from "./public-snapshot";
-import { fetchPublicText } from "./public-fetch";
+import { fetchPublicText, type PublicTextResponse } from "./public-fetch";
 import type { Roundup, RoundupEntry } from "./roundup-parser";
 
 export interface PublicDocumentSource {
@@ -15,6 +15,7 @@ export interface PublicDocumentSource {
   documentUrl(value: string): string | null;
   parseEntries(html: string): RoundupEntry[];
   normalizeText?(text: string): string;
+  fetchDocument?(env: Env): Promise<PublicTextResponse>;
 }
 export interface PublicDocumentSyncCounts {
   extracted: number;
@@ -42,7 +43,7 @@ export async function syncPublicDocument(
     catch { html = undefined; }
   }
   if (!entries) {
-    const response = await fetchPublicText(document.url, {
+    const response = source.fetchDocument ? await source.fetchDocument(env) : await fetchPublicText(document.url, {
       contentTypes: HTML_TYPES,
       etag: !document.pending && !document.needs_restore ? document.etag ?? undefined : undefined,
       lastModified: !document.pending && !document.needs_restore ? document.last_modified ?? undefined : undefined

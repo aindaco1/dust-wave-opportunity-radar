@@ -3,17 +3,18 @@ import { listSourceDocuments, rememberSourceDocument, saveSourceDocumentProgress
 import { logInfo } from "../util/log";
 import { ARTWORK_ARCHIVE_GUIDE, artworkArchiveGuideUrl, parseArtworkArchiveEntries } from "./artwork-archive-parser";
 import { DiscoverySafetyError, syncPublicDocument, type PublicDocumentSource, type PublicDocumentSyncCounts } from "./public-document";
-import { fetchPublicText, PublicFetchError } from "./public-fetch";
+import { PublicFetchError } from "./public-fetch";
+import { fetchArtworkArchiveGuide } from "./artwork-archive-browser";
 
 const source: PublicDocumentSource = {
   id: "artwork_archive", label: "Artwork Archive", senderEmail: "opportunities@artworkarchive.com",
-  documentUrl: artworkArchiveGuideUrl, parseEntries: parseArtworkArchiveEntries
+  documentUrl: artworkArchiveGuideUrl, parseEntries: parseArtworkArchiveEntries,
+  fetchDocument: fetchArtworkArchiveGuide
 };
 
-export async function inspectArtworkArchiveConnection(config: RuntimeConfig) {
+export async function inspectArtworkArchiveConnection(env: Env, config: RuntimeConfig) {
   if (!config.artworkArchiveEnabled) return { matchingEntries: 0, skipped: true };
-  const response = await fetchPublicText(ARTWORK_ARCHIVE_GUIDE, { contentTypes: ["text/html"] });
-  if (response.status === 304 || !artworkArchiveGuideUrl(response.finalUrl)) throw new Error("artwork_archive_unverified_response");
+  const response = await fetchArtworkArchiveGuide(env);
   return { matchingEntries: parseArtworkArchiveEntries(response.text).length, skipped: false };
 }
 
