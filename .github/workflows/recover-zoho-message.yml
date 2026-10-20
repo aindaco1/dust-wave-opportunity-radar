@@ -1,0 +1,30 @@
+name: Recover one Zoho message
+
+on:
+  workflow_dispatch:
+    inputs:
+      message_id:
+        description: Exact numeric Zoho message ID to recover into the source queue
+        required: true
+        type: string
+      folder:
+        description: Configured source folder
+        required: true
+        type: choice
+        options:
+          - Inbox
+          - Dust Wave
+          - Newsletter
+          - Notification
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    uses: ./.github/workflows/admin-request.yml
+    with:
+      operation: recover-zoho-message
+      message_id: ${{ inputs.message_id }}
+      folder: ${{ inputs.folder }}
+    secrets: inherit

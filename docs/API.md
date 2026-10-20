@@ -69,6 +69,10 @@ Public-source HTTP failures also include bounded `diagnostics`: `httpStatus`, `a
 
 Authenticated, read-only size diagnostics for one message in a configured folder. Returns the opaque message hash, reported message/body byte counts, attachment byte counts and kinds (`pdf`, `docx`, `other`), and inline totals. It never returns mail text, addresses, attachment names, or credentials and does not store or classify the message. Invalid scope returns `400`. The **Inspect Zoho message sizes** workflow invokes this route.
 
+## `POST /admin/zoho/recover`
+
+Explicit source-only recovery of one message by numeric `messageId` and configured `folder`, exposed by **Recover one Zoho message**. Confirms the provider's returned identity and folder before retrieving MIME, and uses the normal bounded/body-only recovery path. Does not list other messages, advance folder checkpoints, classify, or send a digest. Returns an opaque `messageKey`, status, `ingested`, and `reviewRequired`; an existing D1 identity is a no-write success (`ingested: false`) so terminal results and manual reconciliation cannot be reset. Run the ordinary batch separately after authorized recovery.
+
 ## `POST /admin/sync/zoho`
 
 Pulls configured Zoho folders into R2/D1 without starting classification, Notion writes, digest delivery, or retention cleanup. `reviewRequired` counts oversized originals recovered as body-only messages for mandatory human review in the next batch. These are included in `ingested`, not `failed`; inspect both counters. No attachments are imported on that path, and the full message remains in Zoho.
