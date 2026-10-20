@@ -212,7 +212,8 @@ async function syncZohoFolder(
       limit: "200",
       start: String(start),
       sortBy: "date",
-      sortorder: "false"
+      sortorder: "false",
+      includearchive: "true"
     });
     const emails = await zohoData<ZohoEmailSummary[]>(
       mailBase,
