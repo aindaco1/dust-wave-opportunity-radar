@@ -21,7 +21,7 @@ type RadarCase = z.infer<typeof radarCaseSchema>;
 // No file argument, saved-output importer, production lookup or custom-source input.
 export const corpus = z.object({
   policy: z.object({ minimumMargin: z.number().min(0).max(1), models: z.array(z.string()).min(1) }),
-  cases: z.array(radarCaseSchema).min(1).max(12)
+  cases: z.array(radarCaseSchema).min(1).max(16)
 }).parse(corpusJson);
 export const platformCommit = "816da7b52ed346025f5bbe3a7a420e9ad7c4a815";
 const evaluationConfig = loadRuntimeConfig(parseWranglerConfig(

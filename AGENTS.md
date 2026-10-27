@@ -9,6 +9,7 @@ This repository is the complete project context for Dust Wave Opportunity Radar.
 - The production batch is 07:00 and 19:00 `America/Denver`.
 - Notion receives only concrete calls with an apply/submit selection mechanism, confidence at or above the configured threshold, and an official source URL.
 - A call is geographically rejected only when New Mexico, Illinois, and Pennsylvania are all explicitly excluded.
+- Loan offers and repayable financing, including Stripe Capital offers, are excluded from Notion and the opportunity digest. Non-repayable grants and other non-loan opportunities remain eligible.
 - Possible calls and other useful creative-industry items go to the human-review digest; empty digests are suppressed.
 - The member newsletter is owned by the separate `dust-wave-opportunity-internal-email` service. Do not restore the retired Radar newsletter prototype; see [newsletter ownership](docs/NEWSLETTER.md).
 - Notion entity resolution must check existing pages before create. Prefer a manually created page as canonical. Trash only duplicates proven to be automation-owned.

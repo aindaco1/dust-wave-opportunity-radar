@@ -87,6 +87,7 @@ const EXISTING_TAGS = [
 ];
 const recoverySchema = z.object({
   decision: z.enum(["call", "digest", "ignore"]),
+  isLoanOffer: z.boolean().optional(),
   confidence: z.number().min(0).max(1),
   title: z.string().min(1).max(240),
   organization: z.string().max(240).nullable(),
@@ -117,7 +118,8 @@ export async function classifyMessage(
 
   const schema = z.toJSONSchema(classificationSchema.extend({
     // Extraction-only support: not persisted or added to the public Classification shape.
-    applicationOpenStartEvidence: z.string().min(1).max(400).nullable()
+    applicationOpenStartEvidence: z.string().min(1).max(400).nullable(),
+    isLoanOffer: z.boolean()
   }), { target: "draft-7" });
   const messages = [
     { role: "system" as const, content: systemPrompt(config.aiConfidenceThreshold) },
@@ -141,6 +143,8 @@ export async function classifyMessage(
     const candidate = unwrapAiValue(response);
     const parsed = groundApplicationOpeningDate(parseClassificationResponse(candidate),
       (candidate as Record<string, unknown>).applicationOpenStartEvidence, message, pages);
+    // Loan exclusion precedes confidence recovery and all possible-call demotion.
+    if ((candidate as Record<string, unknown>).isLoanOffer === true) return ignoreLoanOffer(parsed);
     if (parsed.decision !== "ignore" || parsed.confidence >= config.aiConfidenceThreshold) {
       return enforceClassificationPolicy(parsed, config.aiConfidenceThreshold, message.discoveryContext, pages, message.asOfDate);
     }
@@ -248,7 +252,7 @@ export function mapRecoveryClassification(
   const primaryUrl = recovery.primaryUrl && recovery.primaryUrl.length <= MAX_SOURCE_LINK_CHARACTERS
     ? canonicalizeUrl(recovery.primaryUrl)
     : null;
-  return classificationSchema.parse({
+  const result = classificationSchema.parse({
     decision,
     confidence: recovery.confidence,
     title: recovery.title,
@@ -272,6 +276,16 @@ export function mapRecoveryClassification(
       ? `${recovery.rationale} Held for human review because full opportunity extraction did not complete reliably.`
       : recovery.rationale
   });
+  return recovery.isLoanOffer === true ? ignoreLoanOffer(result) : result;
+}
+
+function ignoreLoanOffer(value: Classification): Classification {
+  return {
+    ...value,
+    decision: "ignore",
+    digestCategory: null,
+    rationale: "Loan offers and repayable financing are excluded from opportunities and the human-review digest."
+  };
 }
 
 function unwrapAiValue(value: unknown, depth = 0): unknown {
@@ -372,6 +386,11 @@ RELEVANCE BEFORE PUBLICATION:
 - confidence expresses confidence in the selected routing decision, not just whether a call can be auto-published.
 - A personal acceptance/selection notice or delivery instructions for work already selected are transactional follow-up, not a new open call. Ignore them unless the source separately offers an actionable new call or useful industry item. A requested screening copy or press still is not an application for selection.
 
+LOAN EXCLUSION:
+- Ignore offers to borrow money: loans, credit lines, and repayable business/merchant cash advances, including Stripe Capital offers. This applies even with zero interest, preapproval, creative-business relevance, or an application deadline. Never send them to Notion or any digest category, including Possible Opportunities.
+- Set isLoanOffer to true when the candidate itself offers borrowed money or a repayable advance; otherwise false. Evaluate the funding terms, not just words such as "capital", "funding", or "loan".
+- Non-repayable grants, awards, equity investments, equipment lending, and educational/news items discussing loans are not loan offers. In a mixed roundup, exclude the loan offers while evaluating any separately offered non-loan opportunity normally; set isLoanOffer for the selected candidate, not an unrelated advertisement.
+
 AUTO-PUBLISH STANDARD:
 - Use "notion" only when confidence is at least ${confidenceThreshold} and a primary official URL is present.
 - Quote short evidence snippets establishing the call, eligibility, and deadline/open window.
@@ -405,6 +424,7 @@ function recoveryPrompt(): string {
 
 Return exactly one JSON object with these fields:
 - decision: "call" for a possible apply/submit-for-selection opportunity, "digest" for another useful creative-industry item, or "ignore" for irrelevant/transactional mail.
+- isLoanOffer: boolean; true when the candidate itself offers borrowed money, a credit line or a repayable business/merchant cash advance, otherwise false.
 - confidence: number from 0 to 1.
 - title: a useful human title, not an automation error.
 - organization: string or null.
@@ -413,7 +433,9 @@ Return exactly one JSON object with these fields:
 - digestCategory: one of "Possible Opportunities", "Jobs & Commissions", "Workshops & Training", "Events & Conferences", "Games & Interactive", "Industry News", "Other Useful Finds", or null.
 - rationale: concise reason for the decision.
 
-This recovery pass does not auto-publish calls. A relevant possible call with a missing official URL, unverified organizer or incomplete terms is "call", never "ignore" solely for lack of verification. Confidence measures the triage decision, not publication eligibility. Confirmed closed calls, explicit exclusion of all three target states, receipts and personal acceptance/delivery instructions for already-selected work can be ignored. A screening copy requested after selection is not a new application. Label a possible call as "call" so it can be held for human review.`;
+Ignore all loan and repayable financing offers, including Stripe Capital, credit lines and merchant cash advances, even if preapproved, interest-free or relevant to a creative business. Never recover them as a call or digest item. Non-repayable grants, equity investments, equipment lending and useful education/news about loans are not loan offers. Do not reject a separately offered non-loan opportunity just because the same roundup contains a loan advertisement; isLoanOffer describes the selected candidate.
+
+This recovery pass does not auto-publish calls. A relevant possible non-loan call with a missing official URL, unverified organizer or incomplete terms is "call", never "ignore" solely for lack of verification. Confidence measures the triage decision, not publication eligibility. Confirmed closed calls, explicit exclusion of all three target states, receipts and personal acceptance/delivery instructions for already-selected work can be ignored. A screening copy requested after selection is not a new application. Label a possible non-loan call as "call" so it can be held for human review.`;
 }
 
 export function buildEvidencePacket(message: ParsedMessage, pages: EnrichedPage[]): string {

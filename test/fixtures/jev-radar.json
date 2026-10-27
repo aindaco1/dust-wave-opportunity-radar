@@ -261,6 +261,84 @@
         "good": "This is a personal film acceptance with delivery instructions, not an open call. Ignore the transactional follow-up.",
         "bad": "A new open festival call accepts film applications until October 5, 2026. Publish it as an opportunity."
       }
+    },
+    {
+      "id": "stripe-capital-loan-offer",
+      "text": "Synthetic Stripe Capital offer for Example Film Studio: you are prequalified to borrow $25,000 for your next production. Repay the principal plus a fixed $2,500 fee through deductions from daily sales. Accept this business loan by October 15, 2026 at https://example.org/stripe-capital-offer. This is repayable financing, not a grant.",
+      "urls": [
+        "https://example.org/stripe-capital-offer"
+      ],
+      "expected": {
+        "decision": "ignore",
+        "digestCategory": null
+      },
+      "requirements": {
+        "loan": "The candidate identifies the offered funds as repayable borrowing and excludes the offer, rather than recommending it as a grant or possible creative opportunity."
+      },
+      "control": {
+        "question": "loan",
+        "good": "Ignore this business loan offer: the studio must repay principal and a fee. It is excluded even though it could fund a film.",
+        "bad": "A $25,000 film funding opportunity with an application deadline; include it in Possible Opportunities."
+      }
+    },
+    {
+      "id": "repayable-creative-advance",
+      "text": "Example Creative Capital invites independent artists nationwide to apply for an interest-free $8,000 cash advance at https://example.org/advance. The recipient must return the full $8,000 over twelve monthly installments. Applications are rolling. It charges no interest but the money must be repaid.",
+      "urls": [
+        "https://example.org/advance"
+      ],
+      "expected": {
+        "decision": "ignore",
+        "digestCategory": null
+      },
+      "requirements": {
+        "repayment": "The candidate recognizes the mandatory repayment and excludes the offer despite the zero interest, creative eligibility and application mechanism."
+      },
+      "control": {
+        "question": "repayment",
+        "good": "Ignore the repayable cash advance. Zero interest does not make the $8,000 non-repayable funding.",
+        "bad": "An interest-free artist grant offers $8,000 with rolling applications; publish it to Notion."
+      }
+    },
+    {
+      "id": "grant-not-loan",
+      "text": "Example Independent Film Fund offers a $6,000 non-repayable grant for filmmakers in all US states. This is a grant, not a loan, and recipients never have to pay the money back. Submit a script and production budget for competitive selection by October 31, 2026 at https://example.org/non-repayable-grant.",
+      "urls": [
+        "https://example.org/non-repayable-grant"
+      ],
+      "expected": {
+        "decision": "notion",
+        "dueDate": "2026-10-31",
+        "applicationOpenStart": null
+      },
+      "requirements": {
+        "grant": "The candidate preserves the non-repayable grant and its application mechanism; it does not mistake the explicit not-a-loan statement for a loan offer."
+      },
+      "control": {
+        "question": "grant",
+        "good": "An eligible $6,000 non-repayable film grant accepting scripts and budgets through October 31, 2026.",
+        "bad": "Ignore this loan offer because its description uses the word loan."
+      }
+    },
+    {
+      "id": "loan-education-not-offer",
+      "text": "Example Film Center offers a free online workshop for filmmakers on October 20, 2026: Comparing grants, equity and loans. Learn how loan interest, repayment schedules and artist grants differ. No lender is offering money, credit or preapproval. Register for the educational session at https://example.org/financing-workshop.",
+      "urls": [
+        "https://example.org/financing-workshop"
+      ],
+      "expected": {
+        "decision": "digest",
+        "digestCategory": "Workshops & Training",
+        "applicationOpenStart": null
+      },
+      "requirements": {
+        "education": "The candidate treats the item as a useful financing-education workshop, not as an offer to borrow money."
+      },
+      "control": {
+        "question": "education",
+        "good": "A free filmmaker workshop about grants, equity and borrowing. Include it as Workshops & Training; no loan is offered.",
+        "bad": "Ignore this loan offer because it discusses interest and repayment schedules."
+      }
     }
   ]
 }
