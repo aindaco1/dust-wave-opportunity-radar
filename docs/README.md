@@ -38,6 +38,8 @@ Source runbooks own publisher-specific details and acceptance records. Shared po
 
 ## History and repository guidance
 
+- [Actions and dependency repair, October 27, 2026](ACTIONS-REVIEW-2026-10-27.md) — PRs #77–#81, current advisory fixes, MIME regressions, and resolution evidence for earlier operational failures.
+
 - [Actions and dependency repair, October 13, 2026](ACTIONS-REVIEW-2026-10-13.md) — consolidation of PRs #66–#70, current advisory fixes and Wrangler runtime alignment.
 - [Actions and dependency review, October 4, 2026](ACTIONS-REVIEW-2026-10-04.md) — complete failed-run inventory, resolutions and shared audit adoption.
 

@@ -38,7 +38,7 @@ Dependabot updates dependency manifests and lockfiles, but does not refresh `wor
 Run `npm run security:audit` when reviewing dependency changes. It includes
 development, optional and peer dependencies and rejects moderate or higher
 advisories. An exact transitive override can block Dependabot security updates;
-keep the reviewed `undici` floor at `^7.29.1` while the lockfile pins the tested
+keep the reviewed `undici` floor at `^7.30.1` while the lockfile pins the tested
 version. Do not lower the floor or use a major-version wildcard to resolve an
 update conflict. Remove the override only after all parent dependencies resolve
 patched versions without it and the audit and runtime tests pass.

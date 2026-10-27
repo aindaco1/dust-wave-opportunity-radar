@@ -132,6 +132,44 @@ describe("message parsing", () => {
 });
 
 describe("stored MIME parsing", () => {
+  it.each([1_000, 4_100])("enforces the header budget for %i short header lines", async (count) => {
+    const raw = new TextEncoder().encode(`${"X: a\r\n".repeat(count)}Subject: Synthetic\r\n\r\nBody`).buffer;
+    const bucket = { get: async () => ({ arrayBuffer: async () => raw }) } as unknown as R2Bucket;
+    const result = parseStoredMessage(bucket, messageRecord(), 20_971_520);
+    if (count === 1_000) {
+      await expect(result).resolves.toMatchObject({ subject: "Synthetic", text: "Body" });
+    } else {
+      await expect(result).rejects.toThrow("Maximum header size of 256000 bytes exceeded");
+    }
+  });
+
+  it.each([50_000, 140_000])("shares the header budget across inline messages with %i-byte headers", async (size) => {
+    const nested = `Subject: Nested\r\nX-Padding: ${"a".repeat(size)}\r\n\r\nSynthetic body`;
+    const raw = new TextEncoder().encode([
+      "Subject: Synthetic forwarded messages",
+      'Content-Type: multipart/mixed; boundary="synthetic"',
+      "",
+      "--synthetic",
+      "Content-Type: message/rfc822",
+      "Content-Disposition: inline",
+      "",
+      nested,
+      "--synthetic",
+      "Content-Type: message/rfc822",
+      "Content-Disposition: inline",
+      "",
+      nested,
+      "--synthetic--"
+    ].join("\r\n")).buffer;
+    const bucket = { get: async () => ({ arrayBuffer: async () => raw }) } as unknown as R2Bucket;
+    const result = parseStoredMessage(bucket, messageRecord(), 20_971_520);
+    if (size === 50_000) {
+      expect((await result).text).toContain("Synthetic body");
+    } else {
+      await expect(result).rejects.toThrow("Maximum header size of 256000 bytes exceeded");
+    }
+  });
+
   it.each(["application/pdf", "application/octet-stream"])("parses recovered PDFs with %s metadata", async (mimeType) => {
     const raw = buildMime({ id: "9001", subject: "Synthetic recovery", fromName: "Example Foundation",
       fromEmail: "calls@example.org", to: "receiver@example.org", date: new Date("2026-08-05T12:00:00Z"),

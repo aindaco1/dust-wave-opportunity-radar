@@ -10,6 +10,7 @@ const required = [
   "docs/API.md",
   "docs/ACTIONS-REVIEW-2026-10-04.md",
   "docs/ACTIONS-REVIEW-2026-10-13.md",
+  "docs/ACTIONS-REVIEW-2026-10-27.md",
   "docs/README.md",
   "docs/ARCHITECTURE.md",
   "docs/ARTWORK-ARCHIVE.md",
