@@ -5,7 +5,7 @@
 The September 23, 2026 integration adds live semantic evaluation to the default
 development check, following CutNotes. It targets incorrect Notion/digest/ignore
 decisions, missed calls, eligibility/deadline errors, and unsupported or missing
-details. It uses only twelve committed fictional cases. There is no production
+details. It uses only sixteen committed fictional cases. There is no production
 mail reader, arbitrary file input, Notion writer or scheduled job in the evaluator.
 
 The implementation reuses `@dustwave/test-core/jev` 0.3.0 at Platform commit
@@ -109,7 +109,7 @@ and use the [returned probability distribution](https://docs.typesafe.ai/confide
 
 ## Limits, privacy and reports
 
-Each run permits at most 36 Jev calls and 24 classifier calls (including recovery),
+Each run permits at most 48 Jev calls and 32 classifier calls (including recovery),
 100 judge questions per evaluation batch, 32,000 input bytes per request,
 1 MB response bodies and 45 seconds per request. Calls are sequential with no
 automatic network retries or top-ups. These are request/size limits, not a dollar
@@ -249,3 +249,26 @@ at `.jev-results/run-7lG7dh/report.json` with all 24 controls and 12 cases passi
 
 This verifies local authentication and the synthetic evaluation. Hosted live
 evaluation remains unprovisioned, and no production deployment was performed.
+
+## Loan-offer exclusion — October 27, 2026
+
+The fixed corpus now includes sixteen cases. Four additions cover a synthetic
+Stripe Capital loan offer, an interest-free repayable artist cash advance, a
+non-repayable grant explicitly described as not a loan, and a financing workshop
+that does not offer credit. Existing cases and calibration thresholds remain.
+The request budgets scale to 48 Jev calls and at most 32 classifier calls including
+recovery; timeout, byte limits, sequential execution and no-retry behavior remain.
+
+The primary schema requests extraction-only `isLoanOffer`; recovery requests the
+same flag. A true flag forces an ignored decision before confidence recovery or
+possible-call routing. No flag is added to persisted classification JSON or the
+Notion schema. The live cases test meaning, while mocked regressions test both
+passes and preserve non-loan grants, equity investments and educational items.
+
+Local `npm run check` passed with 480 automated tests, enforced coverage floors,
+zero dependency vulnerabilities, and the live report
+`.jev-results/run-YLfqfy/report.json`: all 32 calibration controls and 16 cases
+passed, with no semantic or exact-field failures. The two repayable offers were
+ignored, the non-repayable grant remained a Notion candidate, and the workshop
+remained a digest item. This is synthetic development evidence; no production
+deployment or retroactive cleanup was performed.

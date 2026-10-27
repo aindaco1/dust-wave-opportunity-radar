@@ -102,6 +102,43 @@ describe("Workers AI classification response parsing", () => {
 });
 
 describe("Workers AI execution", () => {
+  it.each(["notion", "digest", "ignore"] as const)("excludes a recognized loan offer despite a low-confidence %s decision", async (decision) => {
+    const run = vi.fn().mockResolvedValue({ ...baseClassification({
+      decision, confidence: 0.4, title: "Stripe Capital financing offer", digestCategory: "Possible Opportunities"
+    }), isLoanOffer: true });
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage({
+      text: "Synthetic Stripe Capital offer: borrow $20,000 and repay it plus a fixed fee from future sales."
+    }), []);
+    expect(result).toMatchObject({ decision: "ignore", digestCategory: null });
+    expect(result.rationale).toContain("Loan offers");
+    expect(result).not.toHaveProperty("isLoanOffer");
+    expect(run).toHaveBeenCalledOnce();
+  });
+
+  it.each(["call", "digest"] as const)("does not recover a recognized loan offer into a %s", async (decision) => {
+    const run = vi.fn().mockResolvedValueOnce({ response: "not-json" }).mockResolvedValueOnce({
+      decision, confidence: 0.6, isLoanOffer: true, title: "Creative studio cash advance",
+      organization: "Example Lender", summary: "Repay the advance from future sales.",
+      primaryUrl: "https://example.org/advance", digestCategory: "Possible Opportunities", rationale: "An offer of capital."
+    });
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage(), []);
+    expect(result).toMatchObject({ decision: "ignore", digestCategory: null });
+    expect(result.rationale).toContain("Loan offers");
+    expect(result).not.toHaveProperty("isLoanOffer");
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { decision: "notion", text: "This is a grant, not a loan. No repayment is required." },
+    { decision: "notion", text: "Apply for an equity investment in exchange for an ownership share, not debt." },
+    { decision: "digest", text: "A workshop explains how filmmakers can compare loans and grants. No loan is offered." }
+  ] as const)("preserves non-loan opportunities: $text", async ({ decision, text }) => {
+    const run = vi.fn().mockResolvedValue({ ...baseClassification({ decision }), isLoanOffer: false });
+    const result = await classifyMessage({ run } as unknown as Ai, runtimeConfig(), parsedMessage({ text }), []);
+    expect(result.decision).toBe(decision);
+    expect(result).not.toHaveProperty("isLoanOffer");
+  });
+
   it("clears a hallucinated opening date when only processing metadata contains it", async () => {
     const run = vi.fn().mockResolvedValue({ ...baseClassification({ applicationOpenStart: "2026-09-23" }),
       applicationOpenStartEvidence: "Batch date: 2026-09-23" });

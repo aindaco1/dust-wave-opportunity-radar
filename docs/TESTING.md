@@ -59,7 +59,7 @@ regressions. The audit scope, severity threshold and coverage floors are unchang
 
 | Area | Files | What is verified |
 |---|---|---|
-| Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, uncertain-ignore recovery, source-grounded opening dates, tags/URLs, model pin, invalid config |
+| Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, loan-offer exclusion in primary/recovery passes, uncertain-ignore recovery, source-grounded opening dates, tags/URLs, model pin, invalid config |
 | Jev evaluation contracts | `jev-evaluation.test.ts` | exact/semantic/calibration result composition, negative controls, uncertainty, partial failures, credential boundaries and bounded classifier transport; fully mocked |
 | Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME (including cumulative inline-forward and short-line header budgets), PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
 | Shared public sources | `public-source-helpers.test.ts` | Snapshot identity, terminal preservation, expired-failure recovery, partial-write cleanup, bounded MIME and conditional RSS fetch |

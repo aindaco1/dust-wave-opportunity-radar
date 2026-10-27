@@ -41,6 +41,23 @@ Missing an official link, verified organizer or complete terms does not make a r
 
 ### Ignore
 
+Loan offers are excluded from both Notion and every digest category, including
+`Possible Opportunities`. This includes Stripe Capital offers, credit lines, and
+repayable business or merchant cash advances, even when interest-free, preapproved
+or relevant to creative work. The rule concerns borrowing money: non-repayable
+grants, awards, equity investments, equipment lending, and useful news or training
+about loans remain eligible under the normal policy. In mixed roundups, evaluate
+separate non-loan opportunities normally; a loan advertisement does not disqualify
+the whole source.
+
+Both classifier prompts request an extraction-only `isLoanOffer` flag for the
+selected candidate. A true flag forces `ignore` with no digest category, ahead of
+confidence recovery or possible-call routing. It is not persisted or exposed as a
+Notion field. Ingestion remains broad; this exclusion runs during classification.
+Unclassified failure fallbacks and incomplete Zoho body-only records retain their
+existing safety-review behavior because their contents have not been classified.
+This does not retroactively delete previously published pages or sent digests.
+
 Use `ignore` for irrelevant promotions, receipts, transactional messages, social notifications, routine account notices, closed notices with no continuing value, and material without practical creative relevance.
 
 Personal acceptance notices and delivery instructions for already-selected work are transactional follow-up. A request for a screening copy, press still or synopsis after selection is not a new call. A separately offered new opportunity or useful industry item still receives normal classification.
