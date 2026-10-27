@@ -46,7 +46,7 @@
     "@dustwave/test-core": "file:shared/dust-wave-platform/packages/test-core",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@types/node": "^26.6.5",
-    "@vitest/coverage-v8": "^5.0.3",
+    "@vitest/coverage-v8": "^5.0.5",
     "jsonc-parser": "^3.3.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0",
