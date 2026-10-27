@@ -36,29 +36,29 @@
     "@dustwave/worker-core": "file:shared/dust-wave-platform/packages/worker-core",
     "fflate": "^0.8.3",
     "htmlparser2": "12.0.0",
-    "postal-mime": "^4.0.5",
+    "postal-mime": "^4.0.8",
     "saxes": "6.0.0",
-    "unpdf": "^1.8.1",
-    "zod": "^4.6.6"
+    "unpdf": "^1.9.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@dustwave/release-core": "file:shared/dust-wave-platform/packages/release-core",
     "@dustwave/test-core": "file:shared/dust-wave-platform/packages/test-core",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@types/node": "^26.6.5",
-    "@vitest/coverage-v8": "^5.0.3",
+    "@vitest/coverage-v8": "^5.0.5",
     "jsonc-parser": "^3.3.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0",
-    "wrangler": "^4.149.0"
+    "wrangler": "^4.151.1"
   },
   "overrides": {
-    "undici": "^7.29.1",
+    "undici": "^7.30.1",
     "smol-toml": "^1.9.1"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
     "fsevents@2.3.3": true,
-    "workerd@1.20261006.1": true
+    "workerd@1.20261012.1": true
   }
 }

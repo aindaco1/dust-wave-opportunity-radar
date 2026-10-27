@@ -2,7 +2,7 @@
 
 The offline test suite is fast, privacy-safe, and layered around production risks. It uses Vitest in Node plus Wrangler's local integration harness and does not contact Cloudflare, HEY, Zoho, Creative West, Notion, or public websites. The default `npm run check` additionally runs live Cloudflare classifier and Jev inference on committed fictional examples; see [Jev evaluation](JEV-EVALUATION.md).
 
-Vitest and its V8 coverage provider are locked together at 5.0.3. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
+Vitest and its V8 coverage provider are locked together at 5.0.5. Run commands from the repository root with Node 24 from `.nvmrc`. The [Vitest 5 migration guide](https://vitest.dev/guide/migration/) describes changes including clearing mock call history before each test and stricter coverage path matching. Keep the existing `src/**/*.ts` coverage scope and thresholds when updating the runner, and compare the covered source-file set with the previous report.
 
 ## Commands
 
@@ -51,13 +51,17 @@ dependency and pin assertions together, then runs `npm ci` and the prior checks.
 Other consumers and the Platform pointer remain unchanged. Security dependency
 fixes can be retained independently.
 
+The [October 27 repair](ACTIONS-REVIEW-2026-10-27.md) updates the full locked graph,
+raises the compatible `undici` floor to `^7.30.1`, and adds MIME header-budget
+regressions. The audit scope, severity threshold and coverage floors are unchanged.
+
 ## Test layers
 
 | Area | Files | What is verified |
 |---|---|---|
 | Policy and schemas | `classify-policy.test.ts`, `config.test.ts` | decision rules, uncertain-ignore recovery, source-grounded opening dates, tags/URLs, model pin, invalid config |
 | Jev evaluation contracts | `jev-evaluation.test.ts` | exact/semantic/calibration result composition, negative controls, uncertainty, partial failures, credential boundaries and bounded classifier transport; fully mocked |
-| Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME, PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
+| Parsing and boundaries | `parse.test.ts`, `util.test.ts` | MIME (including cumulative inline-forward and short-line header budgets), PDF/DOCX, URL hygiene, bounded bodies, crypto/date utilities |
 | Shared public sources | `public-source-helpers.test.ts` | Snapshot identity, terminal preservation, expired-failure recovery, partial-write cleanup, bounded MIME and conditional RSS fetch |
 | Network safety | `web-enrichment.test.ts` | SSRF guard, safe redirects, content types, rank/cap |
 | Toolchain | `toolchain.test.ts` | Generated runtime types match locked workerd, only exact locked workerd/esbuild installers are allowed (no stale or broad entries), and matching Vitest/coverage versions |

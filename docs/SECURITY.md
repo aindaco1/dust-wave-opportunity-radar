@@ -6,7 +6,7 @@ Email bodies, Colossal/Hyperallergic RSS/HTML, Artwork Archive HTML, Creative We
 
 ## Controls
 
-- Inbound messages and HTTP import bodies have strict size caps before buffering.
+- Inbound messages and HTTP import bodies have strict size caps before buffering. MIME parsing caps headers at 256,000 budgeted bytes across the entire message, including inline forwarded messages. Each header line consumes at least 64 bytes of that budget, preventing large collections of tiny headers from bypassing the bound.
 - Creative West uses one fixed HTTPS GraphQL endpoint, exact reviewed filters, bounded responses, validated IDs, safe public URL checks, and bounded synthetic MIME. Listing text is never logged.
 - PDF extraction is limited by file size, page count, pixel count, and wall time; DOCX decompression limits uncompressed XML size and accepted ZIP paths.
 - Web enrichment accepts only HTTP(S), standard ports, and public-looking hosts. Redirects are followed manually and each hop is revalidated. Responses have time and byte limits.
