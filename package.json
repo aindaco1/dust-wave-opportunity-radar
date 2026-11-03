@@ -44,7 +44,7 @@
   "devDependencies": {
     "@dustwave/release-core": "file:shared/dust-wave-platform/packages/release-core",
     "@dustwave/test-core": "file:shared/dust-wave-platform/packages/test-core",
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@types/node": "^26.6.5",
     "@vitest/coverage-v8": "^5.0.5",
     "jsonc-parser": "^3.3.1",
