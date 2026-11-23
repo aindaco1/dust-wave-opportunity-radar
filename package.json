@@ -38,7 +38,7 @@
     "htmlparser2": "12.0.0",
     "postal-mime": "^4.2.1",
     "saxes": "6.0.0",
-    "unpdf": "^2.1.0",
+    "unpdf": "^2.2.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
